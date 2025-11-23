@@ -1,0 +1,51 @@
+name: syra
+description: SYRA app
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.6
+
+  # 🌐 HTTP istekleri
+  http: ^1.2.0
+
+  # 💾 Lokal ayarlar
+  shared_preferences: ^2.2.2
+
+  # 🔥 Firebase çekirdek + Auth + Firestore
+  firebase_core: ^3.1.1
+  firebase_auth: ^5.1.1
+  cloud_firestore: ^5.0.0
+
+  # 🛒 In-app purchase
+  in_app_purchase: ^3.2.0
+  in_app_purchase_android: ^0.4.0+5
+  in_app_purchase_storekit: ^0.4.4
+
+  # 🔗 URL açmak için gerekli
+  url_launcher: ^6.2.5
+
+  # 🖥️ Device preview
+  device_preview: ^1.2.0
+
+  # 🔮 Blur effect
+  blur: ^3.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/
