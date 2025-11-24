@@ -6,7 +6,7 @@
     <string>$(DEVELOPMENT_LANGUAGE)</string>
 
     <key>CFBundleDisplayName</key>
-    <string>Syra</string>
+    <string>Syra AI</string>
 
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
