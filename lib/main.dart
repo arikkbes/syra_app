@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'firebase_options.dart';
+import 'services/purchase_service.dart';
 
 // Theme
 import 'theme/syra_theme.dart';
@@ -24,6 +25,19 @@ Future<void> main() async {
   // CRASH GUARD: Ensure Flutter is initialized before anything
   // ═══════════════════════════════════════════════════════════════
   WidgetsFlutterBinding.ensureInitialized();
+
+  // ═══════════════════════════════════════════════════════════════
+  // IAP INITIALIZATION - CRITICAL FOR iOS LAUNCH STABILITY
+  // Initialize IAP BEFORE anything else to prevent StoreKit crash
+  // This MUST happen early to set up purchase stream observer
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    await PurchaseService.initialize();
+    debugPrint('✅ IAP initialized successfully');
+  } catch (e) {
+    debugPrint('⚠️ IAP init error (non-fatal): $e');
+    // Continue - app will work without IAP
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // FIREBASE INITIALIZATION with error handling

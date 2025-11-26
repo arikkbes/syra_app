@@ -21,6 +21,75 @@ class PurchaseService {
   static InAppPurchase? _iapInstance;
   static StreamSubscription<List<PurchaseDetails>>? _activeSubscription;
   static bool _isPurchasing = false;
+  static bool _isInitialized = false;
+
+  /// Initialize IAP early to prevent launch crashes
+  /// Call this in main() before runApp()
+  /// NEVER crashes - returns false on any error
+  static Future<bool> initialize() async {
+    if (_isInitialized) {
+      debugPrint("✅ IAP already initialized");
+      return true;
+    }
+
+    try {
+      // Platform check
+      if (!Platform.isAndroid && !Platform.isIOS) {
+        debugPrint("⚠️ IAP not supported on this platform");
+        _isInitialized = true; // Mark as init to prevent retries
+        return false;
+      }
+
+      // Get IAP instance safely
+      final iap = _iap;
+      if (iap == null) {
+        debugPrint("❌ IAP instance unavailable during init");
+        return false;
+      }
+
+      // Start listening to purchase stream EARLY
+      // This prevents iOS crash when StoreKit observer fires before we're ready
+      try {
+        _activeSubscription = iap.purchaseStream.listen(
+          (purchases) {
+            // Handle any pending purchases from previous sessions
+            for (final purchase in purchases) {
+              if (purchase.pendingCompletePurchase) {
+                try {
+                  iap.completePurchase(purchase).timeout(
+                    const Duration(seconds: 30),
+                    onTimeout: () => debugPrint("⏱️ Pending purchase timeout"),
+                  );
+                  debugPrint("✅ Completed pending purchase: ${purchase.productID}");
+                } catch (e) {
+                  debugPrint("⚠️ Error completing pending: $e");
+                }
+              }
+            }
+          },
+          onError: (error) {
+            debugPrint("⚠️ Purchase stream error: $error");
+          },
+          cancelOnError: false,
+        );
+        
+        debugPrint("✅ IAP purchase stream initialized");
+      } catch (e) {
+        debugPrint("⚠️ IAP stream setup failed: $e");
+        // Continue - not critical for initialization
+      }
+
+      _isInitialized = true;
+      debugPrint("✅ IAP initialization complete");
+      return true;
+      
+    } catch (e, stackTrace) {
+      debugPrint("❌ IAP init error: $e");
+      debugPrint("Stack: $stackTrace");
+      _isInitialized = true; // Mark to prevent infinite retries
+      return false;
+    }
+  }
 
   /// Safely get IAP instance
   static InAppPurchase? get _iap {
