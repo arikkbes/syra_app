@@ -65,7 +65,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           // 🌫 Blur overlay
           BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(color: Colors.black.withOpacity(0.25)),
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
 
           Column(
@@ -187,7 +187,7 @@ class _OBPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 80, color: Colors.white.withOpacity(0.9)),
+            Icon(icon, size: 80, color: Colors.white.withValues(alpha: 0.9)),
             const SizedBox(height: 20),
             Text(
               title,

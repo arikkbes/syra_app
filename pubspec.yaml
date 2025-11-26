@@ -1,8 +1,8 @@
 name: syra
-description: SYRA app
+description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.0+10   # 🔥 Apple hatası için bundle version artırıldı
+version: 1.0.1+11
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -13,13 +13,13 @@ dependencies:
 
   cupertino_icons: ^1.0.6
 
-  # 🌐 HTTP istekleri
+  # 🌐 HTTP requests
   http: ^1.2.0
 
-  # 💾 Lokal ayarlar
+  # 💾 Local storage
   shared_preferences: ^2.2.2
 
-  # 🔥 Firebase çekirdek + Auth + Firestore
+  # 🔥 Firebase core + Auth + Firestore
   firebase_core: ^3.1.1
   firebase_auth: ^5.1.1
   cloud_firestore: ^5.0.0
@@ -29,14 +29,11 @@ dependencies:
   in_app_purchase_android: ^0.4.0+5
   in_app_purchase_storekit: ^0.4.4
 
-  # 🔗 URL açmak için gerekli
+  # 🔗 URL launcher
   url_launcher: ^6.2.5
 
-  # 🖥️ Device preview
-  device_preview: ^1.2.0
-
-  # 🔮 Blur effect
-  blur: ^3.1.0
+  # 📅 Date formatting
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
@@ -44,8 +41,8 @@ dev_dependencies:
 
   flutter_lints: ^3.0.0
 
-  # 🖼️ App icon üretimi
-  flutter_launcher_icons: "^0.13.1"
+  # 🖼️ App icon generator
+  flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
   android: true
@@ -56,4 +53,14 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/
+    # App icon
+    - assets/icon/syra.png
+    # Orb image
+    - assets/orb/syra_orb.png
+
+  # fonts:
+  #   - family: Georgia
+  #     fonts:
+  #       - asset: assets/fonts/Georgia.ttf
+  #       - asset: assets/fonts/Georgia-Bold.ttf
+  #         weight: 700

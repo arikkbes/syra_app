@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../theme/syra_theme.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/syra_orb.dart'; // 🔥 Resmi ORB burada
+import '../widgets/neon_ring.dart';
+
+/// ═══════════════════════════════════════════════════════════════
+/// SYRA SIGNUP SCREEN (FINAL – MATCHED WITH LOGIN SCREEN)
+/// ═══════════════════════════════════════════════════════════════
+
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
 
@@ -10,7 +19,8 @@ class SignUpScreen extends StatefulWidget {
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
 
-class _SignUpScreenState extends State<SignUpScreen> {
+class _SignUpScreenState extends State<SignUpScreen>
+    with SingleTickerProviderStateMixin {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   final _pass2 = TextEditingController();
@@ -19,23 +29,51 @@ class _SignUpScreenState extends State<SignUpScreen> {
   bool _obscure1 = true;
   bool _obscure2 = true;
 
-  // 🔥 Kayıt Fonksiyonu
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _email.dispose();
+    _pass.dispose();
+    _pass2.dispose();
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  // SIGN UP
   Future<void> _signUp() async {
     final email = _email.text.trim();
     final p1 = _pass.text.trim();
     final p2 = _pass2.text.trim();
 
-    // VALIDATION
     if (email.isEmpty || p1.isEmpty || p2.isEmpty) {
-      _toast("Lütfen tüm alanları doldur.");
+      _showError("Lütfen tüm alanları doldur.");
       return;
     }
     if (p1.length < 6) {
-      _toast("Şifre en az 6 karakter olmalı.");
+      _showError("Şifre en az 6 karakter olmalı.");
       return;
     }
     if (p1 != p2) {
-      _toast("Şifreler uyuşmuyor.");
+      _showError("Şifreler uyuşmuyor.");
       return;
     }
 
@@ -48,20 +86,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       final uid = cred.user!.uid;
 
-      // 🔥 Firestore profil kaydı
       await FirebaseFirestore.instance.collection("users").doc(uid).set({
         "uid": uid,
         "email": email,
         "createdAt": DateTime.now().toIso8601String(),
         "isPremium": false,
-
-        // 🔥 Mesaj limit sistemi
         "dailyMessageLimit": 10,
         "dailyMessageCount": 0,
         "lastMessageDate": DateTime.now().toIso8601String(),
         "usedToday": 0,
-
-        // 🔥 AI Memory / Profil
         "profile_memory": [],
         "traits": [],
       });
@@ -80,258 +113,289 @@ class _SignUpScreenState extends State<SignUpScreen> {
         msg = "Kayıt başarısız: ${e.code}";
       }
 
-      _toast(msg);
+      _showError(msg);
+    } catch (e) {
+      _showError("Bir hata oluştu. Lütfen tekrar dene.");
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  void _toast(String msg) {
+  void _showError(String msg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg)),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: SyraColors.surface,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const pink = Color(0xFFFF7AB8);
-    const cyan = Color(0xFF66E0FF);
-
-    final bool isWindows = Theme.of(context).platform == TargetPlatform.windows;
-
     return Scaffold(
       body: Stack(
         children: [
-          // 🌈 Ana arka plan
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [Color(0xFF0D0D0D), Color(0xFF121212)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-
-          // 🧊 Blur + Overlay
-          BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: isWindows ? 6 : 26,
-              sigmaY: isWindows ? 6 : 26,
-            ),
-            child: Container(
-              color: Colors.black.withOpacity(isWindows ? 0.10 : 0.18),
-            ),
-          ),
-
-          // 🪟 Signup Kartı
-          Center(
-            child: Container(
-              constraints: const BoxConstraints(maxWidth: 430),
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(26),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(26),
-                gradient: LinearGradient(
-                  colors: [
-                    Colors.white.withOpacity(0.16),
-                    Colors.white.withOpacity(0.06)
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                border: Border.all(color: Colors.white.withOpacity(0.18)),
-                boxShadow: [
-                  BoxShadow(
-                    color: pink.withOpacity(0.22),
-                    blurRadius: 28,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  ShaderMask(
-                    shaderCallback: (bounds) => const LinearGradient(
-                      colors: [cyan, pink],
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                    ).createShader(bounds),
-                    child: const Text(
-                      "SYRA",
-                      style: TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-                  const Text(
-                    "Yeni hesap oluştur ✨",
-                    style: TextStyle(color: Colors.white70),
-                  ),
-
-                  const SizedBox(height: 26),
-
-                  // 📧 Email
-                  _Input(
-                    controller: _email,
-                    hint: "E-posta",
-                    prefix: Icons.mail_outline,
-                    keyboardType: TextInputType.emailAddress,
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 🔒 Şifre
-                  _Input(
-                    controller: _pass,
-                    hint: "Şifre",
-                    prefix: Icons.lock_outline,
-                    obscure: _obscure1,
-                    trailing: IconButton(
-                      onPressed: () => setState(() => _obscure1 = !_obscure1),
-                      icon: Icon(
-                        _obscure1 ? Icons.visibility : Icons.visibility_off,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-
-                  // 🔒 Şifre tekrar
-                  _Input(
-                    controller: _pass2,
-                    hint: "Şifre (tekrar)",
-                    prefix: Icons.lock_reset_outlined,
-                    obscure: _obscure2,
-                    trailing: IconButton(
-                      onPressed: () => setState(() => _obscure2 = !_obscure2),
-                      icon: Icon(
-                        _obscure2 ? Icons.visibility : Icons.visibility_off,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 22),
-
-                  // 🌈 Kayıt butonu
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: ElevatedButton(
-                      onPressed: _loading ? null : _signUp,
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        elevation: 0,
-                      ),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [pink, cyan],
-                            begin: Alignment.centerLeft,
-                            end: Alignment.centerRight,
-                          ),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Center(
-                          child: _loading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.2,
-                                    color: Colors.black,
-                                  ),
-                                )
-                              : const Text(
-                                  "Hesap Oluştur",
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 17,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  Row(
+          const SyraBackground(),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Text(
-                        "Zaten hesabın var mı?",
-                        style: TextStyle(color: Colors.white70),
+                      // 🔥 LOGIN SCREEN'DEKİ ORB
+                      const SyraOrb(
+                        state: OrbState.idle,
+                        size: 140,
                       ),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          "Giriş yap",
-                          style: TextStyle(
-                            color: pink,
-                            fontWeight: FontWeight.w600,
-                          ),
+
+                      const SizedBox(height: 24),
+
+                      // Logo
+                      const SyraLogo(fontSize: 32),
+
+                      const SizedBox(height: 8),
+
+                      Text(
+                        "Yeni Hesap Oluştur",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 14,
                         ),
                       ),
+
+                      const SizedBox(height: 32),
+
+                      _buildSignupCard(),
+
+                      const SizedBox(height: 24),
+
+                      _buildLoginLink(),
+
+                      const SizedBox(height: 40),
                     ],
-                  )
-                ],
+                  ),
+                ),
               ),
             ),
-          )
+          ),
+          if (_loading) _buildLoadingOverlay(),
         ],
       ),
     );
   }
-}
 
-// ------------------------------------------------------------
-// 🔥 PREMIUM INPUT WIDGET
-// ------------------------------------------------------------
-class _Input extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData prefix;
-  final bool obscure;
-  final Widget? trailing;
-  final TextInputType? keyboardType;
+  // SIGNUP CARD
+  Widget _buildSignupCard() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(24),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400),
+          padding: const EdgeInsets.all(28),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.white.withValues(alpha: 0.10),
+                Colors.white.withValues(alpha: 0.05),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildTextField(
+                controller: _email,
+                hint: "E-posta",
+                icon: Icons.mail_outline_rounded,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 14),
+              _buildTextField(
+                controller: _pass,
+                hint: "Şifre",
+                icon: Icons.lock_outline_rounded,
+                obscure: _obscure1,
+                trailing: IconButton(
+                  onPressed: () => setState(() => _obscure1 = !_obscure1),
+                  icon: Icon(
+                    _obscure1
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              _buildTextField(
+                controller: _pass2,
+                hint: "Şifre (tekrar)",
+                icon: Icons.lock_reset_rounded,
+                obscure: _obscure2,
+                trailing: IconButton(
+                  onPressed: () => setState(() => _obscure2 = !_obscure2),
+                  icon: Icon(
+                    _obscure2
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: Colors.white.withValues(alpha: 0.4),
+                    size: 20,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              _buildPrimaryButton(
+                text: "Hesap Oluştur",
+                onPressed: _signUp,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-  const _Input({
-    super.key,
-    required this.controller,
-    required this.hint,
-    required this.prefix,
-    this.obscure = false,
-    this.trailing,
-    this.keyboardType,
-  });
+  // TEXT FIELD
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hint,
+    required IconData icon,
+    bool obscure = false,
+    TextInputType? keyboardType,
+    Widget? trailing,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
+        ),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: obscure,
+        keyboardType: keyboardType,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+        ),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(
+            color: Colors.white.withValues(alpha: 0.35),
+          ),
+          prefixIcon: Icon(
+            icon,
+            color: Colors.white.withValues(alpha: 0.4),
+            size: 20,
+          ),
+          suffixIcon: trailing,
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 16,
+          ),
+        ),
+      ),
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: Colors.white),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white38),
-        prefixIcon: Icon(prefix, color: Colors.white54),
-        suffixIcon: trailing,
-        filled: true,
-        fillColor: Colors.white.withOpacity(0.10),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
+  // BUTTON
+  Widget _buildPrimaryButton({
+    required String text,
+    required VoidCallback onPressed,
+  }) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: Container(
+        width: double.infinity,
+        height: 52,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF00D4FF), Color(0xFFFF6B9D)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF00D4FF).withValues(alpha: 0.35),
+              blurRadius: 20,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoginLink() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          "Zaten hesabın var mı? ",
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.6),
+            fontSize: 14,
+          ),
+        ),
+        GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: const Text(
+            "Giriş yap",
+            style: TextStyle(
+              color: Color(0xFF00D4FF),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // LOADING OVERLAY
+  Widget _buildLoadingOverlay() {
+    return Container(
+      color: Colors.black.withValues(alpha: 0.6),
+      child: const Center(
+        child: SyraOrb(
+          state: OrbState.thinking,
+          size: 90,
         ),
       ),
     );

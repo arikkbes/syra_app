@@ -1,6 +1,12 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
 import '../services/firestore_user.dart';
+import '../theme/syra_theme.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/syra_orb.dart'; // 🔥 Resmi orb buradan geliyor
+import 'premium_screen.dart';
+import 'premium_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -9,20 +15,42 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   bool _isPremium = false;
   String _email = "";
+
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _loadUser();
+
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+
+    _fadeAnimation = CurvedAnimation(
+      parent: _fadeController,
+      curve: Curves.easeOut,
+    );
+
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUser() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      _email = user?.email ?? "kullanıcı";
+      _email = user?.email ?? "Kanka";
 
       final premium = await FirestoreUser.isPremium();
       if (!mounted) return;
@@ -33,7 +61,6 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       debugPrint('HomeScreen _loadUser Firestore hatası: $e');
       if (!mounted) return;
-
       setState(() {
         _isPremium = false;
       });
@@ -42,168 +69,237 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const cyan = Color(0xFF00E5FF);
-    const pink = Color(0xFFFF3B6F);
-
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.black.withOpacity(0.1),
-        elevation: 0,
-        centerTitle: true,
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text(
-              'SYRA 💘',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
+      body: Stack(
+        children: [
+          const SyraBackground(),
+          SafeArea(
+            child: FadeTransition(
+              opacity: _fadeAnimation,
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // 🔥 SYRA ORB (Login & Signup ile aynı)
+                      const SyraOrb(
+                        state: OrbState.idle,
+                        size: 160,
+                      ),
 
-            // ⭐ Premium Rozeti
-            if (_isPremium)
-              Container(
-                margin: const EdgeInsets.only(left: 10),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [cyan, pink],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  "P R E M I U M 💎",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
+                      const SizedBox(height: 28),
+
+                      // SYRA Logo
+                      const SyraLogo(fontSize: 36),
+
+                      const SizedBox(height: 12),
+
+                      Text(
+                        "İlişki Danışmanın",
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.6),
+                          fontSize: 14,
+                          letterSpacing: 1.5,
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      _buildWelcomeCard(),
+
+                      const SizedBox(height: 24),
+
+                      _buildContinueButton(),
+
+                      const SizedBox(height: 16),
+
+                      if (!_isPremium) _buildPremiumButton(),
+
+                      const SizedBox(height: 32),
+
+                      _buildLogoutButton(),
+
+                      const SizedBox(height: 40),
+                    ],
                   ),
                 ),
               ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Çıkış Yap',
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(
-                  context,
-                  '/login',
-                  (route) => false,
-                );
-              }
-            },
+            ),
           ),
         ],
       ),
+    );
+  }
 
-      // 🌈 Gövde
-      body: Center(
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 520),
-          margin: const EdgeInsets.all(20),
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
-            boxShadow: [
-              BoxShadow(
-                color: pink.withOpacity(0.20),
-                blurRadius: 40,
-                offset: const Offset(0, 8),
-              ),
-              BoxShadow(
-                color: cyan.withOpacity(0.10),
-                blurRadius: 40,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget _buildWelcomeCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.favorite, size: 50, color: pink),
-              const SizedBox(height: 12),
-
-              // Kullanıcı Adı
+              const Text(
+                "Hoş geldin, ",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
               Text(
-                "Hoş geldin, $_email",
+                _email.split('@').first,
                 style: const TextStyle(
+                  color: Color(0xFF00D4FF),
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
                 ),
-                textAlign: TextAlign.center,
               ),
-
-              const SizedBox(height: 10),
-              Text(
-                _isPremium
-                    ? "Premium avantajların aktif 💎\nSınırsız mesajın tadını çıkar!"
-                    : "SYRA deneyimine hazırsın 🧠\nDilersen Premium’a geçebilirsin 💎",
-                style: const TextStyle(color: Colors.white70),
-                textAlign: TextAlign.center,
-              ),
-
-              const SizedBox(height: 24),
-
-              // 🚀 Devam Et — HER ZAMAN CHAT'E GÖNDERİR
-              SizedBox(
-                width: 220,
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushNamed(
-                        context, '/chat'); // 🔥 FİX EDİLEN KISIM
-                  },
-                  style: ElevatedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  child: Ink(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [cyan, pink],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      borderRadius: BorderRadius.all(Radius.circular(14)),
-                    ),
-                    child: const Center(
-                      child: Text(
-                        "Devam Et",
-                        style: TextStyle(
-                          color: Colors.black,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              if (!_isPremium) ...[
-                const SizedBox(height: 14),
-                TextButton(
-                  onPressed: () => Navigator.pushNamed(context, '/premium'),
-                  child: const Text(
-                    "SYRA Plus’a Geç 💎",
-                    style: TextStyle(color: pink, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ],
             ],
           ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              gradient: _isPremium
+                  ? const LinearGradient(
+                      colors: [Color(0xFFFF6B9D), Color(0xFF00D4FF)],
+                    )
+                  : null,
+              color: _isPremium ? null : Colors.white.withValues(alpha: 0.08),
+              border: _isPremium
+                  ? null
+                  : Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            ),
+            child: Text(
+              _isPremium ? "✨ Premium Aktif" : "Free Plan",
+              style: TextStyle(
+                color: _isPremium
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.7),
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            _isPremium
+                ? "Sınırsız mesaj ve derin analiz özelliklerin aktif.\nSYRA seninle birlikte!"
+                : "SYRA deneyimine hazırsın 🧠\nGünlük 10 mesaj hakkın var.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContinueButton() {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/chat'),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 300),
+        height: 54,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFF6B9D), Color(0xFF00D4FF)],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF6B9D).withValues(alpha: 0.35),
+              blurRadius: 25,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: const Center(
+          child: Text(
+            "Sohbete Başla",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 17,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPremiumButton() {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _isPremium
+                ? const PremiumManagementScreen()
+                : const PremiumScreen(),
+          ),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxWidth: 300),
+        height: 48,
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFFFD54F).withValues(alpha: 0.4),
+          ),
+        ),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.workspace_premium_rounded,
+                color: const Color(0xFFFFD54F).withValues(alpha: 0.9),
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "SYRA Plus'a Geç",
+                style: TextStyle(
+                  color: const Color(0xFFFFD54F).withValues(alpha: 0.9),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLogoutButton() {
+    return GestureDetector(
+      onTap: () async {
+        await FirebaseAuth.instance.signOut();
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/login',
+            (route) => false,
+          );
+        }
+      },
+      child: Text(
+        "Çıkış Yap",
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.4),
+          fontSize: 13,
         ),
       ),
     );

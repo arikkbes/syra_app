@@ -4,10 +4,10 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// 📱 DevicePreview
-import 'package:device_preview/device_preview.dart';
-
 import 'firebase_options.dart';
+
+// Theme
+import 'theme/syra_theme.dart';
 
 // Screens
 import 'screens/login_screen.dart';
@@ -19,106 +19,230 @@ import 'screens/premium_management_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/onboarding_screen.dart';
 
-import 'theme.dart';
-
 Future<void> main() async {
+  // ═══════════════════════════════════════════════════════════════
+  // CRASH GUARD: Ensure Flutter is initialized before anything
+  // ═══════════════════════════════════════════════════════════════
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
 
-  // 🟣 Onboarding kontrolü
-  final prefs = await SharedPreferences.getInstance();
-  final seenOnboarding = prefs.getBool("seenOnboarding") ?? false;
+  // ═══════════════════════════════════════════════════════════════
+  // FIREBASE INITIALIZATION with error handling
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('Firebase initialization error: $e');
+    // Continue app even if Firebase fails to initialize
+    // This prevents crash on launch if network is unavailable
+  }
 
-  runApp(
-    DevicePreview(
-      enabled: !kReleaseMode, // 🔥 Debug: açık | Release: otomatik kapalı
-      builder: (context) => FlortIQ(seenOnboarding: seenOnboarding),
-    ),
-  );
+  // ═══════════════════════════════════════════════════════════════
+  // ONBOARDING CHECK with error handling
+  // ═══════════════════════════════════════════════════════════════
+  bool seenOnboarding = false;
+  try {
+    final prefs = await SharedPreferences.getInstance();
+    seenOnboarding = prefs.getBool("seenOnboarding") ?? false;
+  } catch (e) {
+    debugPrint('SharedPreferences error: $e');
+    // Default to not seen if prefs fail
+    seenOnboarding = false;
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RUN APP
+  // ═══════════════════════════════════════════════════════════════
+  runApp(SyraApp(seenOnboarding: seenOnboarding));
 }
 
-class FlortIQ extends StatelessWidget {
+class SyraApp extends StatelessWidget {
   final bool seenOnboarding;
 
-  const FlortIQ({super.key, required this.seenOnboarding});
+  const SyraApp({super.key, required this.seenOnboarding});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SYRA',
       debugShowCheckedModeBanner: false,
-      useInheritedMediaQuery: true,
-      builder: DevicePreview.appBuilder,
-      theme: FlortIQTheme.theme,
 
-      // ⭐ İlk açılış yönlendirmesi
+      // SYRA Classic Dark Theme v1.0
+      theme: SyraTheme.theme,
+
+      // Initial route based on onboarding status
       initialRoute: seenOnboarding ? "/auth-gate" : "/onboarding",
 
       routes: {
-        // 🔥 Onboarding
+        // Onboarding
         '/onboarding': (_) => const OnboardingScreen(),
 
-        // 🔐 Auth giriş kontrol ekranı
+        // Auth gate
         '/auth-gate': (_) => const _AuthGate(),
 
-        // 🔑 Login / Signup
+        // Login / Signup
         '/login': (_) => const LoginScreen(),
         '/signup': (_) => const SignUpScreen(),
 
-        // 🏠 Ana ekran + Chat
+        // Main screens
         '/home': (_) => const HomeScreen(),
         '/chat': (_) => const ChatScreen(),
 
-        // ⭐ Premium
+        // Premium
         '/premium': (_) => const PremiumScreen(),
         '/premium-management': (_) => const PremiumManagementScreen(),
 
-        // ⚙ Ayarlar
+        // Settings
         '/settings': (_) => const SettingsScreen(),
       },
     );
   }
 }
 
+/// ═══════════════════════════════════════════════════════════════
+/// AUTH GATE - Handles authentication state
+/// ═══════════════════════════════════════════════════════════════
 class _AuthGate extends StatelessWidget {
-  const _AuthGate({super.key});
+  const _AuthGate();
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // ⏳ İlk yükleme
+        // ───────────────────────────────────────────────────────────
+        // LOADING STATE
+        // ───────────────────────────────────────────────────────────
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
+          return Scaffold(
+            backgroundColor: SyraColors.background,
             body: Center(
-              child: CircularProgressIndicator(
-                color: Colors.white,
+              child: Container(
+                width: 60,
+                height: 60,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const SweepGradient(
+                    colors: [
+                      SyraColors.neonPink,
+                      SyraColors.neonViolet,
+                      SyraColors.neonCyan,
+                      SyraColors.neonPink,
+                    ],
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: SyraColors.neonPink.withValues(alpha: 0.3),
+                      blurRadius: 20,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(3),
+                  child: Container(
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: SyraColors.background,
+                    ),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            SyraColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
           );
         }
 
-        // ❌ Hata
+        // ───────────────────────────────────────────────────────────
+        // ERROR STATE - Show friendly message, don't crash
+        // ───────────────────────────────────────────────────────────
         if (snapshot.hasError) {
-          return const Scaffold(
-            body: Center(
-              child: Text(
-                "Bir hata oluştu.",
-                style: TextStyle(color: Colors.white),
+          return Scaffold(
+            backgroundColor: SyraColors.background,
+            body: SafeArea(
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.cloud_off_rounded,
+                        color: SyraColors.textMuted,
+                        size: 48,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Bağlantı kurulamadı",
+                        style: TextStyle(
+                          color: SyraColors.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "İnternet bağlantını kontrol edip tekrar dene.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: SyraColors.textSecondary,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GestureDetector(
+                        onTap: () {
+                          // Navigate to login to allow retry
+                          Navigator.pushReplacementNamed(context, '/login');
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: SyraColors.accentGradient,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            "Tekrar Dene",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           );
         }
 
-        // 🔐 Giriş yapılmış kullanıcı → HOME
-        if (snapshot.hasData) {
+        // ───────────────────────────────────────────────────────────
+        // AUTHENTICATED → HOME
+        // ───────────────────────────────────────────────────────────
+        if (snapshot.hasData && snapshot.data != null) {
           return const HomeScreen();
         }
 
-        // 🚪 Giriş yoksa → LOGIN
+        // ───────────────────────────────────────────────────────────
+        // NOT AUTHENTICATED → LOGIN
+        // ───────────────────────────────────────────────────────────
         return const LoginScreen();
       },
     );

@@ -7,69 +7,27 @@ import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/firestore_user.dart';
+import '../theme/syra_theme.dart';
+import '../widgets/syra_orb.dart';
+import '../widgets/glass_input.dart';
+import '../widgets/syra_message_bubble.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/blur_toast.dart';
 import 'premium_screen.dart';
 import 'settings_screen.dart';
 import 'side_menu.dart';
+import 'relationship_analysis_screen.dart';
+import 'chat_sessions_sheet.dart';
+import 'tactical_moves_screen.dart';
+import 'daily_tip_screen.dart';
+import 'chat_archive_screen.dart';
+import 'premium_management_screen.dart';
 
-// ---------------------------------------------------------
-// TEST CONFIG
-// ---------------------------------------------------------
-// Premium'u test için ZORLA açmak istersen:
-// true yap → premium UI aktif olur (Windows'ta bile)
-// false yap → gerçek premium sistemi çalışır (Android/iOS)
 const bool forcePremiumForTesting = false;
 
-// ---------------------------------------------------------
-// BLUR TOAST
-// ---------------------------------------------------------
-class BlurToast {
-  static OverlayEntry? _entry;
-
-  static void show(BuildContext context, String msg) {
-    _entry?.remove();
-    final overlay = Overlay.of(context);
-
-    _entry = OverlayEntry(
-      builder: (_) {
-        return Positioned(
-          bottom: 70,
-          left: 0,
-          right: 0,
-          child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  color: Colors.black.withOpacity(0.7),
-                  child: Text(
-                    msg,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-
-    overlay.insert(_entry!);
-    Future.delayed(const Duration(seconds: 2), () {
-      _entry?.remove();
-    });
-  }
-}
-
-// ---------------------------------------------------------
+// ═══════════════════════════════════════════════════════════════
 // CHAT SCREEN
-// ---------------------------------------------------------
+// ═══════════════════════════════════════════════════════════════
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
 
@@ -80,6 +38,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
 
   bool _isPremium = false;
   int _dailyLimit = 10;
@@ -90,42 +49,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Map<String, dynamic>? _replyingTo;
 
-  // typing dots
-  late AnimationController _dotsController;
-  late Animation<int> _dotAnim;
-
-  double _swipeOffset = 0.0;
-  String? _swipedMessageId;
-
-  // side menu
+  // Side menu
   bool _menuOpen = false;
   late AnimationController _menuController;
   late Animation<Offset> _menuOffset;
+
+  // Swipe reply
+  double _swipeOffset = 0.0;
+  String? _swipedMessageId;
+
+  // Limit warning (show only once per session)
+  bool _hasShownLimitWarning = false;
 
   @override
   void initState() {
     super.initState();
 
-    // TEST MODE → Premium'u zorla aç
-    if (forcePremiumForTesting == true) {
-      _isPremium = true;
-      _dailyLimit = 99999;
-    }
+    _initUser();
 
-    _initUser(); // 🔥 limit sistemi buradan başlıyor
-
-    // typing dots anim
-    _dotsController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat();
-
-    _dotAnim = IntTween(begin: 0, end: 3).animate(_dotsController);
-
-    // side menu anim
     _menuController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 220),
+      duration: const Duration(milliseconds: 250),
     );
     _menuOffset = Tween<Offset>(
       begin: const Offset(-1.0, 0.0),
@@ -137,7 +81,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
 
-    // first bot message
+    // Welcome message
     _messages.add({
       'id': UniqueKey().toString(),
       'sender': 'bot',
@@ -149,36 +93,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
   }
 
-  // ---------------------------------------------------------
-  // USER INIT (LIMIT FIX)
-  // ---------------------------------------------------------
   Future<void> _initUser() async {
-    if (forcePremiumForTesting) {
-      if (!mounted) return;
-      setState(() {
-        _isPremium = true;
-        _dailyLimit = 99999;
-        _messageCount = 0;
-      });
-      return;
-    }
-
     try {
       final status = await FirestoreUser.getMessageStatus();
 
+      // Safe type casting with defaults
       final bool isPremium = status["isPremium"] == true;
 
-      int limit = (status["limit"] is int)
-          ? status["limit"]
-          : (status["limit"] is num)
-              ? (status["limit"] as num).toInt()
-              : 10;
+      int limit = 10;
+      if (status["limit"] is int) {
+        limit = status["limit"];
+      } else if (status["limit"] is num) {
+        limit = (status["limit"] as num).toInt();
+      }
 
-      int count = (status["count"] is int)
-          ? status["count"]
-          : (status["count"] is num)
-              ? (status["count"] as num).toInt()
-              : 0;
+      int count = 0;
+      if (status["count"] is int) {
+        count = status["count"];
+      } else if (status["count"] is num) {
+        count = (status["count"] as num).toInt();
+      }
 
       if (!mounted) return;
       setState(() {
@@ -187,7 +121,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _messageCount = count.clamp(0, _dailyLimit);
       });
     } catch (e) {
-      print("initUser error: $e");
+      debugPrint("initUser error: $e");
       if (!mounted) return;
       setState(() {
         _dailyLimit = 10;
@@ -198,15 +132,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _dotsController.dispose();
     _menuController.dispose();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
-  // ---------------------------------------------------------
-  // SUPER MENU TOGGLE
-  // ---------------------------------------------------------
   void _toggleMenu() {
     setState(() => _menuOpen = !_menuOpen);
     if (_menuOpen) {
@@ -216,9 +147,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  // ---------------------------------------------------------
-  // BASILI TUT MENÜSÜ
-  // ---------------------------------------------------------
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   void _showMessageMenu(BuildContext ctx, Map<String, dynamic> msg) async {
     HapticFeedback.selectionClick();
 
@@ -226,39 +164,45 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       context: ctx,
       builder: (_) {
         return Dialog(
-          backgroundColor: Colors.white.withOpacity(0.05),
+          backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.all(40),
-          shape: RoundedRectangleBorder(
+          child: ClipRRect(
             borderRadius: BorderRadius.circular(18),
-          ),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                color: Colors.black.withOpacity(0.45),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _menuButton("Yanıtla", Icons.reply_rounded, () {
-                    Navigator.pop(ctx);
-                    setState(() => _replyingTo = msg);
-                  }),
-                  _menuButton("Kopyala", Icons.copy_rounded, () {
-                    Clipboard.setData(ClipboardData(text: msg["text"]));
-                    Navigator.pop(ctx);
-                    BlurToast.show(ctx, "Metin kopyalandı");
-                  }),
-                  _menuButton("Paylaş", Icons.share_rounded, () {
-                    Navigator.pop(ctx);
-                  }),
-                  _menuButton("Sil", Icons.delete_rounded, () {
-                    Navigator.pop(ctx);
-                    setState(() => _messages.remove(msg));
-                  }),
-                ],
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(18),
+                  color: SyraColors.surface.withValues(alpha: 0.9),
+                  border: Border.all(
+                    color: SyraColors.glassBorder,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _menuButton("Yanıtla", Icons.reply_rounded, () {
+                      Navigator.pop(ctx);
+                      setState(() => _replyingTo = msg);
+                    }),
+                    _menuButton("Kopyala", Icons.copy_rounded, () {
+                      final text = msg["text"];
+                      if (text != null) {
+                        Clipboard.setData(ClipboardData(text: text));
+                      }
+                      Navigator.pop(ctx);
+                      BlurToast.show(ctx, "Metin kopyalandı");
+                    }),
+                    _menuButton("Paylaş", Icons.share_rounded, () {
+                      Navigator.pop(ctx);
+                    }),
+                    _menuButton("Sil", Icons.delete_rounded, () {
+                      Navigator.pop(ctx);
+                      setState(() => _messages.remove(msg));
+                    }),
+                  ],
+                ),
               ),
             ),
           ),
@@ -271,16 +215,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     return InkWell(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 20),
+            Icon(icon, color: SyraColors.textSecondary, size: 20),
             const SizedBox(width: 12),
             Text(
               text,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 14,
+              style: TextStyle(
+                color: SyraColors.textPrimary.withValues(alpha: 0.9),
+                fontSize: 15,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -290,13 +234,25 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ---------------------------------------------------------
-  // MESAJ GÖNDERME (FINAL LIMIT FIX)
-  // ---------------------------------------------------------
+  /// Navigate to premium screen based on premium status
+  void _navigateToPremium() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _isPremium
+            ? const PremiumManagementScreen()
+            : const PremiumScreen(),
+      ),
+    );
+  }
+
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
 
+    // ═══════════════════════════════════════════════════════════════
+    // AUTH CHECK - Don't crash if user is null
+    // ═══════════════════════════════════════════════════════════════
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       BlurToast.show(context, "Tekrar giriş yapman gerekiyor kanka.");
@@ -304,43 +260,64 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
     final uid = user.uid;
 
-    // 🔥 Mesajdan hemen önce Firestore'dan en güncel limitleri çek (gerçek limit)
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE LIMIT CHECK
+    // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
         final status = await FirestoreUser.getMessageStatus();
-
         final bool isPremium = status["isPremium"] == true;
 
-        int limit = (status["limit"] is int)
-            ? status["limit"]
-            : (status["limit"] is num)
-                ? (status["limit"] as num).toInt()
-                : 10;
+        int limit = 10;
+        if (status["limit"] is int) {
+          limit = status["limit"];
+        } else if (status["limit"] is num) {
+          limit = (status["limit"] as num).toInt();
+        }
 
-        int count = (status["count"] is int)
-            ? status["count"]
-            : (status["count"] is num)
-                ? (status["count"] as num).toInt()
-                : 0;
+        int count = 0;
+        if (status["count"] is int) {
+          count = status["count"];
+        } else if (status["count"] is num) {
+          count = (status["count"] as num).toInt();
+        }
 
-        setState(() {
-          _isPremium = isPremium;
-          _dailyLimit = limit <= 0 ? 10 : limit;
-          _messageCount = count.clamp(0, _dailyLimit);
-        });
+        if (mounted) {
+          setState(() {
+            _isPremium = isPremium;
+            _dailyLimit = limit <= 0 ? 10 : limit;
+            _messageCount = count.clamp(0, _dailyLimit);
+          });
+        }
       } catch (e) {
-        print("getMessageStatus error: $e");
+        debugPrint("getMessageStatus error: $e");
       }
     }
 
-    // LIMIT KONTROLÜ
+    // ═══════════════════════════════════════════════════════════════
+    // 70% WARNING - Show once per session
+    // ═══════════════════════════════════════════════════════════════
+    if (!_isPremium &&
+        !forcePremiumForTesting &&
+        !_hasShownLimitWarning &&
+        _dailyLimit > 0 &&
+        _messageCount >= (_dailyLimit * 0.7).floor() &&
+        _messageCount < _dailyLimit) {
+      _hasShownLimitWarning = true;
+      BlurToast.show(
+        context,
+        "Bugün mesajlarının çoğunu kullandın kanka.\n"
+        "Kısa ve net yaz, istersen Premium'a da göz at 😉",
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // LIMIT REACHED - Block and show premium prompt
+    // ═══════════════════════════════════════════════════════════════
     if (!_isPremium &&
         !forcePremiumForTesting &&
         _messageCount >= _dailyLimit) {
-      BlurToast.show(
-        context,
-        "Bugünlük mesaj limitin doldu kanka.\nPremium ile sınırsız devam edebilirsin.",
-      );
+      _showLimitReachedDialog();
       return;
     }
 
@@ -359,24 +336,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       _controller.clear();
       _replyingTo = null;
-
       _isTyping = true;
       _isLoading = true;
       _messageCount++;
     });
 
-    // 🔥 Firestore tarafında günlük sayacı artır (gerçek limit sistemi)
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+
+    // ═══════════════════════════════════════════════════════════════
+    // INCREMENT MESSAGE COUNT
+    // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
         await FirestoreUser.incrementMessageCount();
       } catch (e) {
-        print("incrementMessageCount ERROR: $e");
+        debugPrint("incrementMessageCount ERROR: $e");
       }
     }
 
-    // -------------------------------------------------------
-    // BACKEND API CALL
-    // -------------------------------------------------------
+    // ═══════════════════════════════════════════════════════════════
+    // SEND TO BACKEND
+    // ═══════════════════════════════════════════════════════════════
     try {
       final res = await http.post(
         Uri.parse(
@@ -391,8 +371,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       );
 
       if (res.statusCode != 200) {
-        print("Backend ERROR ${res.statusCode}: ${res.body}");
-        BlurToast.show(context, "Şu an cevap veremiyorum kanka.");
+        debugPrint("Backend ERROR ${res.statusCode}: ${res.body}");
+        if (mounted) {
+          BlurToast.show(context, "Şu an cevap veremiyorum kanka.");
+        }
         setState(() {
           _isTyping = false;
           _isLoading = false;
@@ -403,15 +385,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final data = jsonDecode(res.body);
       final botText = data["reply"] ?? "Şu an cevap üretemedim kanka.";
 
-      final traits = data["extractedTraits"] ?? {};
+      // Extract flags safely
+      final traits = data["extractedTraits"];
       bool hasRed = false;
       bool hasGreen = false;
 
       if (traits is Map && traits["flags"] is Map) {
         final flags = traits["flags"];
-        if (flags["red"] is List && flags["red"].isNotEmpty) hasRed = true;
-        if (flags["green"] is List && flags["green"].isNotEmpty)
+        if (flags["red"] is List && (flags["red"] as List).isNotEmpty) {
+          hasRed = true;
+        }
+        if (flags["green"] is List && (flags["green"] as List).isNotEmpty) {
           hasGreen = true;
+        }
       }
 
       setState(() {
@@ -428,110 +414,187 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _isTyping = false;
         _isLoading = false;
       });
+
+      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
     } catch (e) {
+      debugPrint("Network error: $e");
       setState(() {
         _isTyping = false;
         _isLoading = false;
       });
-      BlurToast.show(context, "Bağlantı kurulamadı kanka");
+      if (mounted) {
+        BlurToast.show(context, "Bağlantı kurulamadı kanka");
+      }
     }
   }
 
-  // ---------------------------------------------------------
-  // UI
-  // ---------------------------------------------------------
+  /// Show dialog when daily limit is reached
+  void _showLimitReachedDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: SyraColors.surface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: SyraColors.glassBorder),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Icon
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: SyraColors.accentGradient,
+                    ),
+                    child: const Icon(
+                      Icons.workspace_premium_rounded,
+                      color: Colors.white,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // Title
+                  const Text(
+                    "Günlük Limit Doldu",
+                    style: TextStyle(
+                      color: SyraColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  // Message
+                  Text(
+                    "Bugünlük mesaj hakkın bitti kanka.\n"
+                    "Premium ile sınırsız devam edebilirsin!",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: SyraColors.textSecondary,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // Buttons
+                  Row(
+                    children: [
+                      // Cancel
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => Navigator.pop(ctx),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: SyraColors.glassBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: SyraColors.glassBorder),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Tamam",
+                                style: TextStyle(
+                                  color: SyraColors.textSecondary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Premium
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _navigateToPremium();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: SyraColors.accentGradient,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Center(
+                              child: Text(
+                                "Premium'a Geç",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openChatSessions() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => const ChatSessionsSheet(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async => false,
+    return PopScope(
+      canPop: false,
       child: Scaffold(
         extendBodyBehindAppBar: true,
         backgroundColor: Colors.transparent,
-        appBar: _buildAppBar(),
         body: Stack(
           children: [
-            _buildBackground(),
+            // Premium Background
+            const SyraBackground(
+              enableParticles: true,
+              enableGrain: true,
+              particleOpacity: 0.025,
+            ),
 
+            // Main content
             SafeArea(
               child: Column(
                 children: [
-                  const SizedBox(height: 8),
-                  _buildTopCard(),
-
-                  if (!_isPremium && !forcePremiumForTesting) ...[
-                    const SizedBox(height: 6),
-                    _buildLimitBar(),
-                  ],
-
-                  const SizedBox(height: 6),
-
-                  // MESSAGE LIST
-                  Expanded(
-                    child: ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-                      itemCount: _messages.length + (_isTyping ? 1 : 0),
-                      physics: const BouncingScrollPhysics(),
-                      itemBuilder: (context, index) {
-                        if (_isTyping && index == _messages.length) {
-                          return _buildTypingBubble();
-                        }
-
-                        final msg = _messages[index];
-                        final isUser = msg["sender"] == "user";
-
-                        final bool isSwiped = _swipedMessageId == msg["id"] &&
-                            _swipeOffset != 0.0;
-
-                        final double effectiveOffset = isSwiped
-                            ? Curves.easeOutCubic
-                                    .transform(_swipeOffset / 30)
-                                    .clamp(0.0, 1.0) *
-                                30
-                            : 0;
-
-                        return GestureDetector(
-                          onLongPress: () => _showMessageMenu(context, msg),
-                          onHorizontalDragUpdate: (details) {
-                            if (details.delta.dx > 0) {
-                              setState(() {
-                                _swipedMessageId = msg["id"];
-                                _swipeOffset = (_swipeOffset + details.delta.dx)
-                                    .clamp(0, 30);
-                              });
-                            }
-                          },
-                          onHorizontalDragEnd: (_) {
-                            if (_swipeOffset > 18) {
-                              setState(() {
-                                _replyingTo = msg;
-                              });
-                            }
-                            setState(() {
-                              _swipeOffset = 0;
-                              _swipedMessageId = null;
-                            });
-                          },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 90),
-                            transform: Matrix4.translationValues(
-                                effectiveOffset, 0, 0),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 3),
-                              child: _buildMessageBubble(msg, isUser),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  _buildAppBar(),
+                  _buildOrbSection(),
+                  Expanded(child: _buildMessageList()),
+                  GlassInputBar(
+                    controller: _controller,
+                    onSend: _sendMessage,
+                    isLoading: _isLoading,
+                    replyingToText: _replyingTo?["text"],
+                    onCancelReply: () => setState(() => _replyingTo = null),
+                    hintText: "Mesajını yaz...",
                   ),
-
-                  if (_replyingTo != null) _buildReplyPreview(),
-                  _buildInputArea(),
                 ],
               ),
             ),
 
-            // MENU OVERLAY
+            // Menu overlay
             Positioned.fill(
               child: IgnorePointer(
                 ignoring: !_menuOpen,
@@ -540,60 +603,65 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
                     color: _menuOpen
-                        ? Colors.black.withOpacity(0.4)
+                        ? Colors.black.withValues(alpha: 0.5)
                         : Colors.transparent,
                   ),
                 ),
               ),
             ),
 
-            // SIDE MENU
+            // Side menu
             SideMenu(
               slideAnimation: _menuOffset,
-              isPremium: _isPremium || forcePremiumForTesting,
+              isPremium: _isPremium,
               onTapPremium: () {
+                _navigateToPremium();
+                _toggleMenu();
+              },
+              onTapChatSessions: () {
+                _openChatSessions();
+                _toggleMenu();
+              },
+              onTapTactical: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const PremiumScreen(),
+                    builder: (_) => const TacticalMovesScreen(),
                   ),
                 );
                 _toggleMenu();
               },
-              onTapTactical: () {
-                BlurToast.show(
-                  context,
-                  "Tactical Moves v2.0 ile gelecek kanka 🔥",
-                );
-                _toggleMenu();
-              },
               onTapAnalysis: () {
-                BlurToast.show(
+                Navigator.push(
                   context,
-                  "Deep Analysis ekranı yakında.",
+                  MaterialPageRoute(
+                    builder: (_) => const RelationshipAnalysisScreen(),
+                  ),
                 );
                 _toggleMenu();
               },
               onTapArchive: () {
-                BlurToast.show(
+                Navigator.push(
                   context,
-                  "Arşiv sistemi v2’de eklenecek.",
+                  MaterialPageRoute(
+                    builder: (_) => const ChatArchiveScreen(),
+                  ),
                 );
                 _toggleMenu();
               },
               onTapDailyTip: () {
-                BlurToast.show(
+                Navigator.push(
                   context,
-                  "Bugünün tavsiyesi: Daha kısa, daha net yaz 😉",
+                  MaterialPageRoute(
+                    builder: (_) => const DailyTipScreen(),
+                  ),
                 );
                 _toggleMenu();
               },
               onTapSettings: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => const SettingsScreen(),
-                  ),
+                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
                 );
                 _toggleMenu();
               },
@@ -609,677 +677,136 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ---------------------------------------------------------
-  // AppBar
-  // ---------------------------------------------------------
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      centerTitle: true,
-      flexibleSpace: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.25),
-              border: Border(
-                bottom: BorderSide(
-                  color: Colors.white.withOpacity(0.06),
-                  width: 0.5,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ),
-      title: const Text(
-        "SYRA",
-        style: TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.8,
-        ),
-      ),
-      leading: IconButton(
-        icon: const Icon(Icons.menu_rounded, color: Colors.white),
-        onPressed: _toggleMenu,
-      ),
-      actions: [
-        if (!_isPremium && !forcePremiumForTesting)
-          IconButton(
-            icon: const Icon(
-              Icons.workspace_premium_rounded,
-              color: Color(0xFFFFD54F),
-            ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PremiumScreen(),
-                ),
-              );
-            },
-          ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Background
-  // ---------------------------------------------------------
-  Widget _buildBackground() {
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFF0B0B0B),
-                Color(0xFF111111),
-                Color(0xFF131313),
-              ],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
-          ),
-        ),
-        Positioned(
-          top: -120,
-          right: -60,
-          child: Container(
-            width: 220,
-            height: 220,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Color(0x33FF7AB8),
-                  Color(0x00000000),
-                ],
-                radius: 0.9,
-              ),
-            ),
-          ),
-        ),
-        Positioned(
-          bottom: -140,
-          left: -40,
-          child: Container(
-            width: 260,
-            height: 260,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Color(0x3366E0FF),
-                  Color(0x00000000),
-                ],
-                radius: 0.9,
-              ),
-            ),
-          ),
-        ),
-        Positioned.fill(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 32, sigmaY: 32),
-            child: Container(
-              color: Colors.black.withOpacity(0.25),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Top Card
-  // ---------------------------------------------------------
-  Widget _buildTopCard() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(18),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.05),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.20),
-                width: 0.8,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF66E0FF).withOpacity(0.08),
-                  blurRadius: 16,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 34,
-                  height: 34,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF7AB8), Color(0xFF66E0FF)],
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFFFF7AB8).withOpacity(0.35),
-                        blurRadius: 14,
-                      ),
-                    ],
-                  ),
-                  child: const Icon(
-                    Icons.favorite_rounded,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        (_isPremium || forcePremiumForTesting)
-                            ? "Premium mod açık 🔥"
-                            : "Günlük rehberin hazır",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        (_isPremium || forcePremiumForTesting)
-                            ? "Sınırsız soru, derin analiz."
-                            : "Bugünlük $_dailyLimit mesaja kadar buradayım.",
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.7),
-                          fontSize: 11,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: Colors.white.withOpacity(0.26)),
-                    color: Colors.white.withOpacity(0.06),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        (_isPremium || forcePremiumForTesting)
-                            ? Icons.flash_on_rounded
-                            : Icons.lock_open_rounded,
-                        size: 14,
-                        color: Colors.white,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        (_isPremium || forcePremiumForTesting)
-                            ? "PREMIUM"
-                            : "FREE",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Limit Bar
-  // ---------------------------------------------------------
-  Widget _buildLimitBar() {
-    final used = _messageCount.clamp(0, _dailyLimit);
-    final ratio = used / _dailyLimit.toDouble();
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          height: 20,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: Stack(
-            children: [
-              AnimatedFractionallySizedBox(
-                alignment: Alignment.centerLeft,
-                widthFactor: ratio.clamp(0.0, 1.0),
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutCubic,
-                child: Container(
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [Color(0xFFFF3B6F), Color(0xFFFF7AB8)],
-                    ),
-                  ),
-                ),
-              ),
-              Center(
-                child: Text(
-                  "Limit: $used / $_dailyLimit",
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // Reply Preview
-  // ---------------------------------------------------------
-  Widget _buildReplyPreview() {
+  Widget _buildAppBar() {
     return Container(
-      margin: const EdgeInsets.fromLTRB(14, 0, 14, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.15)),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(
         children: [
-          Container(
-            width: 3,
-            height: 30,
-            decoration: BoxDecoration(
-              color: const Color(0xFFFF7AB8),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              _replyingTo!["text"],
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.85),
-                fontSize: 12,
-              ),
-            ),
-          ),
+          // Menu button
           GestureDetector(
-            onTap: () => setState(() => _replyingTo = null),
-            child: const Icon(
-              Icons.close_rounded,
-              color: Colors.white,
-              size: 18,
-            ),
-          )
-        ],
-      ),
-    );
-  }
-
-  // ---------------------------------------------------------
-  // BUBBLE + FLAGS
-  // ---------------------------------------------------------
-  Widget _buildMessageBubble(Map<String, dynamic> msg, bool isUser) {
-    final String text = msg["text"] ?? '';
-    final String? replyText = msg["replyTo"];
-    final DateTime? time = msg["time"] is DateTime ? msg["time"] : null;
-
-    final gradient = isUser
-        ? [
-            const Color(0xFFFF7AB8).withOpacity(0.92),
-            const Color(0xFF66E0FF).withOpacity(0.92),
-          ]
-        : [
-            Colors.white.withOpacity(0.13),
-            Colors.white.withOpacity(0.08),
-          ];
-
-    final timeStr = time == null
-        ? ""
-        : "${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}";
-
-    final bool hasRed = !isUser && (msg['hasRed'] == true);
-    final bool hasGreen = !isUser && (msg['hasGreen'] == true);
-
-    Widget? flagIcon;
-    if (hasRed) {
-      flagIcon = Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.orangeAccent.withOpacity(0.4),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.warning_rounded,
-          color: Colors.orangeAccent,
-          size: 14,
-        ),
-      );
-    } else if (hasGreen) {
-      flagIcon = Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.pinkAccent.withOpacity(0.4),
-              blurRadius: 8,
-            ),
-          ],
-        ),
-        child: const Icon(
-          Icons.favorite_rounded,
-          color: Colors.pinkAccent,
-          size: 14,
-        ),
-      );
-    }
-
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment:
-            isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          if (replyText != null)
-            Container(
-              margin: const EdgeInsets.only(bottom: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            onTap: _toggleMenu,
+            child: Container(
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.14),
-                  width: 0.7,
+                  color: SyraColors.glassBorder,
+                  width: 1,
                 ),
               ),
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 3,
-                    height: 18,
+              child: Icon(
+                Icons.menu_rounded,
+                color: SyraColors.textSecondary,
+                size: 18,
+              ),
+            ),
+          ),
+
+          // Logo
+          const Expanded(
+            child: Center(
+              child: SyraLogo(fontSize: 20, withGlow: true),
+            ),
+          ),
+
+          // Right side: premium button only (for free users)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (!_isPremium && !forcePremiumForTesting)
+                GestureDetector(
+                  onTap: _navigateToPremium,
+                  child: Container(
+                    width: 36,
+                    height: 36,
                     decoration: BoxDecoration(
-                      color: isUser
-                          ? const Color(0xFFFF7AB8)
-                          : const Color(0xFF66E0FF),
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      replyText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.85),
-                        fontSize: 11.5,
-                        height: 1.1,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: SyraColors.glassBorder,
+                        width: 1,
                       ),
                     ),
+                    child: Icon(
+                      Icons.workspace_premium_rounded,
+                      color: const Color(0xFFFFD54F),
+                      size: 18,
+                    ),
                   ),
-                ],
-              ),
-            ),
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                constraints: const BoxConstraints(maxWidth: 320),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: gradient,
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(22),
-                    topRight: const Radius.circular(22),
-                    bottomLeft: Radius.circular(isUser ? 22 : 10),
-                    bottomRight: Radius.circular(isUser ? 10 : 22),
-                  ),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.14),
-                    width: 0.3,
-                  ),
-                  boxShadow: isUser
-                      ? [
-                          BoxShadow(
-                            color: const Color(0xFFFF7AB8).withOpacity(0.25),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
-                          ),
-                        ]
-                      : [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.20),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                ),
-                child: Text(
-                  text,
-                  style: TextStyle(
-                    color: isUser ? Colors.black : Colors.white,
-                    fontSize: 13.5,
-                    height: 1.33,
-                  ),
-                ),
-              ),
-              if (flagIcon != null)
-                Positioned(
-                  right: -6,
-                  top: -6,
-                  child: Opacity(
-                    opacity: 0.95,
-                    child: flagIcon,
-                  ),
-                ),
+                )
+              else
+                const SizedBox(width: 36),
             ],
           ),
-          if (timeStr.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2, left: 6, right: 6),
-              child: Text(
-                timeStr,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.35),
-                  fontSize: 10,
-                ),
-              ),
-            ),
         ],
       ),
     );
   }
 
-  // ---------------------------------------------------------
-  // Typing Bubble
-  // ---------------------------------------------------------
-  Widget _buildTypingBubble() {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
-          child: Container(
-            margin: const EdgeInsets.symmetric(vertical: 4),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.16),
-                width: 0.6,
-              ),
-            ),
-            child: AnimatedBuilder(
-              animation: _dotsController,
-              builder: (_, __) {
-                final active = _dotAnim.value % 3;
-                return Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(3, (i) {
-                    final isOn = i == active;
-                    return AnimatedOpacity(
-                      duration: const Duration(milliseconds: 260),
-                      opacity: isOn ? 1 : 0.18,
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 2.2),
-                        child: Icon(
-                          Icons.circle,
-                          size: 6.5,
-                          color: Colors.white,
-                        ),
-                      ),
-                    );
-                  }),
-                );
-              },
-            ),
-          ),
+  Widget _buildOrbSection() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 8),
+      child: Center(
+        child: SyraOrb(
+          state: _isTyping ? OrbState.thinking : OrbState.idle,
+          size: 140,
         ),
       ),
     );
   }
 
-  // ---------------------------------------------------------
-  // Input Area
-  // ---------------------------------------------------------
-  Widget _buildInputArea() {
-    return SafeArea(
-      top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.22),
-                  width: 0.8,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF66E0FF).withOpacity(0.15),
-                    blurRadius: 18,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      enabled: !_isLoading,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                      ),
-                      minLines: 1,
-                      maxLines: 3,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        hintText: _replyingTo != null
-                            ? "Yanıt yaz..."
-                            : "Bugün neyi çözelim kanka?",
-                        hintStyle: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
-                          fontSize: 13,
-                        ),
-                      ),
-                      onSubmitted: (_) => _sendMessage(),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  GestureDetector(
-                    onTap: _sendMessage,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 220),
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFFFF7AB8), Color(0xFF66E0FF)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFFFF7AB8).withOpacity(0.40),
-                            blurRadius: 18,
-                            spreadRadius: 1,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.white,
-                                ),
-                              ),
-                            )
-                          : const Icon(
-                              Icons.send_rounded,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                    ),
-                  ),
-                ],
-              ),
+  Widget _buildMessageList() {
+    return ListView.builder(
+      controller: _scrollController,
+      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
+      itemCount: _messages.length,
+      physics: const BouncingScrollPhysics(),
+      itemBuilder: (context, index) {
+        final msg = _messages[index];
+        final isUser = msg["sender"] == "user";
+
+        final bool isSwiped =
+            _swipedMessageId == msg["id"] && _swipeOffset != 0.0;
+
+        final double effectiveOffset = isSwiped
+            ? Curves.easeOutCubic.transform(_swipeOffset / 30).clamp(0.0, 1.0) *
+                30
+            : 0;
+
+        return GestureDetector(
+          onLongPress: () => _showMessageMenu(context, msg),
+          onHorizontalDragUpdate: (details) {
+            if (details.delta.dx > 0) {
+              setState(() {
+                _swipedMessageId = msg["id"];
+                _swipeOffset = (_swipeOffset + details.delta.dx).clamp(0, 30);
+              });
+            }
+          },
+          onHorizontalDragEnd: (_) {
+            if (_swipeOffset > 18) {
+              setState(() => _replyingTo = msg);
+            }
+            setState(() {
+              _swipeOffset = 0;
+              _swipedMessageId = null;
+            });
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 90),
+            transform: Matrix4.translationValues(effectiveOffset, 0, 0),
+            child: SyraMessageBubble(
+              text: msg["text"] ?? '',
+              isUser: isUser,
+              time: msg["time"] is DateTime ? msg["time"] : null,
+              replyToText: msg["replyTo"],
+              hasRedFlag: !isUser && (msg['hasRed'] == true),
+              hasGreenFlag: !isUser && (msg['hasGreen'] == true),
+              onLongPress: () => _showMessageMenu(context, msg),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

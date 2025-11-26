@@ -4,7 +4,16 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
+import '../theme/syra_theme.dart';
+import '../widgets/glass_background.dart';
 import 'premium_screen.dart';
+
+/// ═══════════════════════════════════════════════════════════════
+/// PREMIUM MANAGEMENT SCREEN v1.0
+/// ═══════════════════════════════════════════════════════════════
+/// Shows premium status and allows purchase/restore.
+/// Clear CTA for non-premium users.
+/// ═══════════════════════════════════════════════════════════════
 
 class PremiumManagementScreen extends StatefulWidget {
   const PremiumManagementScreen({super.key});
@@ -35,14 +44,29 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
 
       setState(() {
         _isPremium = status['isPremium'] ?? false;
-        _dailyLimit = status['dailyMessageLimit'] ?? 10;
-        _usedToday = status['dailyMessageCount'] ?? 0;
+
+        final dynamic rawLimit = status['limit'];
+        final dynamic rawCount = status['count'];
+
+        _dailyLimit = rawLimit is int
+            ? rawLimit
+            : rawLimit is num
+                ? rawLimit.toInt()
+                : 10;
+
+        _usedToday = rawCount is int
+            ? rawCount
+            : rawCount is num
+                ? rawCount.toInt()
+                : 0;
       });
     } catch (e) {
+      debugPrint('Premium status load error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Durum yüklenirken hata oluştu: $e'),
+          backgroundColor: SyraColors.surface,
         ),
       );
     } finally {
@@ -67,20 +91,24 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Premium aktif edildi 🎉'),
+            backgroundColor: SyraColors.surface,
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Satın alma iptal edildi veya tamamlanamadı.'),
+            backgroundColor: SyraColors.surface,
           ),
         );
       }
     } catch (e) {
+      debugPrint('Buy premium error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Satın alma sırasında hata oluştu: $e'),
+          backgroundColor: SyraColors.surface,
         ),
       );
     } finally {
@@ -101,22 +129,35 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
       if (!available) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mağaza şu anda kullanılamıyor.')),
+          const SnackBar(
+            content: Text('Mağaza şu anda kullanılamıyor.'),
+            backgroundColor: SyraColors.surface,
+          ),
         );
         return;
       }
 
-      InAppPurchase.instance.restorePurchases();
+      await InAppPurchase.instance.restorePurchases();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Geçmiş satın alımlar kontrol ediliyor...')),
+          content: Text('Geçmiş satın alımlar kontrol ediliyor...'),
+          backgroundColor: SyraColors.surface,
+        ),
       );
+
+      // Reload status after a short delay
+      await Future.delayed(const Duration(seconds: 2));
+      await _loadStatus();
     } catch (e) {
+      debugPrint('Restore purchases error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Geri yükleme hatası: $e')),
+        SnackBar(
+          content: Text('Geri yükleme hatası: $e'),
+          backgroundColor: SyraColors.surface,
+        ),
       );
     } finally {
       if (mounted) {
@@ -133,84 +174,103 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
           'Google Play / App Store → Abonelikler bölümünden kontrol edebilirsin.',
         ),
         duration: Duration(seconds: 4),
+        backgroundColor: SyraColors.surface,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    const gradientCyan = Color(0xFF66E0FF);
-    const gradientPink = Color(0xFFFF7AB8);
-
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: ShaderMask(
-          shaderCallback: (bounds) => const LinearGradient(
-            colors: [gradientCyan, gradientPink],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ).createShader(bounds),
-          child: const Text(
-            'Premium Yönetimi',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        centerTitle: true,
-      ),
+      backgroundColor: Colors.transparent,
+      appBar: _buildAppBar(),
       body: Stack(
         children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  Color(0xFF050509),
-                  Color(0xFF0C0F18),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-            ),
-          ),
-          BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-            child: Container(
-              color: Colors.black.withOpacity(0.35),
-            ),
-          ),
+          // Background
+          const SyraBackground(),
+
           SafeArea(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
               child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 12),
-                        _header(),
-                        const SizedBox(height: 22),
-                        _statusCard(),
-                        const SizedBox(height: 22),
-                        _usageCard(),
-                        const SizedBox(height: 22),
-                        _actionsCard(),
-                        const Spacer(),
-                        _footer(),
-                      ],
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: SyraColors.neonCyan,
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 8),
+                          _header(),
+                          const SizedBox(height: 22),
+                          _statusCard(),
+                          const SizedBox(height: 22),
+                          _usageCard(),
+                          const SizedBox(height: 22),
+                          _actionsCard(),
+                          const SizedBox(height: 32),
+                          _footer(),
+                        ],
+                      ),
                     ),
             ),
           ),
+
+          // Loading overlay
+          if (_actionLoading)
+            Container(
+              color: Colors.black.withValues(alpha: 0.5),
+              child: const Center(
+                child: CircularProgressIndicator(color: SyraColors.neonCyan),
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+      leading: IconButton(
+        icon: const Icon(
+          Icons.arrow_back_ios_new_rounded,
+          color: SyraColors.textPrimary,
+          size: 18,
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+      ),
+      flexibleSpace: ClipRect(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+          child: Container(
+            decoration: BoxDecoration(
+              color: SyraColors.background.withValues(alpha: 0.5),
+              border: Border(
+                bottom: BorderSide(
+                  color: SyraColors.glassBorder,
+                  width: 0.5,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+      title: ShaderMask(
+        shaderCallback: (bounds) => SyraColors.accentGradient.createShader(bounds),
+        child: const Text(
+          'Premium Yönetimi',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -219,37 +279,41 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
     return Row(
       children: [
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
             shape: BoxShape.circle,
-            gradient: LinearGradient(
-              colors: [
-                Color(0xFFFF7AB8),
-                Color(0xFF66E0FF),
-              ],
-            ),
+            gradient: _isPremium ? SyraColors.accentGradient : null,
+            color: _isPremium ? null : SyraColors.surface,
+            border: _isPremium ? null : Border.all(color: SyraColors.glassBorder),
           ),
-          child: const Icon(Icons.workspace_premium_rounded,
-              color: Colors.white, size: 24),
+          child: Icon(
+            _isPremium ? Icons.workspace_premium_rounded : Icons.lock_clock_rounded,
+            color: _isPremium ? Colors.white : SyraColors.textSecondary,
+            size: 28,
+          ),
         ),
-        const SizedBox(width: 12),
-        const Expanded(
+        const SizedBox(width: 16),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'SYRA Premium',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+                _isPremium ? 'Premium Aktif ✨' : 'Free Plan',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: SyraColors.textPrimary,
                 ),
               ),
-              SizedBox(height: 4),
+              const SizedBox(height: 4),
               Text(
-                'Aylık abonelik ile sınırsız sohbet ve derin analiz.',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Colors.white70,
+                _isPremium
+                    ? 'Sınırsız mesaj ve analiz aktif'
+                    : 'Premium ile sınırsız deneyim',
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: SyraColors.textSecondary,
                 ),
               ),
             ],
@@ -269,8 +333,9 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: Colors.white.withOpacity(0.05),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            color: SyraColors.glassBg,
+            border: Border.all(color: SyraColors.glassBorder),
+            boxShadow: SyraColors.cardGlow(),
           ),
           child: child,
         ),
@@ -284,7 +349,7 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
         children: [
           Icon(
             _isPremium ? Icons.verified_rounded : Icons.lock_clock_rounded,
-            color: _isPremium ? const Color(0xFF66E0FF) : Colors.white70,
+            color: _isPremium ? SyraColors.neonCyan : SyraColors.textSecondary,
             size: 28,
           ),
           const SizedBox(width: 12),
@@ -295,14 +360,20 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
                 Text(
                   _isPremium ? 'Aboneliğin aktif' : 'Premium aktif değil',
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w600),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: SyraColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   _isPremium
                       ? 'Aylık aboneliğin mağaza üzerinden yenilenir.'
-                      : 'Sınırsız mesaj + Analiz Yükle için Premium’a geç.',
-                  style: const TextStyle(fontSize: 13, color: Colors.white70),
+                      : 'Sınırsız mesaj + Analiz Yükle için Premium\'a geç.',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: SyraColors.textSecondary,
+                  ),
                 ),
               ],
             ),
@@ -313,35 +384,41 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
   }
 
   Widget _usageCard() {
+    final used = _usedToday.clamp(0, _dailyLimit);
+    final ratio = _dailyLimit == 0 ? 0.0 : used / _dailyLimit.toDouble();
+
     return _glass(
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
             'Bugünkü kullanımın',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: SyraColors.textPrimary,
+            ),
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
                 child: LinearProgressIndicator(
-                  value: (_dailyLimit == 0)
-                      ? 0
-                      : (_usedToday / _dailyLimit).clamp(0.0, 1.0),
-                  minHeight: 5, // 🔥 İnceltilmiş premium bar
-                  backgroundColor: Colors.white.withOpacity(0.10),
+                  value: ratio.clamp(0.0, 1.0),
+                  minHeight: 5,
+                  backgroundColor: SyraColors.glassBorder,
                   valueColor: AlwaysStoppedAnimation(
-                    _isPremium
-                        ? const Color(0xFF66E0FF)
-                        : const Color(0xFFFF7AB8),
+                    _isPremium ? SyraColors.neonCyan : SyraColors.neonPink,
                   ),
                 ),
               ),
               const SizedBox(width: 12),
               Text(
-                _isPremium ? 'Sınırsız' : '$_usedToday / $_dailyLimit',
-                style: const TextStyle(fontSize: 12, color: Colors.white70),
+                _isPremium ? 'Sınırsız' : '$used / $_dailyLimit',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: SyraColors.textSecondary,
+                ),
               ),
             ],
           ),
@@ -363,7 +440,7 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
               MaterialPageRoute(builder: (_) => const PremiumScreen()),
             ),
           ),
-          const Divider(height: 18, color: Colors.white24),
+          Divider(height: 18, color: SyraColors.glassBorder),
           _tile(
             Icons.manage_accounts_rounded,
             'Aboneliği yönet',
@@ -382,8 +459,7 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
     );
   }
 
-  Widget _tile(
-      IconData icon, String title, String subtitle, VoidCallback onTap) {
+  Widget _tile(IconData icon, String title, String subtitle, VoidCallback onTap) {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: _actionLoading ? null : onTap,
@@ -391,25 +467,36 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
         padding: const EdgeInsets.symmetric(vertical: 8),
         child: Row(
           children: [
-            Icon(icon, size: 22, color: Colors.white.withOpacity(0.9)),
+            Icon(icon, size: 22, color: SyraColors.textSecondary),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: SyraColors.textPrimary,
+                    ),
+                  ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(fontSize: 12, color: Colors.white70),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: SyraColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                size: 20, color: Colors.white54),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 20,
+              color: SyraColors.textHint,
+            ),
           ],
         ),
       ),
@@ -419,57 +506,69 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
   Widget _footer() {
     return Column(
       children: [
+        // ═══════════════════════════════════════════════════════════════
+        // CLEAR CTA BUTTON - "Premium'a Yükselt" for non-premium users
+        // ═══════════════════════════════════════════════════════════════
         if (!_isPremium)
-          SizedBox(
-            height: 48,
-            child: ElevatedButton(
-              onPressed: _actionLoading ? null : _buyPremium,
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                padding: EdgeInsets.zero,
-                backgroundColor: Colors.transparent,
-              ).copyWith(
-                backgroundColor: MaterialStateProperty.all(Colors.transparent),
-              ),
-              child: Ink(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xFFFF7AB8), Color(0xFF66E0FF)],
+          GestureDetector(
+            onTap: _actionLoading ? null : _buyPremium,
+            child: Container(
+              width: double.infinity,
+              height: 52,
+              decoration: BoxDecoration(
+                gradient: SyraColors.accentGradient,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: SyraColors.neonPink.withValues(alpha: 0.35),
+                    blurRadius: 20,
+                    offset: const Offset(0, 6),
                   ),
-                  borderRadius: BorderRadius.all(Radius.circular(16)),
-                ),
-                child: Container(
-                  alignment: Alignment.center,
-                  child: _actionLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text(
-                          'Aylık Premium’a Geç',
-                          style: TextStyle(
-                              fontSize: 15, fontWeight: FontWeight.w600),
+                ],
+              ),
+              child: Center(
+                child: _actionLoading
+                    ? const SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                         ),
-                ),
+                      )
+                    : const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.workspace_premium_rounded,
+                            color: Colors.white,
+                            size: 22,
+                          ),
+                          SizedBox(width: 10),
+                          Text(
+                            "Premium'a Yükselt",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
               ),
             ),
           ),
-        if (!_isPremium) const SizedBox(height: 10),
+
+        if (!_isPremium) const SizedBox(height: 16),
+
         Text(
           _isPremium
               ? 'Premium aktif ✨ Aboneliğini mağaza abonelik ayarlarından yönetebilirsin.'
               : 'Aylık abonelik, mağaza hesabın üzerinden güvenli şekilde yönetilir.',
           textAlign: TextAlign.center,
-          style: TextStyle(
+          style: const TextStyle(
             fontSize: 11,
-            color: Colors.white.withOpacity(0.55), // 🔥 Daha soft footer
+            color: SyraColors.textHint,
           ),
         ),
       ],
