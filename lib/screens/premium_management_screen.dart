@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
 
 import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
@@ -124,38 +123,36 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
     try {
       setState(() => _actionLoading = true);
 
-      final available = await InAppPurchase.instance.isAvailable();
+      // Use the safe restore method from PurchaseService
+      final success = await PurchaseService.restorePurchases();
 
-      if (!available) {
-        if (!mounted) return;
+      if (!mounted) return;
+
+      if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Mağaza şu anda kullanılamıyor.'),
+            content: Text('Geçmiş satın alımlar kontrol ediliyor...'),
             backgroundColor: SyraColors.surface,
           ),
         );
-        return;
+
+        // Reload status after a short delay
+        await Future.delayed(const Duration(seconds: 2));
+        await _loadStatus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Mağaza şu anda kullanılamıyor veya geçmiş satın alım bulunamadı.'),
+            backgroundColor: SyraColors.surface,
+          ),
+        );
       }
-
-      await InAppPurchase.instance.restorePurchases();
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Geçmiş satın alımlar kontrol ediliyor...'),
-          backgroundColor: SyraColors.surface,
-        ),
-      );
-
-      // Reload status after a short delay
-      await Future.delayed(const Duration(seconds: 2));
-      await _loadStatus();
     } catch (e) {
       debugPrint('Restore purchases error: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Geri yükleme hatası: $e'),
+        const SnackBar(
+          content: Text('Geri yükleme sırasında bir hata oluştu. Lütfen tekrar deneyin.'),
           backgroundColor: SyraColors.surface,
         ),
       );
