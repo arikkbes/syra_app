@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.1+16
+version: 1.0.1+17
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -24,10 +24,12 @@ dependencies:
   firebase_auth: ^5.1.1
   cloud_firestore: ^5.0.0
 
-  # 🛒 In-app purchase
-  in_app_purchase: ^3.2.0
-  in_app_purchase_android: ^0.4.0+5
-  in_app_purchase_storekit: ^0.4.4
+  # 🛒 In-app purchase - DOWNGRADED TO STABLE VERSION
+  # FIX: iOS 26.1 Beta crash with 0.4.4
+  # Using older stable version that works with iOS Beta
+  in_app_purchase: ^3.1.13
+  in_app_purchase_android: ^0.3.4+1
+  in_app_purchase_storekit: ^0.3.8+1
 
   # 🔗 URL launcher
   url_launcher: ^6.2.5
