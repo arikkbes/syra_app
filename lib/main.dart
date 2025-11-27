@@ -19,27 +19,20 @@ import 'screens/premium_management_screen.dart';
 import 'screens/settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA MAIN - ChatGPT-Style Launch Architecture
+/// SYRA MAIN - CRASH-PROOF VERSION
 /// ═══════════════════════════════════════════════════════════════
-/// Launch Flow:
-/// 1. Initialize Flutter bindings
-/// 2. Initialize Firebase (critical)
-/// 3. Launch app with AuthGate
-/// 4. AuthGate routes to:
-///    - ChatScreen (if logged in)
-///    - LoginScreen (if not logged in)
-///
-/// NO onboarding, NO SharedPreferences at startup, NO crashes
+/// CRITICAL: Do NOT initialize ANYTHING except Firebase in main()
+/// iOS crashes if SharedPreferences or RevenueCat init before first frame
 /// ═══════════════════════════════════════════════════════════════
 
 Future<void> main() async {
   // ═══════════════════════════════════════════════════════════════
-  // STEP 1: Ensure Flutter is initialized
+  // STEP 1: Flutter bindings ONLY
   // ═══════════════════════════════════════════════════════════════
   WidgetsFlutterBinding.ensureInitialized();
 
   // ═══════════════════════════════════════════════════════════════
-  // STEP 2: Initialize Firebase (REQUIRED)
+  // STEP 2: Firebase ONLY (required for auth)
   // ═══════════════════════════════════════════════════════════════
   try {
     await Firebase.initializeApp(
@@ -47,15 +40,18 @@ Future<void> main() async {
     );
     debugPrint('✅ Firebase initialized');
   } catch (e) {
-    debugPrint('⚠️ Firebase initialization error: $e');
-    // Continue - AuthGate will handle errors gracefully
+    debugPrint('⚠️ Firebase error: $e');
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // STEP 3: Launch app
+  // STEP 3: Launch app immediately
   // ═══════════════════════════════════════════════════════════════
-  // Note: RevenueCat and SharedPreferences are initialized LATER,
-  // after the first frame is built, to prevent iOS startup crashes
+  // DO NOT INITIALIZE:
+  // ❌ SharedPreferences
+  // ❌ RevenueCat
+  // ❌ Any plugin that touches native code
+  //
+  // These will be initialized AFTER first frame in AuthGate
   runApp(const SyraApp());
 }
 
@@ -67,14 +63,8 @@ class SyraApp extends StatelessWidget {
     return MaterialApp(
       title: 'SYRA',
       debugShowCheckedModeBanner: false,
-
-      // SYRA Premium Dark Theme
       theme: SyraTheme.theme,
-
-      // Start directly at AuthGate - no onboarding, no welcome screens
       home: const _AuthGate(),
-
-      // Named routes for navigation
       routes: {
         '/login': (_) => const LoginScreen(),
         '/signup': (_) => const SignUpScreen(),
@@ -87,17 +77,8 @@ class SyraApp extends StatelessWidget {
   }
 }
 
-
 /// ═══════════════════════════════════════════════════════════════
-/// AUTH GATE - ChatGPT-Style Authentication Routing
-/// ═══════════════════════════════════════════════════════════════
-/// This is the core of SYRA's launch architecture.
-/// It listens to Firebase Auth state and routes accordingly:
-/// - Logged in? → ChatScreen (like ChatGPT)
-/// - Not logged in? → LoginScreen
-///
-/// When user logs out, authStateChanges() triggers a rebuild
-/// and automatically shows LoginScreen.
+/// AUTH GATE - CRASH-PROOF INITIALIZATION
 /// ═══════════════════════════════════════════════════════════════
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
@@ -107,35 +88,51 @@ class _AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<_AuthGate> {
-  bool _initialized = false;
+  bool _servicesInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    _initializeApp();
+    // DO NOT call _initializeServices() here!
+    // It will be called after first frame
   }
 
-  /// Initialize app services AFTER first frame
-  /// This prevents iOS crashes from SharedPreferences and RevenueCat
-  Future<void> _initializeApp() async {
-    // Wait for first frame to be rendered
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      // Initialize SharedPreferences safely
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Initialize services AFTER first frame is built
+    if (!_servicesInitialized) {
+      _initializeServices();
+    }
+  }
+
+  /// Initialize plugins AFTER first frame is rendered
+  /// This is the ONLY safe way to init SharedPreferences on iOS
+  Future<void> _initializeServices() async {
+    if (_servicesInitialized) return;
+
+    // Wait for frame to be rendered
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    try {
+      // Initialize SharedPreferences
       await SyraPrefs.initialize();
-      debugPrint('✅ SharedPreferences initialized');
+      debugPrint('✅ SyraPrefs initialized');
+    } catch (e) {
+      debugPrint('⚠️ SyraPrefs error: $e');
+    }
 
-      // Initialize RevenueCat safely
-      try {
-        await PurchaseService.initialize();
-        debugPrint('✅ RevenueCat initialized');
-      } catch (e) {
-        debugPrint('⚠️ RevenueCat init error (non-fatal): $e');
-      }
+    try {
+      // Initialize RevenueCat
+      await PurchaseService.initialize();
+      debugPrint('✅ RevenueCat initialized');
+    } catch (e) {
+      debugPrint('⚠️ RevenueCat error: $e');
+    }
 
-      if (mounted) {
-        setState(() => _initialized = true);
-      }
-    });
+    if (mounted) {
+      setState(() => _servicesInitialized = true);
+    }
   }
 
   @override
@@ -144,35 +141,35 @@ class _AuthGateState extends State<_AuthGate> {
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
         // ───────────────────────────────────────────────────────────
-        // LOADING STATE - Show while checking auth
+        // LOADING STATE
         // ───────────────────────────────────────────────────────────
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (snapshot.connectionState == ConnectionState.waiting ||
+            !_servicesInitialized) {
           return _buildLoadingScreen();
         }
 
         // ───────────────────────────────────────────────────────────
-        // ERROR STATE - Show if Firebase auth failed
+        // ERROR STATE
         // ───────────────────────────────────────────────────────────
         if (snapshot.hasError) {
-          return _buildErrorScreen(context);
+          return _buildErrorScreen();
         }
 
         // ───────────────────────────────────────────────────────────
-        // AUTHENTICATED → CHAT SCREEN (like ChatGPT)
+        // LOGGED IN → CHAT SCREEN
         // ───────────────────────────────────────────────────────────
         if (snapshot.hasData && snapshot.data != null) {
           return const ChatScreen();
         }
 
         // ───────────────────────────────────────────────────────────
-        // NOT AUTHENTICATED → LOGIN SCREEN
+        // NOT LOGGED IN → LOGIN SCREEN
         // ───────────────────────────────────────────────────────────
         return const LoginScreen();
       },
     );
   }
 
-  /// Loading screen with SYRA branding
   Widget _buildLoadingScreen() {
     return Scaffold(
       backgroundColor: SyraColors.background,
@@ -224,8 +221,7 @@ class _AuthGateState extends State<_AuthGate> {
     );
   }
 
-  /// Error screen if Firebase fails
-  Widget _buildErrorScreen(BuildContext context) {
+  Widget _buildErrorScreen() {
     return Scaffold(
       backgroundColor: SyraColors.background,
       body: SafeArea(
@@ -261,7 +257,6 @@ class _AuthGateState extends State<_AuthGate> {
                 const SizedBox(height: 24),
                 GestureDetector(
                   onTap: () {
-                    // Navigate to login to allow retry
                     Navigator.pushReplacementNamed(context, '/login');
                   },
                   child: Container(
@@ -290,4 +285,3 @@ class _AuthGateState extends State<_AuthGate> {
     );
   }
 }
-
