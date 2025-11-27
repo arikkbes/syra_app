@@ -1,4 +1,4 @@
-package com.ariksoftware.syra
+package com.example.syra
 
 import io.flutter.embedding.android.FlutterActivity
 

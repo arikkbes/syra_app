@@ -2,177 +2,48 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleDevelopmentRegion</key>
-    <string>$(DEVELOPMENT_LANGUAGE)</string>
-
-    <key>CFBundleDisplayName</key>
-    <string>SYRA</string>
-
-    <key>CFBundleExecutable</key>
-    <string>$(EXECUTABLE_NAME)</string>
-
-    <!-- 🔥 BUNDLE ID -->
-    <key>CFBundleIdentifier</key>
-    <string>com.ariksoftware.syra</string>
-
-    <key>CFBundleInfoDictionaryVersion</key>
-    <string>6.0</string>
-
-    <key>CFBundleName</key>
-    <string>syra</string>
-
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-
-    <key>CFBundleShortVersionString</key>
-    <string>$(FLUTTER_BUILD_NAME)</string>
-
-    <key>CFBundleSignature</key>
-    <string>????</string>
-
-    <key>CFBundleVersion</key>
-    <string>$(FLUTTER_BUILD_NUMBER)</string>
-
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-
-    <key>UILaunchStoryboardName</key>
-    <string>LaunchScreen</string>
-
-    <key>UIMainStoryboardFile</key>
-    <string>Main</string>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- ORIENTATION SETTINGS -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-
-    <key>UISupportedInterfaceOrientations~ipad</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationPortraitUpsideDown</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- PERFORMANCE & MODERN iOS -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <key>CADisableMinimumFrameDurationOnPhone</key>
-    <true/>
-
-    <key>UIApplicationSupportsIndirectInputEvents</key>
-    <true/>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🔐 PRIVACY STRINGS (iOS 14+) -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- Apple requires these for App Store submission -->
-    
-    <!-- App Tracking Transparency (iOS 14.5+) -->
-    <key>NSUserTrackingUsageDescription</key>
-    <string>SYRA deneyimini kişiselleştirmek ve size özel öneriler sunabilmek için kullanılır.</string>
-
-    <!-- Camera (if you add photo features later) -->
-    <key>NSCameraUsageDescription</key>
-    <string>Profil fotoğrafı eklemek için kamera erişimi gerekiyor.</string>
-
-    <!-- Photo Library (if you add photo features later) -->
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Profil fotoğrafı seçmek için galeri erişimi gerekiyor.</string>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🛒 REVENUECAT & IN-APP PURCHASE (SKAdNetwork) -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- Required for attribution and analytics -->
-    
-    <key>SKAdNetworkItems</key>
-    <array>
-        <!-- RevenueCat -->
-        <dict>
-            <key>SKAdNetworkIdentifier</key>
-            <string>v9wttpbfk9.skadnetwork</string>
-        </dict>
-        <!-- Apple Search Ads -->
-        <dict>
-            <key>SKAdNetworkIdentifier</key>
-            <string>yclnxrl5pm.skadnetwork</string>
-        </dict>
-        <!-- Google Ads -->
-        <dict>
-            <key>SKAdNetworkIdentifier</key>
-            <string>cstr6suwn9.skadnetwork</string>
-        </dict>
-    </array>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🌐 NETWORK & INTERNET -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <!-- Allow cleartext HTTP (Only for development - Remove in production!) -->
-    <!-- PRODUCTION'DA BU KISMI KALDIR -->
-    <!--
-    <key>NSAppTransportSecurity</key>
-    <dict>
-        <key>NSAllowsArbitraryLoads</key>
-        <false/>
-    </dict>
-    -->
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 📱 DEVICE CAPABILITIES -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <key>UIRequiredDeviceCapabilities</key>
-    <array>
-        <string>arm64</string>
-    </array>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🎨 STATUS BAR & UI -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <!-- Status bar style -->
-    <key>UIStatusBarStyle</key>
-    <string>UIStatusBarStyleLightContent</string>
-    
-    <key>UIViewControllerBasedStatusBarAppearance</key>
-    <false/>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🔒 APP SECURITY -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <!-- Prevent backup to iCloud (Optional - for sensitive data) -->
-    <!-- Eğer hassas veri varsa aç -->
-    <!--
-    <key>NSSupportsLiveActivities</key>
-    <false/>
-    -->
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 🌍 LOCALIZATION -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <key>CFBundleLocalizations</key>
-    <array>
-        <string>tr</string>
-        <string>en</string>
-    </array>
-
-    <!-- ════════════════════════════════════════════════════════════ -->
-    <!-- 📋 APP CATEGORIES (App Store) -->
-    <!-- ════════════════════════════════════════════════════════════ -->
-    
-    <key>LSApplicationCategoryType</key>
-    <string>public.app-category.lifestyle</string>
-
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Syra</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>syra</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(FLUTTER_BUILD_NAME)</string>
+	<key>CFBundleSignature</key>
+	<string>????</string>
+	<key>CFBundleVersion</key>
+	<string>$(FLUTTER_BUILD_NUMBER)</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UIMainStoryboardFile</key>
+	<string>Main</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>CADisableMinimumFrameDurationOnPhone</key>
+	<true/>
+	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
 </dict>
 </plist>
