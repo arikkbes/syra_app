@@ -4,7 +4,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
-import 'services/purchase_service.dart';
+// TEMPORARILY DISABLED - TESTING CRASH FIX
+// import 'services/purchase_service.dart';
 import 'utils/syra_prefs.dart';
 
 // Theme
@@ -19,39 +20,25 @@ import 'screens/premium_management_screen.dart';
 import 'screens/settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA MAIN - CRASH-PROOF VERSION
+/// SYRA MAIN - ULTRA CRASH-PROOF VERSION v1.0.1 Build 23
 /// ═══════════════════════════════════════════════════════════════
-/// CRITICAL: Do NOT initialize ANYTHING except Firebase in main()
-/// iOS crashes if SharedPreferences or RevenueCat init before first frame
+/// RevenueCat TEMPORARILY DISABLED for crash testing
+/// Once stable, we will re-enable with proper delays
 /// ═══════════════════════════════════════════════════════════════
 
 Future<void> main() async {
-  // ═══════════════════════════════════════════════════════════════
-  // STEP 1: Flutter bindings ONLY
-  // ═══════════════════════════════════════════════════════════════
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ═══════════════════════════════════════════════════════════════
-  // STEP 2: Firebase ONLY (required for auth)
-  // ═══════════════════════════════════════════════════════════════
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('✅ Firebase initialized');
+    debugPrint('✅ [SYRA] Firebase initialized');
   } catch (e) {
-    debugPrint('⚠️ Firebase error: $e');
+    debugPrint('⚠️ [SYRA] Firebase error: $e');
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // STEP 3: Launch app immediately
-  // ═══════════════════════════════════════════════════════════════
-  // DO NOT INITIALIZE:
-  // ❌ SharedPreferences
-  // ❌ RevenueCat
-  // ❌ Any plugin that touches native code
-  //
-  // These will be initialized AFTER first frame in AuthGate
+  debugPrint('🚀 [SYRA] Launching app - Build 23');
   runApp(const SyraApp());
 }
 
@@ -77,9 +64,6 @@ class SyraApp extends StatelessWidget {
   }
 }
 
-/// ═══════════════════════════════════════════════════════════════
-/// AUTH GATE - CRASH-PROOF INITIALIZATION
-/// ═══════════════════════════════════════════════════════════════
 class _AuthGate extends StatefulWidget {
   const _AuthGate();
 
@@ -93,49 +77,50 @@ class _AuthGateState extends State<_AuthGate> {
   @override
   void initState() {
     super.initState();
-    // DO NOT call _initializeServices() here!
-    // It will be called after first frame
+    debugPrint('🔧 [SYRA] AuthGate initState');
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Initialize services AFTER first frame is built
+    debugPrint('🔧 [SYRA] AuthGate didChangeDependencies');
     if (!_servicesInitialized) {
       _initializeServices();
     }
   }
 
-  /// Initialize plugins AFTER first frame is rendered
-  /// This is the ONLY safe way to init SharedPreferences on iOS
+  /// ULTRA AGGRESSIVE DELAY - 5 seconds total
   Future<void> _initializeServices() async {
     if (_servicesInitialized) return;
 
-    // Wait for frame to be rendered
-    await Future.delayed(const Duration(milliseconds: 100));
+    debugPrint('⏳ [SYRA] Starting service initialization...');
 
+    // STEP 1: Wait for UI to be fully ready
+    await Future.delayed(const Duration(seconds: 2));
+    debugPrint('⏳ [SYRA] 2 seconds passed...');
+
+    // STEP 2: Initialize SharedPreferences
     try {
-      // Initialize SharedPreferences
       await SyraPrefs.initialize();
-      debugPrint('✅ SyraPrefs initialized');
+      debugPrint('✅ [SYRA] SyraPrefs initialized');
     } catch (e) {
-      debugPrint('⚠️ SyraPrefs error: $e');
+      debugPrint('⚠️ [SYRA] SyraPrefs error: $e');
     }
 
-    // ═══════════════════════════════════════════════════════════════
-    // REVENUECAT DELAYED INIT - Extra 2 second delay for iOS stability
-    // ═══════════════════════════════════════════════════════════════
-    Future.delayed(const Duration(seconds: 2), () async {
-      try {
-        await PurchaseService.initialize();
-        debugPrint('✅ RevenueCat initialized (delayed)');
-      } catch (e) {
-        debugPrint('⚠️ RevenueCat error: $e');
-      }
-    });
+    // STEP 3: RevenueCat DISABLED for testing
+    debugPrint('⚠️ [SYRA] RevenueCat DISABLED - Testing crash fix');
+    // Future.delayed(const Duration(seconds: 3), () async {
+    //   try {
+    //     await PurchaseService.initialize();
+    //     debugPrint('✅ [SYRA] RevenueCat initialized');
+    //   } catch (e) {
+    //     debugPrint('⚠️ [SYRA] RevenueCat error: $e');
+    //   }
+    // });
 
     if (mounted) {
       setState(() => _servicesInitialized = true);
+      debugPrint('✅ [SYRA] Services initialization complete');
     }
   }
 
@@ -144,31 +129,23 @@ class _AuthGateState extends State<_AuthGate> {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // ───────────────────────────────────────────────────────────
-        // LOADING STATE
-        // ───────────────────────────────────────────────────────────
         if (snapshot.connectionState == ConnectionState.waiting ||
             !_servicesInitialized) {
+          debugPrint('⏳ [SYRA] Loading state...');
           return _buildLoadingScreen();
         }
 
-        // ───────────────────────────────────────────────────────────
-        // ERROR STATE
-        // ───────────────────────────────────────────────────────────
         if (snapshot.hasError) {
+          debugPrint('❌ [SYRA] Auth error: ${snapshot.error}');
           return _buildErrorScreen();
         }
 
-        // ───────────────────────────────────────────────────────────
-        // LOGGED IN → CHAT SCREEN
-        // ───────────────────────────────────────────────────────────
         if (snapshot.hasData && snapshot.data != null) {
+          debugPrint('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
           return const ChatScreen();
         }
 
-        // ───────────────────────────────────────────────────────────
-        // NOT LOGGED IN → LOGIN SCREEN
-        // ───────────────────────────────────────────────────────────
+        debugPrint('ℹ️ [SYRA] No user, showing login');
         return const LoginScreen();
       },
     );
@@ -178,48 +155,69 @@ class _AuthGateState extends State<_AuthGate> {
     return Scaffold(
       backgroundColor: SyraColors.background,
       body: Center(
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: const SweepGradient(
-              colors: [
-                SyraColors.neonPink,
-                SyraColors.neonViolet,
-                SyraColors.neonCyan,
-                SyraColors.neonPink,
-              ],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: SyraColors.neonPink.withValues(alpha: 0.3),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-            ],
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(3),
-            child: Container(
-              decoration: const BoxDecoration(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: SyraColors.background,
+                gradient: const SweepGradient(
+                  colors: [
+                    SyraColors.neonPink,
+                    SyraColors.neonViolet,
+                    SyraColors.neonCyan,
+                    SyraColors.neonPink,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: SyraColors.neonPink.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
               ),
-              child: const Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      SyraColors.textPrimary,
+              child: Padding(
+                padding: const EdgeInsets.all(3),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: SyraColors.background,
+                  ),
+                  child: const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          SyraColors.textPrimary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
-          ),
+            const SizedBox(height: 24),
+            Text(
+              'SYRA Başlatılıyor...',
+              style: TextStyle(
+                color: SyraColors.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Build 23 - Crash Fix Test',
+              style: TextStyle(
+                color: SyraColors.textMuted,
+                fontSize: 12,
+              ),
+            ),
+          ],
         ),
       ),
     );
