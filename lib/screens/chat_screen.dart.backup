@@ -1,10 +1,11 @@
+import 'dart:convert';
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/syra_orb.dart';
@@ -94,13 +95,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Future<void> _initUser() async {
     try {
-      final status = await ChatService.getUserStatus();
+      final status = await FirestoreUser.getMessageStatus();
+
+      // Safe type casting with defaults
+      final bool isPremium = status["isPremium"] == true;
+
+      int limit = 10;
+      if (status["limit"] is int) {
+        limit = status["limit"];
+      } else if (status["limit"] is num) {
+        limit = (status["limit"] as num).toInt();
+      }
+
+      int count = 0;
+      if (status["count"] is int) {
+        count = status["count"];
+      } else if (status["count"] is num) {
+        count = (status["count"] as num).toInt();
+      }
 
       if (!mounted) return;
       setState(() {
-        _isPremium = status['isPremium'] as bool;
-        _dailyLimit = status['limit'] as int;
-        _messageCount = status['count'] as int;
+        _isPremium = isPremium;
+        _dailyLimit = limit <= 0 ? 10 : limit;
+        _messageCount = count.clamp(0, _dailyLimit);
       });
     } catch (e) {
       debugPrint("initUser error: $e");
@@ -247,17 +265,32 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
-        final status = await ChatService.getUserStatus();
+        final status = await FirestoreUser.getMessageStatus();
+        final bool isPremium = status["isPremium"] == true;
+
+        int limit = 10;
+        if (status["limit"] is int) {
+          limit = status["limit"];
+        } else if (status["limit"] is num) {
+          limit = (status["limit"] as num).toInt();
+        }
+
+        int count = 0;
+        if (status["count"] is int) {
+          count = status["count"];
+        } else if (status["count"] is num) {
+          count = (status["count"] as num).toInt();
+        }
 
         if (mounted) {
           setState(() {
-            _isPremium = status['isPremium'] as bool;
-            _dailyLimit = status['limit'] as int;
-            _messageCount = status['count'] as int;
+            _isPremium = isPremium;
+            _dailyLimit = limit <= 0 ? 10 : limit;
+            _messageCount = count.clamp(0, _dailyLimit);
           });
         }
       } catch (e) {
-        debugPrint("getUserStatus error: $e");
+        debugPrint("getMessageStatus error: $e");
       }
     }
 
@@ -315,24 +348,57 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
-        await ChatService.incrementMessageCount();
+        await FirestoreUser.incrementMessageCount();
       } catch (e) {
         debugPrint("incrementMessageCount ERROR: $e");
       }
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // SEND TO AI SERVICE
+    // SEND TO BACKEND
     // ═══════════════════════════════════════════════════════════════
     try {
-      final botText = await ChatService.sendMessage(
-        userMessage: text,
-        conversationHistory: _messages,
-        replyingTo: _replyingTo,
+      final res = await http.post(
+        Uri.parse(
+          "https://us-central1-flortiq-v2.cloudfunctions.net/flortIQChat",
+        ),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "message": text,
+          "replyTo": replyBackup,
+          "uid": uid,
+        }),
       );
 
-      // Detect manipulation patterns
-      final flags = ChatService.detectManipulation(botText);
+      if (res.statusCode != 200) {
+        debugPrint("Backend ERROR ${res.statusCode}: ${res.body}");
+        if (mounted) {
+          BlurToast.show(context, "Şu an cevap veremiyorum kanka.");
+        }
+        setState(() {
+          _isTyping = false;
+          _isLoading = false;
+        });
+        return;
+      }
+
+      final data = jsonDecode(res.body);
+      final botText = data["reply"] ?? "Şu an cevap üretemedim kanka.";
+
+      // Extract flags safely
+      final traits = data["extractedTraits"];
+      bool hasRed = false;
+      bool hasGreen = false;
+
+      if (traits is Map && traits["flags"] is Map) {
+        final flags = traits["flags"];
+        if (flags["red"] is List && (flags["red"] as List).isNotEmpty) {
+          hasRed = true;
+        }
+        if (flags["green"] is List && (flags["green"] as List).isNotEmpty) {
+          hasGreen = true;
+        }
+      }
 
       setState(() {
         _messages.add({
@@ -341,8 +407,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           "text": botText,
           "replyTo": null,
           "time": DateTime.now(),
-          "hasRed": flags['hasRed'] ?? false,
-          "hasGreen": flags['hasGreen'] ?? false,
+          "hasRed": hasRed,
+          "hasGreen": hasGreen,
         });
 
         _isTyping = false;
