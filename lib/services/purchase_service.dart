@@ -1,182 +1,128 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
-
+import 'package:purchases_flutter/purchases_flutter.dart';
 import 'firestore_user.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PURCHASE SERVICE v1.0.2 - CRASH-PROOF STABLE RELEASE
+/// REVENUECAT PURCHASE SERVICE v2.0
 /// ═══════════════════════════════════════════════════════════════
-/// Ultra-safe IAP handling with:
-/// - NULL-safe product loading
-/// - NO SIGSEGV / NO EXC_BAD_ACCESS
-/// - Timeout-safe async flows
-/// - Safe completion for all purchase scenarios
+/// Production-ready RevenueCat integration for SYRA
+/// Product: com.ariksoftware.syra.premium_monthly
 /// ═══════════════════════════════════════════════════════════════
 
 class PurchaseService {
-  static const String premiumProductId = "flortiq_premium";
+  static const String _revenueCatApiKeyIOS = "appl_hMJcdDsttoFBDubneOgHjcfOUgx";
+  static const String _revenueCatApiKeyAndroid =
+      "goog_hnrifbAxGYJhdLqHnGHyhHHTArG";
 
-  static InAppPurchase? _iapInstance;
-  static StreamSubscription<List<PurchaseDetails>>? _activeSubscription;
-  static bool _isPurchasing = false;
+  static const String entitlementIdentifier = "premium";
+  static const String productId = "com.ariksoftware.syra.premium_monthly";
+
   static bool _isInitialized = false;
+  static bool _isPurchasing = false;
 
-  /// Initialize IAP early to prevent launch crashes
+  /// Initialize RevenueCat SDK
   /// Call this in main() before runApp()
-  /// NEVER crashes - returns false on any error
   static Future<bool> initialize() async {
     if (_isInitialized) {
-      debugPrint("✅ IAP already initialized");
+      debugPrint("✅ RevenueCat already initialized");
       return true;
     }
 
     try {
-      // Platform check
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        debugPrint("⚠️ IAP not supported on this platform");
-        _isInitialized = true; // Mark as init to prevent retries
+      late PurchasesConfiguration configuration;
+
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        configuration = PurchasesConfiguration(_revenueCatApiKeyIOS);
+      } else if (defaultTargetPlatform == TargetPlatform.android) {
+        configuration = PurchasesConfiguration(_revenueCatApiKeyAndroid);
+      } else {
+        debugPrint("⚠️ RevenueCat not supported on this platform");
+        _isInitialized = true;
         return false;
       }
 
-      // Get IAP instance safely
-      final iap = _iap;
-      if (iap == null) {
-        debugPrint("❌ IAP instance unavailable during init");
-        return false;
-      }
+      await Purchases.configure(configuration);
 
-      // Start listening to purchase stream EARLY
-      // This prevents iOS crash when StoreKit observer fires before we're ready
-      try {
-        _activeSubscription = iap.purchaseStream.listen(
-          (purchases) {
-            // Handle any pending purchases from previous sessions
-            for (final purchase in purchases) {
-              if (purchase.pendingCompletePurchase) {
-                try {
-                  iap.completePurchase(purchase).timeout(
-                    const Duration(seconds: 30),
-                    onTimeout: () => debugPrint("⏱️ Pending purchase timeout"),
-                  );
-                  debugPrint("✅ Completed pending purchase: ${purchase.productID}");
-                } catch (e) {
-                  debugPrint("⚠️ Error completing pending: $e");
-                }
-              }
-            }
-          },
-          onError: (error) {
-            debugPrint("⚠️ Purchase stream error: $error");
-          },
-          cancelOnError: false,
-        );
-        
-        debugPrint("✅ IAP purchase stream initialized");
-      } catch (e) {
-        debugPrint("⚠️ IAP stream setup failed: $e");
-        // Continue - not critical for initialization
+      // Set debug logs in debug mode only
+      if (kDebugMode) {
+        await Purchases.setLogLevel(LogLevel.debug);
       }
 
       _isInitialized = true;
-      debugPrint("✅ IAP initialization complete");
+      debugPrint("✅ RevenueCat initialized successfully");
       return true;
-      
     } catch (e, stackTrace) {
-      debugPrint("❌ IAP init error: $e");
+      debugPrint("❌ RevenueCat init error: $e");
       debugPrint("Stack: $stackTrace");
-      _isInitialized = true; // Mark to prevent infinite retries
+      _isInitialized = true; // Prevent retries
       return false;
     }
   }
 
-  /// Safely get IAP instance
-  static InAppPurchase? get _iap {
+  /// Check if user has premium entitlement
+  static Future<bool> hasPremium() async {
     try {
-      _iapInstance ??= InAppPurchase.instance;
-      return _iapInstance;
+      final customerInfo = await Purchases.getCustomerInfo();
+      final hasEntitlement =
+          customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
+              false;
+      debugPrint("Premium status: $hasEntitlement");
+      return hasEntitlement;
     } catch (e) {
-      debugPrint("❌ IAP instance creation failed: $e");
-      return null;
+      debugPrint("❌ Error checking premium: $e");
+      return false;
     }
   }
 
-  /// Safely load premium product
-  static Future<ProductDetails?> _loadPremiumProduct() async {
+  /// Get available products
+  static Future<List<StoreProduct>> getProducts() async {
     try {
-      if (!Platform.isAndroid && !Platform.isIOS) {
-        debugPrint("⚠️ IAP unsupported platform");
-        return null;
+      final offerings = await Purchases.getOfferings();
+
+      if (offerings.current == null) {
+        debugPrint("⚠️ No current offering found");
+        return [];
       }
 
-      final iap = _iap;
-      if (iap == null) {
-        debugPrint("❌ IAP instance null");
-        return null;
+      final packages = offerings.current!.availablePackages;
+      if (packages.isEmpty) {
+        debugPrint("⚠️ No packages available");
+        return [];
       }
 
-      final available = await iap.isAvailable().timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          debugPrint("⏱️ Store availability timeout");
-          return false;
-        },
-      );
+      // Return all available products
+      final products = packages.map((package) => package.storeProduct).toList();
+      debugPrint("✅ Found ${products.length} product(s)");
+      return products;
+    } catch (e) {
+      debugPrint("❌ Error loading products: $e");
+      return [];
+    }
+  }
 
-      if (!available) {
-        debugPrint("⚠️ Store not available");
-        return null;
+  /// Get single premium product
+  static Future<StoreProduct?> getPremiumProduct() async {
+    try {
+      final products = await getProducts();
+      if (products.isEmpty) return null;
+
+      // Try to find the specific product ID first
+      final specificProduct =
+          products.where((p) => p.identifier == productId).firstOrNull;
+      if (specificProduct != null) {
+        return specificProduct;
       }
 
-      ProductDetailsResponse response;
-      try {
-        response = await iap.queryProductDetails({premiumProductId}).timeout(
-          const Duration(seconds: 15),
-          onTimeout: () {
-            return ProductDetailsResponse(
-              productDetails: [],
-              notFoundIDs: [premiumProductId],
-            );
-          },
-        );
-      } catch (e) {
-        debugPrint("❌ Product query exception: $e");
-        return null;
-      }
-
-      if (response.error != null) {
-        debugPrint("❌ Product query error: ${response.error}");
-        return null;
-      }
-
-      if (response.notFoundIDs.isNotEmpty) {
-        debugPrint("⚠️ Product not found: ${response.notFoundIDs}");
-        return null;
-      }
-
-      if (response.productDetails.isEmpty) {
-        debugPrint("⚠️ Empty product list");
-        return null;
-      }
-
-      final product = response.productDetails.first;
-
-      if (product.id != premiumProductId) {
-        debugPrint("⚠️ Wrong product ID returned");
-        return null;
-      }
-
-      debugPrint("✅ Product loaded: ${product.title}");
-      return product;
-    } catch (e, st) {
-      debugPrint("❌ _loadPremiumProduct fatal error: $e");
-      debugPrint("$st");
+      // Otherwise return the first product
+      return products.first;
+    } catch (e) {
+      debugPrint("❌ Error getting premium product: $e");
       return null;
     }
   }
 
-  /// Main purchase function
+  /// Purchase premium subscription
   static Future<bool> buyPremium() async {
     if (_isPurchasing) {
       debugPrint("⚠️ Purchase already in progress");
@@ -186,120 +132,54 @@ class PurchaseService {
     try {
       _isPurchasing = true;
 
-      if (!Platform.isAndroid && !Platform.isIOS) return false;
+      // Get offerings
+      final offerings = await Purchases.getOfferings();
 
-      final iap = _iap;
-      if (iap == null) return false;
-
-      final product = await _loadPremiumProduct();
-      if (product == null) {
-        debugPrint("❌ Product unavailable");
+      if (offerings.current == null ||
+          offerings.current!.availablePackages.isEmpty) {
+        debugPrint("❌ No offerings available");
         return false;
       }
 
-      late PurchaseParam purchaseParam;
-      try {
-        purchaseParam = PurchaseParam(productDetails: product);
-      } catch (e) {
-        debugPrint("❌ PurchaseParam error: $e");
+      // Get the package (first available)
+      final package = offerings.current!.availablePackages.first;
+
+      debugPrint("🛒 Purchasing: ${package.storeProduct.identifier}");
+
+      // Make the purchase
+      final customerInfo = await Purchases.purchasePackage(package);
+
+      // Check if purchase was successful
+      final hasEntitlement =
+          customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
+              false;
+
+      if (hasEntitlement) {
+        debugPrint("✅ Purchase successful!");
+
+        // Upgrade user in Firestore
+        try {
+          await FirestoreUser.upgradeToPremium();
+          debugPrint("✅ Firestore premium upgrade complete");
+        } catch (e) {
+          debugPrint("⚠️ Firestore upgrade error: $e");
+          // Don't fail the purchase if Firestore fails
+        }
+
+        return true;
+      } else {
+        debugPrint("⚠️ Purchase completed but entitlement not active");
         return false;
       }
-
-      final completer = Completer<bool>();
-
-      StreamSubscription<List<PurchaseDetails>>? subscription;
-      try {
-        subscription = iap.purchaseStream.listen(
-          (purchases) async {
-            try {
-              if (purchases.isEmpty) return;
-
-              for (final purchase in purchases) {
-                if (purchase.productID != premiumProductId) continue;
-
-                switch (purchase.status) {
-                  case PurchaseStatus.purchased:
-                  case PurchaseStatus.restored:
-                    try {
-                      if (purchase.pendingCompletePurchase) {
-                        await iap.completePurchase(purchase).timeout(
-                          const Duration(seconds: 30),
-                          onTimeout: () {
-                            debugPrint("⏱️ completePurchase timeout");
-                          },
-                        );
-                      }
-
-                      await FirestoreUser.upgradeToPremium().timeout(
-                        const Duration(seconds: 30),
-                        onTimeout: () {
-                          debugPrint("⏱️ Firestore premium upgrade timeout");
-                        },
-                      );
-
-                      if (!completer.isCompleted) completer.complete(true);
-                    } catch (e) {
-                      debugPrint("❌ Purchase completion error: $e");
-                      if (!completer.isCompleted) completer.complete(true);
-                    }
-                    break;
-
-                  case PurchaseStatus.error:
-                    if (!completer.isCompleted) completer.complete(false);
-                    break;
-
-                  case PurchaseStatus.canceled:
-                    if (!completer.isCompleted) completer.complete(false);
-                    break;
-
-                  default:
-                    break;
-                }
-              }
-            } catch (e) {
-              debugPrint("❌ Purchase stream error: $e");
-              if (!completer.isCompleted) completer.complete(false);
-            }
-          },
-          onError: (err) {
-            debugPrint("❌ purchaseStream err: $err");
-            if (!completer.isCompleted) completer.complete(false);
-          },
-        );
-
-        _activeSubscription = subscription;
-      } catch (e) {
-        debugPrint("❌ Stream subscription failure: $e");
-        return false;
+    } on PurchasesErrorCode catch (e) {
+      if (e == PurchasesErrorCode.purchaseCancelledError) {
+        debugPrint("ℹ️ User cancelled purchase");
+      } else {
+        debugPrint("❌ Purchase error: ${e.name}");
       }
-
-      // Initiate purchase
-      try {
-        await iap.buyNonConsumable(purchaseParam: purchaseParam).timeout(
-          const Duration(seconds: 5),
-          onTimeout: () {
-            debugPrint("⏱️ purchase initiation timeout");
-            return false;
-          },
-        );
-      } catch (e) {
-        debugPrint("❌ buyNonConsumable error: $e");
-        if (!completer.isCompleted) completer.complete(false);
-      }
-
-      final result = await completer.future.timeout(
-        const Duration(seconds: 90),
-        onTimeout: () {
-          debugPrint("⏱️ purchase confirmation timeout");
-          return false;
-        },
-      );
-
-      await _safelyCancelSubscription(subscription);
-      return result;
-    } catch (e, st) {
-      debugPrint("❌ buyPremium fatal: $e");
-      debugPrint("$st");
+      return false;
+    } catch (e) {
+      debugPrint("❌ Purchase failed: $e");
       return false;
     } finally {
       _isPurchasing = false;
@@ -309,73 +189,71 @@ class PurchaseService {
   /// Restore previous purchases
   static Future<bool> restorePurchases() async {
     try {
-      if (!Platform.isAndroid && !Platform.isIOS) return false;
+      debugPrint("🔄 Restoring purchases...");
 
-      final iap = _iap;
-      if (iap == null) return false;
+      final customerInfo = await Purchases.restorePurchases();
 
-      final available = await iap.isAvailable().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => false,
-          );
+      final hasEntitlement =
+          customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
+              false;
 
-      if (!available) return false;
+      if (hasEntitlement) {
+        debugPrint("✅ Purchases restored successfully");
 
-      await iap.restorePurchases().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint("⏱️ Restore timeout");
-          return false;
-        },
-      );
+        // Update Firestore
+        try {
+          await FirestoreUser.upgradeToPremium();
+          debugPrint("✅ Firestore updated after restore");
+        } catch (e) {
+          debugPrint("⚠️ Firestore update error: $e");
+        }
 
-      return true;
-    } catch (e, st) {
-      debugPrint("❌ restore fatal: $e");
-      debugPrint("$st");
+        return true;
+      } else {
+        debugPrint("ℹ️ No active purchases to restore");
+        return false;
+      }
+    } catch (e) {
+      debugPrint("❌ Restore failed: $e");
       return false;
     }
   }
 
-  static Future<ProductDetails?> getPremiumProduct() async {
-    return _loadPremiumProduct();
-  }
-
-  static Future<List<ProductDetails>> getProducts() async {
-    try {
-      final prod = await getPremiumProduct();
-      return prod == null ? [] : [prod];
-    } catch (e) {
-      debugPrint("❌ getProducts error: $e");
-      return [];
-    }
-  }
-
+  /// Check if store is available
   static Future<bool> isStoreAvailable() async {
     try {
-      final iap = _iap;
-      if (iap == null) return false;
-
-      return await iap.isAvailable().timeout(
-            const Duration(seconds: 10),
-            onTimeout: () => false,
-          );
+      await Purchases.getOfferings();
+      return true;
     } catch (e) {
+      debugPrint("❌ Store unavailable: $e");
       return false;
     }
   }
 
-  static Future<void> _safelyCancelSubscription(
-      StreamSubscription<List<PurchaseDetails>>? subscription) async {
+  /// Identify user with RevenueCat (optional - call after login)
+  static Future<void> identifyUser(String userId) async {
     try {
-      await subscription?.cancel();
-      if (_activeSubscription == subscription) _activeSubscription = null;
-    } catch (_) {}
+      await Purchases.logIn(userId);
+      debugPrint("✅ User identified: $userId");
+    } catch (e) {
+      debugPrint("⚠️ User identification error: $e");
+    }
   }
 
+  /// Logout from RevenueCat
+  static Future<void> logout() async {
+    try {
+      await Purchases.logOut();
+      debugPrint("✅ User logged out from RevenueCat");
+    } catch (e) {
+      debugPrint("⚠️ Logout error: $e");
+    }
+  }
+
+  /// Dispose (cleanup)
   static Future<void> dispose() async {
-    await _safelyCancelSubscription(_activeSubscription);
     _isPurchasing = false;
-    _iapInstance = null;
+    _isInitialized = false;
+    debugPrint("✅ PurchaseService disposed");
   }
 }

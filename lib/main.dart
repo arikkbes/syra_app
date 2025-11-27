@@ -27,15 +27,15 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ═══════════════════════════════════════════════════════════════
-  // IAP INITIALIZATION - CRITICAL FOR iOS LAUNCH STABILITY
-  // Initialize IAP BEFORE anything else to prevent StoreKit crash
-  // This MUST happen early to set up purchase stream observer
+  // REVENUECAT INITIALIZATION - CRITICAL FOR iOS LAUNCH STABILITY
+  // Initialize RevenueCat BEFORE anything else to set up SDK
+  // This prevents StoreKit crashes and ensures proper subscription handling
   // ═══════════════════════════════════════════════════════════════
   try {
     await PurchaseService.initialize();
-    debugPrint('✅ IAP initialized successfully');
+    debugPrint('✅ RevenueCat initialized successfully');
   } catch (e) {
-    debugPrint('⚠️ IAP init error (non-fatal): $e');
+    debugPrint('⚠️ RevenueCat init error (non-fatal): $e');
     // Continue - app will work without IAP
   }
 

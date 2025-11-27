@@ -20,6 +20,26 @@ class PremiumScreen extends StatefulWidget {
 
 class _PremiumScreenState extends State<PremiumScreen> {
   bool _isLoading = false;
+  String? _priceText;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrice();
+  }
+
+  Future<void> _loadPrice() async {
+    try {
+      final product = await PurchaseService.getPremiumProduct();
+      if (product != null && mounted) {
+        setState(() {
+          _priceText = product.priceString;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading price: $e');
+    }
+  }
 
   Future<void> _handlePurchase() async {
     setState(() => _isLoading = true);
@@ -343,9 +363,11 @@ class _PremiumScreenState extends State<PremiumScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
-              : const Text(
-                  "Premium'a Yükselt",
-                  style: TextStyle(
+              : Text(
+                  _priceText != null 
+                    ? "Premium'a Yükselt - $_priceText/ay"
+                    : "Premium'a Yükselt",
+                  style: const TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
