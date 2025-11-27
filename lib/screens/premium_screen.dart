@@ -6,9 +6,10 @@ import '../widgets/glass_background.dart';
 import '../services/purchase_service.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM SCREEN v1.0
+/// PREMIUM SCREEN v2.0 - LAZY INITIALIZATION
 /// ═══════════════════════════════════════════════════════════════
 /// Shows premium benefits and allows purchase.
+/// RevenueCat is initialized ONLY when user taps "Go Premium"
 /// ═══════════════════════════════════════════════════════════════
 
 class PremiumScreen extends StatefulWidget {
@@ -20,58 +21,213 @@ class PremiumScreen extends StatefulWidget {
 
 class _PremiumScreenState extends State<PremiumScreen> {
   bool _isLoading = false;
+  bool _isLoadingPrice = false;
   String? _priceText;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _loadPrice();
+    // Do NOT initialize RevenueCat here!
+    // We'll initialize it when user taps "Go Premium"
+    debugPrint("💎 [PremiumScreen] Opened");
   }
 
+  /// ═══════════════════════════════════════════════════════════════
+  /// LOAD PRICE - Initialize RevenueCat first, then load price
+  /// ═══════════════════════════════════════════════════════════════
   Future<void> _loadPrice() async {
+    if (_isLoadingPrice) return;
+
+    setState(() {
+      _isLoadingPrice = true;
+      _errorMessage = null;
+    });
+
     try {
+      debugPrint("💰 [PremiumScreen] Loading price...");
+
+      // Initialize RevenueCat first
+      final initialized = await PurchaseService.ensureInitialized();
+      if (!initialized) {
+        throw Exception("RevenueCat başlatılamadı");
+      }
+
+      // Now load the price
       final product = await PurchaseService.getPremiumProduct();
       if (product != null && mounted) {
         setState(() {
           _priceText = product.priceString;
+          _isLoadingPrice = false;
         });
+        debugPrint("✅ [PremiumScreen] Price loaded: $_priceText");
+      } else {
+        throw Exception("Ürün bilgisi alınamadı");
       }
     } catch (e) {
-      debugPrint('Error loading price: $e');
+      debugPrint("❌ [PremiumScreen] Price load error: $e");
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoadingPrice = false;
+        });
+      }
     }
   }
 
+  /// ═══════════════════════════════════════════════════════════════
+  /// HANDLE PURCHASE - Initialize RevenueCat, then purchase
+  /// ═══════════════════════════════════════════════════════════════
   Future<void> _handlePurchase() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
+      debugPrint("🛒 [PremiumScreen] Starting purchase flow...");
+
+      // STEP 1: Initialize RevenueCat (if not already)
+      final initialized = await PurchaseService.ensureInitialized();
+      if (!initialized) {
+        throw Exception("Ödeme sistemi başlatılamadı. Lütfen tekrar dene.");
+      }
+
+      // STEP 2: Make the purchase
       final success = await PurchaseService.buyPremium();
 
       if (!mounted) return;
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Premium aktif edildi 🎉'),
-            backgroundColor: SyraColors.surface,
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Premium aktif edildi 🎉'),
+              ],
+            ),
+            backgroundColor: SyraColors.neonCyan,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
-        Navigator.pop(context);
+        Navigator.pop(context, true); // Return true to indicate success
+      } else {
+        throw Exception("Satın alma tamamlanamadı");
+      }
+    } catch (e) {
+      debugPrint("❌ [PremiumScreen] Purchase error: $e");
+      if (!mounted) return;
+
+      String errorMsg = e.toString();
+      if (errorMsg.contains("cancelled") || errorMsg.contains("canceled")) {
+        errorMsg = "Satın alma iptal edildi";
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text(errorMsg)),
+            ],
+          ),
+          backgroundColor: SyraColors.surface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// ═══════════════════════════════════════════════════════════════
+  /// HANDLE RESTORE - Initialize RevenueCat, then restore
+  /// ═══════════════════════════════════════════════════════════════
+  Future<void> _handleRestore() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      debugPrint("🔄 [PremiumScreen] Starting restore flow...");
+
+      // Initialize RevenueCat first
+      final initialized = await PurchaseService.ensureInitialized();
+      if (!initialized) {
+        throw Exception("Ödeme sistemi başlatılamadı");
+      }
+
+      // Restore purchases
+      final success = await PurchaseService.restorePurchases();
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Premium abonelik geri yüklendi 🎉'),
+              ],
+            ),
+            backgroundColor: SyraColors.neonCyan,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        );
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Satın alma tamamlanamadı.'),
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Geri yüklenecek abonelik bulunamadı'),
+              ],
+            ),
             backgroundColor: SyraColors.surface,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
     } catch (e) {
-      debugPrint('Purchase error: $e');
+      debugPrint("❌ [PremiumScreen] Restore error: $e");
       if (!mounted) return;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Hata: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Hata: ${e.toString()}')),
+            ],
+          ),
           backgroundColor: SyraColors.surface,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
       );
     } finally {
@@ -141,6 +297,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   const SizedBox(height: 32),
                   _primaryButton(),
                   const SizedBox(height: 16),
+                  _restoreButton(),
+                  const SizedBox(height: 12),
                   _secondaryButton(),
                 ],
               ),
@@ -343,15 +501,24 @@ class _PremiumScreenState extends State<PremiumScreen> {
       child: Container(
         height: 52,
         decoration: BoxDecoration(
-          gradient: SyraColors.accentGradient,
+          gradient: _isLoading
+              ? LinearGradient(
+                  colors: [
+                    SyraColors.neonPink.withValues(alpha: 0.5),
+                    SyraColors.neonCyan.withValues(alpha: 0.5),
+                  ],
+                )
+              : SyraColors.accentGradient,
           borderRadius: BorderRadius.circular(999),
-          boxShadow: [
-            BoxShadow(
-              color: SyraColors.neonPink.withValues(alpha: 0.4),
-              blurRadius: 24,
-              offset: const Offset(0, 8),
-            ),
-          ],
+          boxShadow: _isLoading
+              ? []
+              : [
+                  BoxShadow(
+                    color: SyraColors.neonPink.withValues(alpha: 0.4),
+                    blurRadius: 24,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
         ),
         child: Center(
           child: _isLoading
@@ -363,14 +530,46 @@ class _PremiumScreenState extends State<PremiumScreen> {
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                   ),
                 )
-              : Text(
-                  _priceText != null 
-                    ? "Premium'a Yükselt - $_priceText/ay"
-                    : "Premium'a Yükselt",
-                  style: const TextStyle(
+              : const Text(
+                  "Premium'a Yükselt",
+                  style: TextStyle(
                     color: Colors.white,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _restoreButton() {
+    return GestureDetector(
+      onTap: _isLoading ? null : _handleRestore,
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: SyraColors.glassBg,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: SyraColors.glassBorder),
+        ),
+        child: Center(
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor:
+                        AlwaysStoppedAnimation<Color>(SyraColors.textSecondary),
+                  ),
+                )
+              : const Text(
+                  "Satın Alımları Geri Yükle",
+                  style: TextStyle(
+                    color: SyraColors.textSecondary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
         ),
@@ -384,17 +583,16 @@ class _PremiumScreenState extends State<PremiumScreen> {
       child: Container(
         height: 48,
         decoration: BoxDecoration(
-          color: SyraColors.glassBg,
+          color: Colors.transparent,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: SyraColors.glassBorder),
         ),
         child: const Center(
           child: Text(
             "Şimdilik Geç",
             style: TextStyle(
-              color: SyraColors.textSecondary,
+              color: SyraColors.textMuted,
               fontSize: 14,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

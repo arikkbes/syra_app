@@ -4,10 +4,12 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 import 'firestore_user.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// REVENUECAT PURCHASE SERVICE v2.0
+/// REVENUECAT PURCHASE SERVICE v3.0 - LAZY INITIALIZATION
 /// ═══════════════════════════════════════════════════════════════
-/// Production-ready RevenueCat integration for SYRA
-/// Product: com.ariksoftware.syra.premium_monthly
+/// iOS 26.1+ Crash-Proof Design:
+/// - RevenueCat is NOT initialized on app startup
+/// - RevenueCat is initialized ONLY when user opens Premium screen
+/// - Safe lazy initialization with proper error handling
 /// ═══════════════════════════════════════════════════════════════
 
 class PurchaseService {
@@ -20,25 +22,49 @@ class PurchaseService {
 
   static bool _isInitialized = false;
   static bool _isPurchasing = false;
+  static bool _isInitializing = false;
 
-  /// Initialize RevenueCat SDK
-  /// Call this in main() before runApp()
-  static Future<bool> initialize() async {
+  /// ═══════════════════════════════════════════════════════════════
+  /// LAZY INITIALIZE - Call this BEFORE any RevenueCat operation
+  /// ═══════════════════════════════════════════════════════════════
+  /// This is the ONLY way to initialize RevenueCat.
+  /// Do NOT call this in main() or initState().
+  /// Call it when user taps "Go Premium" button.
+  /// ═══════════════════════════════════════════════════════════════
+  static Future<bool> ensureInitialized() async {
     if (_isInitialized) {
-      debugPrint("✅ RevenueCat already initialized");
+      debugPrint("✅ [PurchaseService] Already initialized");
       return true;
     }
 
+    if (_isInitializing) {
+      debugPrint("⏳ [PurchaseService] Initialization in progress, waiting...");
+      // Wait for ongoing initialization
+      int attempts = 0;
+      while (_isInitializing && attempts < 50) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        attempts++;
+      }
+      return _isInitialized;
+    }
+
+    _isInitializing = true;
+
     try {
+      debugPrint("🔧 [PurchaseService] Starting lazy initialization...");
+
       late PurchasesConfiguration configuration;
 
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         configuration = PurchasesConfiguration(_revenueCatApiKeyIOS);
+        debugPrint("🍎 [PurchaseService] Configuring for iOS");
       } else if (defaultTargetPlatform == TargetPlatform.android) {
         configuration = PurchasesConfiguration(_revenueCatApiKeyAndroid);
+        debugPrint("🤖 [PurchaseService] Configuring for Android");
       } else {
-        debugPrint("⚠️ RevenueCat not supported on this platform");
+        debugPrint("⚠️ [PurchaseService] Platform not supported");
         _isInitialized = true;
+        _isInitializing = false;
         return false;
       }
 
@@ -50,58 +76,75 @@ class PurchaseService {
       }
 
       _isInitialized = true;
-      debugPrint("✅ RevenueCat initialized successfully");
+      _isInitializing = false;
+      debugPrint("✅ [PurchaseService] Initialization complete!");
       return true;
     } catch (e, stackTrace) {
-      debugPrint("❌ RevenueCat init error: $e");
+      debugPrint("❌ [PurchaseService] Init error: $e");
       debugPrint("Stack: $stackTrace");
-      _isInitialized = true; // Prevent retries
+      _isInitialized = false;
+      _isInitializing = false;
       return false;
     }
   }
 
-  /// Check if user has premium entitlement
+  /// ═══════════════════════════════════════════════════════════════
+  /// CHECK PREMIUM STATUS
+  /// ═══════════════════════════════════════════════════════════════
   static Future<bool> hasPremium() async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot check premium - init failed");
+      return false;
+    }
+
     try {
       final customerInfo = await Purchases.getCustomerInfo();
       final hasEntitlement =
           customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
               false;
-      debugPrint("Premium status: $hasEntitlement");
+      debugPrint("💎 [PurchaseService] Premium status: $hasEntitlement");
       return hasEntitlement;
     } catch (e) {
-      debugPrint("❌ Error checking premium: $e");
+      debugPrint("❌ [PurchaseService] Error checking premium: $e");
       return false;
     }
   }
 
-  /// Get available products
+  /// ═══════════════════════════════════════════════════════════════
+  /// GET AVAILABLE PRODUCTS
+  /// ═══════════════════════════════════════════════════════════════
   static Future<List<StoreProduct>> getProducts() async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot get products - init failed");
+      return [];
+    }
+
     try {
       final offerings = await Purchases.getOfferings();
 
       if (offerings.current == null) {
-        debugPrint("⚠️ No current offering found");
+        debugPrint("⚠️ [PurchaseService] No current offering found");
         return [];
       }
 
       final packages = offerings.current!.availablePackages;
       if (packages.isEmpty) {
-        debugPrint("⚠️ No packages available");
+        debugPrint("⚠️ [PurchaseService] No packages available");
         return [];
       }
 
-      // Return all available products
       final products = packages.map((package) => package.storeProduct).toList();
-      debugPrint("✅ Found ${products.length} product(s)");
+      debugPrint("✅ [PurchaseService] Found ${products.length} product(s)");
       return products;
     } catch (e) {
-      debugPrint("❌ Error loading products: $e");
+      debugPrint("❌ [PurchaseService] Error loading products: $e");
       return [];
     }
   }
 
-  /// Get single premium product
+  /// ═══════════════════════════════════════════════════════════════
+  /// GET SINGLE PREMIUM PRODUCT
+  /// ═══════════════════════════════════════════════════════════════
   static Future<StoreProduct?> getPremiumProduct() async {
     try {
       final products = await getProducts();
@@ -117,15 +160,22 @@ class PurchaseService {
       // Otherwise return the first product
       return products.first;
     } catch (e) {
-      debugPrint("❌ Error getting premium product: $e");
+      debugPrint("❌ [PurchaseService] Error getting premium product: $e");
       return null;
     }
   }
 
-  /// Purchase premium subscription
+  /// ═══════════════════════════════════════════════════════════════
+  /// PURCHASE PREMIUM SUBSCRIPTION
+  /// ═══════════════════════════════════════════════════════════════
   static Future<bool> buyPremium() async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot purchase - init failed");
+      return false;
+    }
+
     if (_isPurchasing) {
-      debugPrint("⚠️ Purchase already in progress");
+      debugPrint("⚠️ [PurchaseService] Purchase already in progress");
       return false;
     }
 
@@ -137,14 +187,14 @@ class PurchaseService {
 
       if (offerings.current == null ||
           offerings.current!.availablePackages.isEmpty) {
-        debugPrint("❌ No offerings available");
+        debugPrint("❌ [PurchaseService] No offerings available");
         return false;
       }
 
       // Get the package (first available)
       final package = offerings.current!.availablePackages.first;
 
-      debugPrint("🛒 Purchasing: ${package.storeProduct.identifier}");
+      debugPrint("🛒 [PurchaseService] Purchasing: ${package.storeProduct.identifier}");
 
       // Make the purchase
       final customerInfo = await Purchases.purchasePackage(package);
@@ -155,41 +205,48 @@ class PurchaseService {
               false;
 
       if (hasEntitlement) {
-        debugPrint("✅ Purchase successful!");
+        debugPrint("✅ [PurchaseService] Purchase successful!");
 
         // Upgrade user in Firestore
         try {
           await FirestoreUser.upgradeToPremium();
-          debugPrint("✅ Firestore premium upgrade complete");
+          debugPrint("✅ [PurchaseService] Firestore premium upgrade complete");
         } catch (e) {
-          debugPrint("⚠️ Firestore upgrade error: $e");
+          debugPrint("⚠️ [PurchaseService] Firestore upgrade error: $e");
           // Don't fail the purchase if Firestore fails
         }
 
         return true;
       } else {
-        debugPrint("⚠️ Purchase completed but entitlement not active");
+        debugPrint("⚠️ [PurchaseService] Purchase completed but entitlement not active");
         return false;
       }
     } on PurchasesErrorCode catch (e) {
       if (e == PurchasesErrorCode.purchaseCancelledError) {
-        debugPrint("ℹ️ User cancelled purchase");
+        debugPrint("ℹ️ [PurchaseService] User cancelled purchase");
       } else {
-        debugPrint("❌ Purchase error: ${e.name}");
+        debugPrint("❌ [PurchaseService] Purchase error: ${e.name}");
       }
       return false;
     } catch (e) {
-      debugPrint("❌ Purchase failed: $e");
+      debugPrint("❌ [PurchaseService] Purchase failed: $e");
       return false;
     } finally {
       _isPurchasing = false;
     }
   }
 
-  /// Restore previous purchases
+  /// ═══════════════════════════════════════════════════════════════
+  /// RESTORE PREVIOUS PURCHASES
+  /// ═══════════════════════════════════════════════════════════════
   static Future<bool> restorePurchases() async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot restore - init failed");
+      return false;
+    }
+
     try {
-      debugPrint("🔄 Restoring purchases...");
+      debugPrint("🔄 [PurchaseService] Restoring purchases...");
 
       final customerInfo = await Purchases.restorePurchases();
 
@@ -198,62 +255,68 @@ class PurchaseService {
               false;
 
       if (hasEntitlement) {
-        debugPrint("✅ Purchases restored successfully");
+        debugPrint("✅ [PurchaseService] Purchases restored successfully");
 
         // Update Firestore
         try {
           await FirestoreUser.upgradeToPremium();
-          debugPrint("✅ Firestore updated after restore");
+          debugPrint("✅ [PurchaseService] Firestore updated after restore");
         } catch (e) {
-          debugPrint("⚠️ Firestore update error: $e");
+          debugPrint("⚠️ [PurchaseService] Firestore update error: $e");
         }
 
         return true;
       } else {
-        debugPrint("ℹ️ No active purchases to restore");
+        debugPrint("ℹ️ [PurchaseService] No active purchases to restore");
         return false;
       }
     } catch (e) {
-      debugPrint("❌ Restore failed: $e");
+      debugPrint("❌ [PurchaseService] Restore failed: $e");
       return false;
     }
   }
 
-  /// Check if store is available
-  static Future<bool> isStoreAvailable() async {
-    try {
-      await Purchases.getOfferings();
-      return true;
-    } catch (e) {
-      debugPrint("❌ Store unavailable: $e");
-      return false;
-    }
-  }
-
-  /// Identify user with RevenueCat (optional - call after login)
+  /// ═══════════════════════════════════════════════════════════════
+  /// IDENTIFY USER (Optional - call after login)
+  /// ═══════════════════════════════════════════════════════════════
   static Future<void> identifyUser(String userId) async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot identify user - init failed");
+      return;
+    }
+
     try {
       await Purchases.logIn(userId);
-      debugPrint("✅ User identified: $userId");
+      debugPrint("✅ [PurchaseService] User identified: $userId");
     } catch (e) {
-      debugPrint("⚠️ User identification error: $e");
+      debugPrint("⚠️ [PurchaseService] User identification error: $e");
     }
   }
 
-  /// Logout from RevenueCat
+  /// ═══════════════════════════════════════════════════════════════
+  /// LOGOUT FROM REVENUECAT
+  /// ═══════════════════════════════════════════════════════════════
   static Future<void> logout() async {
+    if (!_isInitialized) {
+      debugPrint("ℹ️ [PurchaseService] Not initialized, skipping logout");
+      return;
+    }
+
     try {
       await Purchases.logOut();
-      debugPrint("✅ User logged out from RevenueCat");
+      debugPrint("✅ [PurchaseService] User logged out from RevenueCat");
     } catch (e) {
-      debugPrint("⚠️ Logout error: $e");
+      debugPrint("⚠️ [PurchaseService] Logout error: $e");
     }
   }
 
-  /// Dispose (cleanup)
+  /// ═══════════════════════════════════════════════════════════════
+  /// DISPOSE (Cleanup)
+  /// ═══════════════════════════════════════════════════════════════
   static Future<void> dispose() async {
     _isPurchasing = false;
     _isInitialized = false;
-    debugPrint("✅ PurchaseService disposed");
+    _isInitializing = false;
+    debugPrint("✅ [PurchaseService] Disposed");
   }
 }

@@ -1,12 +1,8 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
-// TEMPORARILY DISABLED - TESTING CRASH FIX
-// import 'services/purchase_service.dart';
-import 'utils/syra_prefs.dart';
 
 // Theme
 import 'theme/syra_theme.dart';
@@ -20,10 +16,12 @@ import 'screens/premium_management_screen.dart';
 import 'screens/settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA MAIN - ULTRA CRASH-PROOF VERSION v1.0.1 Build 23
+/// SYRA MAIN - iOS 26.1+ CRASH-PROOF VERSION v1.0.1 Build 24
 /// ═══════════════════════════════════════════════════════════════
-/// RevenueCat TEMPORARILY DISABLED for crash testing
-/// Once stable, we will re-enable with proper delays
+/// ✅ NO early initialization of plugins
+/// ✅ NO SharedPreferences on startup
+/// ✅ NO RevenueCat on startup
+/// ✅ Plugins initialize ONLY when user needs them
 /// ═══════════════════════════════════════════════════════════════
 
 Future<void> main() async {
@@ -38,7 +36,7 @@ Future<void> main() async {
     debugPrint('⚠️ [SYRA] Firebase error: $e');
   }
 
-  debugPrint('🚀 [SYRA] Launching app - Build 23');
+  debugPrint('🚀 [SYRA] Launching app - Build 24 - iOS Crash Fix');
   runApp(const SyraApp());
 }
 
@@ -64,87 +62,39 @@ class SyraApp extends StatelessWidget {
   }
 }
 
-class _AuthGate extends StatefulWidget {
+/// ═══════════════════════════════════════════════════════════════
+/// AUTH GATE - Simple and Clean
+/// ═══════════════════════════════════════════════════════════════
+/// No onboarding, no welcome screen, no first launch checks.
+/// Just: Logged in? → ChatScreen, Not logged in? → LoginScreen
+/// ═══════════════════════════════════════════════════════════════
+
+class _AuthGate extends StatelessWidget {
   const _AuthGate();
-
-  @override
-  State<_AuthGate> createState() => _AuthGateState();
-}
-
-class _AuthGateState extends State<_AuthGate> {
-  bool _servicesInitialized = false;
-
-  @override
-  void initState() {
-    super.initState();
-    debugPrint('🔧 [SYRA] AuthGate initState');
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    debugPrint('🔧 [SYRA] AuthGate didChangeDependencies');
-    if (!_servicesInitialized) {
-      _initializeServices();
-    }
-  }
-
-  /// ULTRA AGGRESSIVE DELAY - 5 seconds total
-  Future<void> _initializeServices() async {
-    if (_servicesInitialized) return;
-
-    debugPrint('⏳ [SYRA] Starting service initialization...');
-
-    // STEP 1: Wait for UI to be fully ready
-    await Future.delayed(const Duration(seconds: 2));
-    debugPrint('⏳ [SYRA] 2 seconds passed...');
-
-    // STEP 2: Initialize SharedPreferences
-    try {
-      await SyraPrefs.initialize();
-      debugPrint('✅ [SYRA] SyraPrefs initialized');
-    } catch (e) {
-      debugPrint('⚠️ [SYRA] SyraPrefs error: $e');
-    }
-
-    // STEP 3: RevenueCat DISABLED for testing
-    debugPrint('⚠️ [SYRA] RevenueCat DISABLED - Testing crash fix');
-    // Future.delayed(const Duration(seconds: 3), () async {
-    //   try {
-    //     await PurchaseService.initialize();
-    //     debugPrint('✅ [SYRA] RevenueCat initialized');
-    //   } catch (e) {
-    //     debugPrint('⚠️ [SYRA] RevenueCat error: $e');
-    //   }
-    // });
-
-    if (mounted) {
-      setState(() => _servicesInitialized = true);
-      debugPrint('✅ [SYRA] Services initialization complete');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting ||
-            !_servicesInitialized) {
-          debugPrint('⏳ [SYRA] Loading state...');
+        // Show loading while checking auth state
+        if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingScreen();
         }
 
+        // Show error screen if auth fails
         if (snapshot.hasError) {
           debugPrint('❌ [SYRA] Auth error: ${snapshot.error}');
-          return _buildErrorScreen();
+          return _buildErrorScreen(context);
         }
 
+        // User is logged in → ChatScreen
         if (snapshot.hasData && snapshot.data != null) {
           debugPrint('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
           return const ChatScreen();
         }
 
+        // No user → LoginScreen
         debugPrint('ℹ️ [SYRA] No user, showing login');
         return const LoginScreen();
       },
@@ -202,16 +152,18 @@ class _AuthGateState extends State<_AuthGate> {
               ),
             ),
             const SizedBox(height: 24),
-            Text(
-              'SYRA Başlatılıyor...',
+            const Text(
+              'SYRA',
               style: TextStyle(
-                color: SyraColors.textSecondary,
-                fontSize: 14,
+                color: SyraColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 2,
               ),
             ),
             const SizedBox(height: 8),
             Text(
-              'Build 23 - Crash Fix Test',
+              'Başlatılıyor...',
               style: TextStyle(
                 color: SyraColors.textMuted,
                 fontSize: 12,
@@ -223,7 +175,7 @@ class _AuthGateState extends State<_AuthGate> {
     );
   }
 
-  Widget _buildErrorScreen() {
+  Widget _buildErrorScreen(BuildContext context) {
     return Scaffold(
       backgroundColor: SyraColors.background,
       body: SafeArea(
