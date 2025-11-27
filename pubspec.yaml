@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.1+18
+version: 1.0.1+19
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -16,13 +16,13 @@ dependencies:
   # 🌐 HTTP requests
   http: ^1.2.0
 
-  # 💾 Local storage
-  shared_preferences: ^2.2.2
+  # 💾 Local storage (CRASH FIX: upgraded to iOS-stable version)
+  shared_preferences: ^2.3.2
 
-  # 🔥 Firebase core + Auth + Firestore
-  firebase_core: ^3.1.1
-  firebase_auth: ^5.1.1
-  cloud_firestore: ^5.0.0
+  # 🔥 Firebase core + Auth + Firestore (stable versions)
+  firebase_core: ^3.5.0
+  firebase_auth: ^5.5.0
+  cloud_firestore: ^5.4.2
 
   # 🛒 RevenueCat for subscriptions
   purchases_flutter: ^8.3.1
@@ -51,14 +51,5 @@ flutter:
   uses-material-design: true
 
   assets:
-    # App icon
     - assets/icon/syra.png
-    # Orb image
     - assets/orb/syra_orb.png
-
-  # fonts:
-  #   - family: Georgia
-  #     fonts:
-  #       - asset: assets/fonts/Georgia.ttf
-  #       - asset: assets/fonts/Georgia-Bold.ttf
-  #         weight: 700
