@@ -3,6 +3,7 @@ description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
 version: 1.0.1+27
+
 environment:
   sdk: ">=3.3.0 <4.0.0"
 
@@ -15,16 +16,16 @@ dependencies:
   # 🌐 HTTP requests
   http: ^1.2.0
 
-  # 💾 Local storage (CRASH FIX: upgraded to iOS-stable version)
-  shared_preferences: ^2.3.2
+  # 💾 Local storage - UPGRADE to latest for iOS 26.1
+  shared_preferences: ^2.3.2  # ✅ Latest stable (was locked at 2.2.3 for 1.5 months)
 
   # 🔥 Firebase core + Auth + Firestore (stable versions)
-  firebase_core: ^4.2.1
-  firebase_auth: ^6.1.2
-  cloud_firestore: ^6.1.0
+  firebase_core: ^3.5.0
+  firebase_auth: ^5.5.0
+  cloud_firestore: ^5.4.2
 
-  # 🛒 RevenueCat for subscriptions
-  purchases_flutter: ^9.9.9
+  # 🛒 RevenueCat for subscriptions - Latest stable
+  purchases_flutter: ^8.4.2  # ✅ Latest API compatibility
 
   # 🔗 URL launcher
   url_launcher: ^6.2.5
@@ -36,10 +37,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  flutter_lints: ^6.0.0
+  flutter_lints: ^3.0.0
 
   # 🖼️ App icon generator
-  flutter_launcher_icons: ^0.14.4
+  flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
   android: true
