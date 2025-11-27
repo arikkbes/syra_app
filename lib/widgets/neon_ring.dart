@@ -2,12 +2,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA NEON AURA RING  (orb.png tabanlı)
+/// SYRA NEON AURA RING  (orb.png tabanlı) - CRASH-PROOF v2.0
 /// ═══════════════════════════════════════════════════════════════
-/// - Ortada: syra_orb.png (1024x1024 logon)
+/// - Ortada: syra_orb.png (1024x1024 logo)
 /// - Idle: hafif nefes alma (scale 0.97 ↔ 1.03), yumuşak glow
 /// - Active: glow kuvvetlenir, biraz daha canlı nefes
-/// - Uygulama içinde her yerde aynı orb kullanılır
+/// - ✅ CRASH-PROOF: Asset yüklenmezse fallback gradient gösterir
 /// ═══════════════════════════════════════════════════════════════
 
 class NeonAuraRing extends StatefulWidget {
@@ -113,7 +113,7 @@ class _NeonAuraRingState extends State<NeonAuraRing>
             alignment: Alignment.center,
             children: [
               // ─────────────────────────────────────────────────────
-              // OUTER GLOW (PNG’nin etrafındaki ekstra aura)
+              // OUTER GLOW (PNG'nin etrafındaki ekstra aura)
               // ─────────────────────────────────────────────────────
               Container(
                 width: widget.size * (1.3 + 0.05 * glow),
@@ -141,7 +141,7 @@ class _NeonAuraRingState extends State<NeonAuraRing>
               ),
 
               // ─────────────────────────────────────────────────────
-              // ORB PNG (LOGO)
+              // ORB PNG (LOGO) - CRASH-PROOF VERSION
               // ─────────────────────────────────────────────────────
               Transform.rotate(
                 angle: rotation,
@@ -153,13 +153,44 @@ class _NeonAuraRingState extends State<NeonAuraRing>
             ],
           );
         },
-        // Logoyu tek seferde yükleyip child olarak cache’liyoruz
+        // ✅ CRASH-PROOF: errorBuilder eklendi
         child: Image.asset(
           'assets/orb/syra_orb.png',
           width: widget.size,
           height: widget.size,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
+          // 🛡️ CRASH FIX: Asset yüklenmezse fallback göster
+          errorBuilder: (context, error, stackTrace) {
+            debugPrint('⚠️ [NeonAuraRing] Asset load error: $error');
+            // Fallback: Gradient circle (logo yokken)
+            return Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: const SweepGradient(
+                  colors: [
+                    Color(0xFFFF6B9D), // Pink
+                    Color(0xFFB388FF), // Violet
+                    Color(0xFF00D4FF), // Cyan
+                    Color(0xFFFF6B9D), // Pink (loop)
+                  ],
+                ),
+              ),
+              child: Center(
+                child: Text(
+                  'SYRA',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: widget.size * 0.2,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
