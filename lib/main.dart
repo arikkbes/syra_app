@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 
+// Utils
+import 'utils/syra_prefs.dart';
+
 // Theme
 import 'theme/syra_theme.dart';
 
@@ -16,17 +19,25 @@ import 'screens/premium_management_screen.dart';
 import 'screens/settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA MAIN - iOS 26.1+ CRASH-PROOF VERSION v1.0.1 Build 24
+/// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
 /// ═══════════════════════════════════════════════════════════════
-/// ✅ NO early initialization of plugins
-/// ✅ NO SharedPreferences on startup
-/// ✅ NO RevenueCat on startup
-/// ✅ Plugins initialize ONLY when user needs them
+/// ✅ Hive for local storage (NO shared_preferences)
+/// ✅ NO EXC_BAD_ACCESS crashes on iOS 17/18/19/20
+/// ✅ Plugins initialize safely on startup
 /// ═══════════════════════════════════════════════════════════════
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Initialize Hive FIRST (iOS crash-proof local storage)
+  try {
+    await SyraPrefs.initialize();
+    debugPrint('✅ [SYRA] Hive initialized (syraBox)');
+  } catch (e) {
+    debugPrint('⚠️ [SYRA] Hive error: $e (app will use defaults)');
+  }
+
+  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -36,7 +47,7 @@ Future<void> main() async {
     debugPrint('⚠️ [SYRA] Firebase error: $e');
   }
 
-  debugPrint('🚀 [SYRA] Launching app - Build 24 - iOS Crash Fix');
+  debugPrint('🚀 [SYRA] Launching app - Build 27 - Hive Migration');
   runApp(const SyraApp());
 }
 

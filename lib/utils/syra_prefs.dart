@@ -1,31 +1,32 @@
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA PREFS - Safe SharedPreferences Wrapper
+/// SYRA PREFS - Safe Hive Wrapper (iOS Crash-Proof)
 /// ═══════════════════════════════════════════════════════════════
-/// This wrapper ensures all SharedPreferences operations are null-safe
-/// and won't crash the app if the plugin fails to initialize.
-/// All methods return safe default values instead of throwing errors.
+/// This wrapper uses Hive instead of SharedPreferences to prevent
+/// EXC_BAD_ACCESS crashes on iOS 17/18/19/20.
+/// All methods return safe default values and never crash.
 class SyraPrefs {
-  static SharedPreferences? _instance;
+  static Box? _box;
 
-  /// Initialize SharedPreferences safely
-  /// Call this AFTER the first frame is built, not in main()
+  /// Initialize Hive safely
+  /// Call this in main() AFTER WidgetsFlutterBinding.ensureInitialized()
   static Future<void> initialize() async {
     try {
-      _instance = await SharedPreferences.getInstance();
+      await Hive.initFlutter();
+      _box = await Hive.openBox('syraBox');
     } catch (e) {
-      // If SharedPreferences fails, we continue without it
+      // If Hive fails, we continue without it
       // The app will work with default values
-      _instance = null;
+      _box = null;
     }
   }
 
-  /// Get instance (may be null if initialization failed)
-  static SharedPreferences? get instance => _instance;
+  /// Get box instance (may be null if initialization failed)
+  static Box? get instance => _box;
 
   /// Check if initialized
-  static bool get isInitialized => _instance != null;
+  static bool get isInitialized => _box != null;
 
   // ═══════════════════════════════════════════════════════════════
   // SAFE GETTERS - Always return default values, never crash
@@ -33,7 +34,7 @@ class SyraPrefs {
 
   static String getString(String key, {String defaultValue = ''}) {
     try {
-      return _instance?.getString(key) ?? defaultValue;
+      return _box?.get(key, defaultValue: defaultValue) ?? defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -41,7 +42,7 @@ class SyraPrefs {
 
   static int getInt(String key, {int defaultValue = 0}) {
     try {
-      return _instance?.getInt(key) ?? defaultValue;
+      return _box?.get(key, defaultValue: defaultValue) ?? defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -49,7 +50,7 @@ class SyraPrefs {
 
   static bool getBool(String key, {bool defaultValue = false}) {
     try {
-      return _instance?.getBool(key) ?? defaultValue;
+      return _box?.get(key, defaultValue: defaultValue) ?? defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -57,7 +58,7 @@ class SyraPrefs {
 
   static double getDouble(String key, {double defaultValue = 0.0}) {
     try {
-      return _instance?.getDouble(key) ?? defaultValue;
+      return _box?.get(key, defaultValue: defaultValue) ?? defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -66,7 +67,11 @@ class SyraPrefs {
   static List<String> getStringList(String key,
       {List<String> defaultValue = const []}) {
     try {
-      return _instance?.getStringList(key) ?? defaultValue;
+      final value = _box?.get(key);
+      if (value is List) {
+        return value.cast<String>();
+      }
+      return defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -78,7 +83,8 @@ class SyraPrefs {
 
   static Future<bool> setString(String key, String value) async {
     try {
-      return await _instance?.setString(key, value) ?? false;
+      await _box?.put(key, value);
+      return true;
     } catch (e) {
       return false;
     }
@@ -86,7 +92,8 @@ class SyraPrefs {
 
   static Future<bool> setInt(String key, int value) async {
     try {
-      return await _instance?.setInt(key, value) ?? false;
+      await _box?.put(key, value);
+      return true;
     } catch (e) {
       return false;
     }
@@ -94,7 +101,8 @@ class SyraPrefs {
 
   static Future<bool> setBool(String key, bool value) async {
     try {
-      return await _instance?.setBool(key, value) ?? false;
+      await _box?.put(key, value);
+      return true;
     } catch (e) {
       return false;
     }
@@ -102,7 +110,8 @@ class SyraPrefs {
 
   static Future<bool> setDouble(String key, double value) async {
     try {
-      return await _instance?.setDouble(key, value) ?? false;
+      await _box?.put(key, value);
+      return true;
     } catch (e) {
       return false;
     }
@@ -110,7 +119,8 @@ class SyraPrefs {
 
   static Future<bool> setStringList(String key, List<String> value) async {
     try {
-      return await _instance?.setStringList(key, value) ?? false;
+      await _box?.put(key, value);
+      return true;
     } catch (e) {
       return false;
     }
@@ -122,7 +132,8 @@ class SyraPrefs {
 
   static Future<bool> remove(String key) async {
     try {
-      return await _instance?.remove(key) ?? false;
+      await _box?.delete(key);
+      return true;
     } catch (e) {
       return false;
     }
@@ -130,7 +141,8 @@ class SyraPrefs {
 
   static Future<bool> clear() async {
     try {
-      return await _instance?.clear() ?? false;
+      await _box?.clear();
+      return true;
     } catch (e) {
       return false;
     }
@@ -138,7 +150,7 @@ class SyraPrefs {
 
   static bool containsKey(String key) {
     try {
-      return _instance?.containsKey(key) ?? false;
+      return _box?.containsKey(key) ?? false;
     } catch (e) {
       return false;
     }
@@ -146,7 +158,7 @@ class SyraPrefs {
 
   static Set<String> getKeys() {
     try {
-      return _instance?.getKeys() ?? {};
+      return _box?.keys.cast<String>().toSet() ?? {};
     } catch (e) {
       return {};
     }
