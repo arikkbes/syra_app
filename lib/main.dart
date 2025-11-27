@@ -122,13 +122,17 @@ class _AuthGateState extends State<_AuthGate> {
       debugPrint('⚠️ SyraPrefs error: $e');
     }
 
-    try {
-      // Initialize RevenueCat
-      await PurchaseService.initialize();
-      debugPrint('✅ RevenueCat initialized');
-    } catch (e) {
-      debugPrint('⚠️ RevenueCat error: $e');
-    }
+    // ═══════════════════════════════════════════════════════════════
+    // REVENUECAT DELAYED INIT - Extra 2 second delay for iOS stability
+    // ═══════════════════════════════════════════════════════════════
+    Future.delayed(const Duration(seconds: 2), () async {
+      try {
+        await PurchaseService.initialize();
+        debugPrint('✅ RevenueCat initialized (delayed)');
+      } catch (e) {
+        debugPrint('⚠️ RevenueCat error: $e');
+      }
+    });
 
     if (mounted) {
       setState(() => _servicesInitialized = true);
