@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.1+31
+version: 1.0.1+36
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -12,6 +12,9 @@ dependencies:
     sdk: flutter
 
   cupertino_icons: ^1.0.6
+
+  # 📁 Path provider - iOS 26.1 crash fix için explicit eklendi
+  path_provider: ^2.1.4
 
   # 🌐 HTTP requests
   http: ^1.2.0
