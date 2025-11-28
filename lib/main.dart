@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
 
+// Core
+import 'core/service_locator.dart';
+
 // Utils
 import 'utils/syra_prefs.dart';
 
@@ -45,6 +48,14 @@ Future<void> main() async {
     debugPrint('✅ [SYRA] Firebase initialized');
   } catch (e) {
     debugPrint('⚠️ [SYRA] Firebase error: $e');
+  }
+
+  // Initialize Service Locator
+  try {
+    await ServiceLocator.instance.initialize();
+    debugPrint('✅ [SYRA] Service Locator initialized');
+  } catch (e) {
+    debugPrint('⚠️ [SYRA] Service Locator error: $e');
   }
 
   debugPrint('🚀 [SYRA] Launching app - Build 27 - Hive Migration');
