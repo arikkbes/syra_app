@@ -1,15 +1,12 @@
 plugins {
     id("com.android.application")
-    // START: FlutterFire Configuration
-    id("com.google.gms.google-services")
-    // END: FlutterFire Configuration
+    id("com.google.gms.google-services")  // Firebase
     id("kotlin-android")
-    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
 
 android {
-    namespace = "com.example.syra"
+    namespace = "com.ariksoftware.syra"  // ✅ FIXED: Correct package name
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -22,26 +19,57 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    // ✅ ADDED: Signing configurations for release
+    signingConfigs {
+        create("release") {
+            storeFile = file("syra_release_v2.jks")
+            storePassword = "Defance.0"
+            keyAlias = "syra_key"
+            keyPassword = "Defance.0"
+        }
+    }
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.syra"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        applicationId = "com.ariksoftware.syra"  // ✅ FIXED: Correct application ID
+        minSdk = 21  // ✅ FIXED: Firebase minimum requirement
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true  // ✅ ADDED: Required for Firebase
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            minifyEnabled = false  // Keep false for now
+            shrinkResources = false  // Keep false for now
+            signingConfig = signingConfigs.getByName("release")  // ✅ FIXED: Use production keystore
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            applicationIdSuffix = ".debug"
+            debuggable = true
         }
     }
 }
 
 flutter {
     source = "../.."
+}
+
+// ✅ ADDED: Firebase dependencies
+dependencies {
+    // Firebase BoM (Bill of Materials)
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    
+    // Firebase services
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-functions")
+    
+    // MultiDex support
+    implementation("androidx.multidex:multidex:2.0.1")
 }

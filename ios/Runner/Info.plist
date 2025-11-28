@@ -45,5 +45,26 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- ✅ ADDED: App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	
+	<!-- ✅ ADDED: App Store compliance -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	
+	<!-- ✅ ADDED: Privacy descriptions (uncomment if needed) -->
+	<!-- <key>NSCameraUsageDescription</key>
+	<string>SYRA needs camera access for document scanning</string> -->
+	
+	<!-- <key>NSPhotoLibraryUsageDescription</key>
+	<string>SYRA needs photo library access to upload images</string> -->
+	
 </dict>
 </plist>
