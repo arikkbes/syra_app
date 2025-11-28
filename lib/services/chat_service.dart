@@ -5,40 +5,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/firestore_user.dart';
 
-/// ═══════════════════════════════════════════════════════════════
-/// CHAT SERVICE - Handles all chat logic, networking and state
-/// ═══════════════════════════════════════════════════════════════
-/// This service manages:
-/// - AI message sending and receiving
-/// - Premium status checks
-/// - Message limits and counting
-/// - Chat history management
+/// CHAT SERVICE — Handles chat logic, message limits, premium checks.
 class ChatService {
   // ═══════════════════════════════════════════════════════════════
   // USER STATUS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Get user's premium status and message limits
   static Future<Map<String, dynamic>> getUserStatus() async {
     try {
       final status = await FirestoreUser.getMessageStatus();
 
-      // Safe type casting with defaults
       final bool isPremium = status["isPremium"] == true;
 
-      int limit = 10;
-      if (status["limit"] is int) {
-        limit = status["limit"];
-      } else if (status["limit"] is num) {
-        limit = (status["limit"] as num).toInt();
-      }
-
-      int count = 0;
-      if (status["count"] is int) {
-        count = status["count"];
-      } else if (status["count"] is num) {
-        count = (status["count"] as num).toInt();
-      }
+      int limit =
+          status["limit"] is num ? (status["limit"] as num).toInt() : 10;
+      int count = status["count"] is num ? (status["count"] as num).toInt() : 0;
 
       return {
         'isPremium': isPremium,
@@ -56,85 +37,84 @@ class ChatService {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // MESSAGE SENDING
+  // SEND MESSAGE TO AI
   // ═══════════════════════════════════════════════════════════════
 
-  /// Send a message to the AI backend
-  /// Returns the AI's response text
   static Future<String> sendMessage({
     required String userMessage,
     required List<Map<String, dynamic>> conversationHistory,
     Map<String, dynamic>? replyingTo,
   }) async {
     try {
-      // Get current user
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        throw Exception('User not authenticated');
+        throw Exception("User not authenticated");
       }
 
-      // Get ID token for auth
       final idToken = await user.getIdToken();
 
-      // Build conversation history for context
       final context = _buildConversationContext(
         conversationHistory,
         replyingTo,
       );
 
-      // Make API call
+      // 🔥 DOĞRU BACKEND URL — Cloud Function v2 (run.app)
+      final uri = Uri.parse(
+        "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat",
+      );
+
       final response = await http.post(
-        Uri.parse(
-            'https://syra-ai-backend-xmepqihmza-uc.a.run.app/api/syra/chat'),
+        uri,
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $idToken',
+          "Content-Type": "application/json",
+          "Authorization": "Bearer $idToken",
         },
         body: jsonEncode({
-          'message': userMessage,
-          'context': context,
+          "message": userMessage,
+          "context": context,
         }),
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        return data['response'] ?? 'Üzgünüm, bir hata oluştu.';
+        return data["response"] ?? "Bir hata oluştu.";
       } else if (response.statusCode == 429) {
-        // Rate limit hit
-        return 'Günlük mesaj limitine ulaştın. Premium\'a geç veya yarın tekrar dene.';
+        return "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.";
       } else {
-        throw Exception('API error: ${response.statusCode}');
+        debugPrint("API error: ${response.statusCode}");
+        debugPrint("Body: ${response.body}");
+        return "Sunucu hatası: ${response.statusCode}";
       }
     } catch (e) {
-      debugPrint('sendMessage error: $e');
-      return 'Bağlantı hatası. İnterneti kontrol et ve tekrar dene.';
+      debugPrint("sendMessage error: $e");
+      return "Bağlantı hatası. İnterneti kontrol et ve tekrar dene.";
     }
   }
 
-  /// Build conversation context from history
+  // ═══════════════════════════════════════════════════════════════
+  // CONTEXT BUILDER
+  // ═══════════════════════════════════════════════════════════════
+
   static List<Map<String, String>> _buildConversationContext(
     List<Map<String, dynamic>> history,
     Map<String, dynamic>? replyingTo,
   ) {
     final context = <Map<String, String>>[];
 
-    // Add reply context if replying to a specific message
     if (replyingTo != null) {
       context.add({
-        'role': replyingTo['sender'] == 'user' ? 'user' : 'assistant',
-        'content': '[Replying to: ${replyingTo['text']}]',
+        "role": replyingTo['sender'] == "user" ? "user" : "assistant",
+        "content": "[Replying to: ${replyingTo['text']}]",
       });
     }
 
-    // Add recent conversation history (last 10 messages)
-    final recentMessages = history.length > 10
-        ? history.sublist(history.length - 10)
-        : history;
+    final last10 =
+        history.length > 10 ? history.sublist(history.length - 10) : history;
 
-    for (final msg in recentMessages) {
+    for (final msg in last10) {
       context.add({
-        'role': msg['sender'] == 'user' ? 'user' : 'assistant',
-        'content': msg['text'] ?? '',
+        "role": msg['sender'] == "user" ? "user" : "assistant",
+        "content": msg["text"] ?? "",
       });
     }
 
@@ -145,72 +125,57 @@ class ChatService {
   // MESSAGE LIMITS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Check if user can send a message
   static Future<bool> canSendMessage({
     required bool isPremium,
     required int messageCount,
     required int dailyLimit,
   }) async {
-    // Premium users have no limits
     if (isPremium) return true;
-
-    // Check if under limit
     return messageCount < dailyLimit;
   }
 
-  /// Increment message count
   static Future<void> incrementMessageCount() async {
     try {
       await FirestoreUser.incrementMessageCount();
     } catch (e) {
-      debugPrint('incrementMessageCount error: $e');
+      debugPrint("incrementMessageCount error: $e");
     }
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // MANIPULATION DETECTION
+  // MANIPULATION DETECTOR
   // ═══════════════════════════════════════════════════════════════
 
-  /// Detect manipulation patterns in a message
-  /// Returns map with 'hasRed' and 'hasGreen' flags
   static Map<String, bool> detectManipulation(String text) {
-    final lowerText = text.toLowerCase();
+    final lower = text.toLowerCase();
 
-    // Red flag patterns (manipulation tactics)
-    final redPatterns = [
-      'gaslighting',
-      'love bombing',
-      'guilt trip',
-      'silent treatment',
-      'projection',
-      'triangulation',
-      'hoovering',
-      'kırmızı bayrak',
-      'red flag',
-      'manipülasyon',
-      'manipulation',
+    final red = [
+      "gaslighting",
+      "love bombing",
+      "guilt trip",
+      "silent treatment",
+      "projection",
+      "triangulation",
+      "hoovering",
+      "kırmızı bayrak",
+      "manipulation",
+      "manipülasyon",
+      "red flag",
     ];
 
-    // Green flag patterns (healthy behaviors)
-    final greenPatterns = [
-      'healthy boundary',
-      'mutual respect',
-      'clear communication',
-      'emotional support',
-      'yeşil bayrak',
-      'green flag',
-      'sağlıklı',
-      'healthy',
+    final green = [
+      "healthy boundary",
+      "mutual respect",
+      "clear communication",
+      "emotional support",
+      "yeşil bayrak",
+      "healthy",
+      "green flag",
     ];
-
-    final hasRed =
-        redPatterns.any((pattern) => lowerText.contains(pattern));
-    final hasGreen =
-        greenPatterns.any((pattern) => lowerText.contains(pattern));
 
     return {
-      'hasRed': hasRed,
-      'hasGreen': hasGreen,
+      "hasRed": red.any(lower.contains),
+      "hasGreen": green.any(lower.contains),
     };
   }
 }

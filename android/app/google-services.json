@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1085924811040",
+    "project_id": "syra-ai-b562f",
+    "storage_bucket": "syra-ai-b562f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1085924811040:android:265fb083367285a7a33745",
+        "android_client_info": {
+          "package_name": "com.example.syra"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4khfl9h4SRdaQdBGFO6cj9ILqm0yXq-U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

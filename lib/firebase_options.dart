@@ -41,49 +41,48 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyC350Jvbji5Q5-nihjNS9hB4pgQq3loP_0',
-    appId: '1:843652590816:web:1034e85fb3096dafb67485',
-    messagingSenderId: '843652590816',
-    projectId: 'flortiq-v2',
-    authDomain: 'flortiq-v2.firebaseapp.com',
-    storageBucket: 'flortiq-v2.firebasestorage.app',
-    measurementId: 'G-5NVVDSTLL9',
+    apiKey: 'AIzaSyA6ZwwUtqOGllTfXw6EgJWUVQY8zkx-_4E',
+    appId: '1:1085924811040:web:9362ceb92a758cf8a33745',
+    messagingSenderId: '1085924811040',
+    projectId: 'syra-ai-b562f',
+    authDomain: 'syra-ai-b562f.firebaseapp.com',
+    storageBucket: 'syra-ai-b562f.firebasestorage.app',
+    measurementId: 'G-XBNP3NPY9P',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDNuVgSAu0NO7QjgQoMpdsAigjLHnrr7WM',
-    appId: '1:843652590816:android:4e41030d8b45d686b67485',
-    messagingSenderId: '843652590816',
-    projectId: 'flortiq-v2',
-    storageBucket: 'flortiq-v2.firebasestorage.app',
+    apiKey: 'AIzaSyA4khfl9h4SRdaQdBGFO6cj9ILqm0yXq-U',
+    appId: '1:1085924811040:android:265fb083367285a7a33745',
+    messagingSenderId: '1085924811040',
+    projectId: 'syra-ai-b562f',
+    storageBucket: 'syra-ai-b562f.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAGbpeP9rJRcdrxdbu39-1jmVXUKdHKMys',
-    appId: '1:843652590816:ios:ea5007bb0828bfeeb67485',
-    messagingSenderId: '843652590816',
-    projectId: 'flortiq-v2',
-    storageBucket: 'flortiq-v2.firebasestorage.app',
-    iosBundleId: 'com.example.flutterApplication1',
+    apiKey: 'AIzaSyCK5j8-NNIzQbUtK0roQzmJbugDFjfDSH4',
+    appId: '1:1085924811040:ios:9a5ea2ff4da1a80aa33745',
+    messagingSenderId: '1085924811040',
+    projectId: 'syra-ai-b562f',
+    storageBucket: 'syra-ai-b562f.firebasestorage.app',
+    iosBundleId: 'com.ariksoftware.syra.RunnerTests',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAGbpeP9rJRcdrxdbu39-1jmVXUKdHKMys',
-    appId: '1:843652590816:ios:ea5007bb0828bfeeb67485',
-    messagingSenderId: '843652590816',
-    projectId: 'flortiq-v2',
-    storageBucket: 'flortiq-v2.firebasestorage.app',
-    iosBundleId: 'com.example.flutterApplication1',
+    apiKey: 'AIzaSyCK5j8-NNIzQbUtK0roQzmJbugDFjfDSH4',
+    appId: '1:1085924811040:ios:285a81600f9c89aaa33745',
+    messagingSenderId: '1085924811040',
+    projectId: 'syra-ai-b562f',
+    storageBucket: 'syra-ai-b562f.firebasestorage.app',
+    iosBundleId: 'com.example.syraNew',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyC350Jvbji5Q5-nihjNS9hB4pgQq3loP_0',
-    appId: '1:843652590816:web:8a9377f19ef3b000b67485',
-    messagingSenderId: '843652590816',
-    projectId: 'flortiq-v2',
-    authDomain: 'flortiq-v2.firebaseapp.com',
-    storageBucket: 'flortiq-v2.firebasestorage.app',
-    measurementId: 'G-L7T3KQH4F7',
+    apiKey: 'AIzaSyA6ZwwUtqOGllTfXw6EgJWUVQY8zkx-_4E',
+    appId: '1:1085924811040:web:bcad791898b253cba33745',
+    messagingSenderId: '1085924811040',
+    projectId: 'syra-ai-b562f',
+    authDomain: 'syra-ai-b562f.firebaseapp.com',
+    storageBucket: 'syra-ai-b562f.firebasestorage.app',
+    measurementId: 'G-B1B6J5DGQ6',
   );
-
 }
