@@ -1,15 +1,8 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * CHAT ORCHESTRATOR
+ * CHAT ORCHESTRATOR - FIXED VERSION
  * ═══════════════════════════════════════════════════════════════
- * Orchestrates all chat logic:
- * - Intent detection
- * - Trait extraction
- * - Gender detection
- * - Pattern recognition
- * - Outcome prediction
- * - Persona building
- * - OpenAI completion
+ * Orchestrates all chat logic with improved error handling
  */
 
 import { openai } from "../config/openaiClient.js";
@@ -43,8 +36,12 @@ import {
 export async function processChat(uid, message, replyTo, isPremium) {
   const startTime = Date.now();
 
+  // -----------------------------------------------------------------------
+  // CRITICAL: Check OpenAI availability first
+  // -----------------------------------------------------------------------
   if (!openai) {
-    throw new Error("OpenAI not configured");
+    console.error(`[${uid}] 🔥 CRITICAL: OpenAI client is null - API key missing!`);
+    throw new Error("OpenAI not configured - API key missing");
   }
 
   // Sanitize message
@@ -265,11 +262,14 @@ PATTERN:
   ];
 
   // -----------------------------------------------------------------------
-  // MAIN OPENAI COMPLETION
+  // MAIN OPENAI COMPLETION - IMPROVED ERROR HANDLING
   // -----------------------------------------------------------------------
-  let replyText = "Kanka beynim dondu, tekrar dene.";
+  let replyText = null;
+  let openaiError = null;
 
   try {
+    console.log(`[${uid}] Calling OpenAI API with model: ${model}`);
+    
     const completion = await openai.chat.completions.create({
       model,
       messages: contextMessages,
@@ -279,23 +279,80 @@ PATTERN:
       frequency_penalty: 0.3,
     });
 
-    replyText = completion?.choices?.[0]?.message?.content?.trim() || replyText;
+    console.log(`[${uid}] OpenAI response received`);
 
+    // Extract reply with detailed validation
+    if (!completion) {
+      console.error(`[${uid}] 🔥 OpenAI returned null completion`);
+      openaiError = "NULL_COMPLETION";
+    } else if (!completion.choices || completion.choices.length === 0) {
+      console.error(`[${uid}] 🔥 OpenAI returned empty choices array`);
+      openaiError = "EMPTY_CHOICES";
+    } else if (!completion.choices[0].message) {
+      console.error(`[${uid}] 🔥 OpenAI choice has no message`);
+      openaiError = "NO_MESSAGE";
+    } else if (!completion.choices[0].message.content) {
+      console.error(`[${uid}] 🔥 OpenAI message has no content`);
+      openaiError = "NO_CONTENT";
+    } else {
+      replyText = completion.choices[0].message.content.trim();
+      
+      if (!replyText || replyText.length === 0) {
+        console.error(`[${uid}] 🔥 OpenAI returned empty content after trim`);
+        openaiError = "EMPTY_CONTENT";
+      } else {
+        console.log(`[${uid}] ✅ OpenAI success - Reply length: ${replyText.length} chars`);
+      }
+    }
+
+    // Check for unusually short premium responses
     if (
+      replyText &&
       isPremium &&
       (intent === "deep" || intent === "deep_analysis") &&
       replyText.length < 150
     ) {
       console.warn(
-        `[${uid}] Premium deep response unusually short: ${replyText.length} chars`
+        `[${uid}] ⚠️ Premium deep response unusually short: ${replyText.length} chars`
       );
     }
+
   } catch (e) {
-    console.error("🔥 OpenAI completion error:", e);
-    replyText =
-      intent === "emergency"
-        ? "Kanka şu an sistem yoğun ama ben buradayım. Derin nefes al, biraz sonra tekrar dene."
-        : "Kanka sistem biraz yavaşladı, bir daha dener misin?";
+    console.error(`[${uid}] 🔥 OpenAI API Error:`, e);
+    console.error(`[${uid}] Error type: ${e.constructor.name}`);
+    console.error(`[${uid}] Error message: ${e.message}`);
+    
+    if (e.code) {
+      console.error(`[${uid}] Error code: ${e.code}`);
+    }
+    
+    if (e.response) {
+      console.error(`[${uid}] Error response status: ${e.response.status}`);
+      console.error(`[${uid}] Error response data:`, JSON.stringify(e.response.data).slice(0, 500));
+    }
+
+    openaiError = e.message || "UNKNOWN_ERROR";
+  }
+
+  // -----------------------------------------------------------------------
+  // FALLBACK HANDLING - User-friendly messages
+  // -----------------------------------------------------------------------
+  if (!replyText) {
+    console.error(`[${uid}] 🔥 No reply text - using fallback. Error: ${openaiError}`);
+    
+    // Provide different messages based on error type
+    if (openaiError && openaiError.includes("rate_limit")) {
+      replyText = "Kanka şu an çok yoğunuz, 30 saniye sonra tekrar dener misin?";
+    } else if (openaiError && openaiError.includes("timeout")) {
+      replyText = "Bağlantı zaman aşımına uğradı kanka. Bir daha dene lütfen.";
+    } else if (intent === "emergency") {
+      replyText = "Kanka şu an sistem yoğun ama ben buradayım. Derin nefes al, biraz sonra tekrar dene.";
+    } else {
+      replyText = "Sistem şu an cevap üretemedi kanka. Lütfen tekrar dene, bu sefer olacak! 💪";
+    }
+    
+    // This is now a real error - should be logged as such
+    console.error(`[${uid}] 🚨 FALLBACK MESSAGE SENT: ${replyText}`);
   }
 
   // -----------------------------------------------------------------------
@@ -312,7 +369,7 @@ PATTERN:
   // -----------------------------------------------------------------------
   const processingTime = Date.now() - startTime;
   console.log(
-    `[${uid}] Processing time: ${processingTime}ms, Intent: ${intent}, Model: ${model}`
+    `[${uid}] ✅ Processing complete: ${processingTime}ms, Intent: ${intent}, Model: ${model}, Success: ${!openaiError}`
   );
 
   // -----------------------------------------------------------------------
@@ -331,6 +388,8 @@ PATTERN:
       processingTime,
       hasLongTermMemory: !!conversationSummary,
       hasPatterns: !!patterns,
+      hadError: !!openaiError,
+      errorType: openaiError || null,
     },
   };
 }

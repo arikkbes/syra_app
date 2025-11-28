@@ -9,7 +9,7 @@ import '../services/firestore_user.dart';
 
 /// CHAT SERVICE — Handles chat logic, message limits, premium checks.
 class ChatService {
-  // Cloud Function endpoint
+  // Cloud Function endpoint (YENİ)
   static const String _endpoint =
       "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
 
