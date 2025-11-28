@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.1+36
+version: 1.0.1+37
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -13,37 +13,36 @@ dependencies:
 
   cupertino_icons: ^1.0.6
 
-  # 📁 Path provider - iOS 26.1 crash fix için explicit eklendi
-  path_provider: ^2.1.4
+  # 📁 iOS crash-proof path provider
+  path_provider: ^2.1.5
 
-  # 🌐 HTTP requests
-  http: ^1.2.0
+  # 🌐 HTTP
+  http: ^1.2.2
 
-  # 💾 Local storage - Hive (iOS crash-proof, no native dependencies)
+  # 💾 Local storage - Hive (native dependency yok → iOS crashsiz)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
-  # 🔥 Firebase core + Auth + Firestore (stable versions)
-  firebase_core: ^3.5.0
-  firebase_auth: ^5.5.0
-  cloud_firestore: ^5.4.2
+  # 🔥 Firebase (Flutter 3.38 resmi stabil kombinasyonu)
+  firebase_core: ^3.7.0
+  firebase_auth: ^5.7.0
+  cloud_firestore: ^5.6.3
 
-  # 🛒 RevenueCat for subscriptions - Latest stable
-  purchases_flutter: ^8.4.2  # ✅ Latest API compatibility
+  # 🛒 RevenueCat - En stabil sürüm (8.4.2 bazı cihazlarda crash ediyor)
+  purchases_flutter: ^8.3.0
 
   # 🔗 URL launcher
-  url_launcher: ^6.2.5
+  url_launcher: ^6.3.0
 
-  # 📅 Date formatting
-  intl: ^0.20.2
+  # 📅 intl
+  intl: ^0.20.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+  flutter_lints: ^3.0.2
 
-  flutter_lints: ^3.0.0
-
-  # 🖼️ App icon generator
+  # 🖼️ Icon generator
   flutter_launcher_icons: ^0.13.1
 
 flutter_icons:
