@@ -1,14 +1,3 @@
-// ✅ ADDED: buildscript for Firebase
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath("com.google.gms:google-services:4.4.0")  // Firebase
-    }
-}
-
 allprojects {
     repositories {
         google()
