@@ -3,13 +3,10 @@ import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS INPUT BAR — Premium Glassmorphism
+/// GLASS INPUT BAR — Legacy Compatibility
 /// ═══════════════════════════════════════════════════════════════
-/// - Background: rgba(255,255,255,0.06)
-/// - Blur: 22-26px
-/// - Border: 1px subtle stroke (#2A2A2A)
-/// - Soft inner shadow on top
-/// - Icons glow slightly when focused
+/// This file is kept for backward compatibility.
+/// The new chat screen uses an integrated input bar.
 /// ═══════════════════════════════════════════════════════════════
 
 class GlassInputBar extends StatefulWidget {
@@ -27,34 +24,19 @@ class GlassInputBar extends StatefulWidget {
     this.isLoading = false,
     this.replyingToText,
     this.onCancelReply,
-    this.hintText = "Send a message...",
+    this.hintText = "Message",
   });
 
   @override
   State<GlassInputBar> createState() => _GlassInputBarState();
 }
 
-class _GlassInputBarState extends State<GlassInputBar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _sendButtonController;
-  late Animation<double> _sendButtonScale;
-
+class _GlassInputBarState extends State<GlassInputBar> {
   bool _hasText = false;
-  bool _isFocused = false;
 
   @override
   void initState() {
     super.initState();
-
-    _sendButtonController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 100),
-    );
-
-    _sendButtonScale = Tween<double>(begin: 1.0, end: 0.92).animate(
-      CurvedAnimation(parent: _sendButtonController, curve: Curves.easeInOut),
-    );
-
     widget.controller.addListener(_onTextChanged);
   }
 
@@ -68,7 +50,6 @@ class _GlassInputBarState extends State<GlassInputBar>
   @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
-    _sendButtonController.dispose();
     super.dispose();
   }
 
@@ -81,8 +62,17 @@ class _GlassInputBarState extends State<GlassInputBar>
   Widget build(BuildContext context) {
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        decoration: BoxDecoration(
+          color: SyraColors.background,
+          border: Border(
+            top: BorderSide(
+              color: SyraColors.divider,
+              width: 0.5,
+            ),
+          ),
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -95,194 +85,92 @@ class _GlassInputBarState extends State<GlassInputBar>
   }
 
   Widget _buildInputBar() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
-          decoration: BoxDecoration(
-            // rgba(255,255,255,0.06)
-            color: Colors.white.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(24),
-            // 1px subtle stroke
-            border: Border.all(
-              color: const Color(0xFF2A2A2A),
-              width: 1,
-            ),
-            // Soft inner shadow simulation
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 10,
-                offset: const Offset(0, 2),
-                spreadRadius: -2,
-              ),
-              // Subtle glow when focused
-              if (_isFocused)
-                BoxShadow(
-                  color: SyraColors.neonCyan.withValues(alpha: 0.05),
-                  blurRadius: 15,
-                  spreadRadius: 1,
-                ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              // Profile icon
-              _buildIcon(
-                Icons.person_outline_rounded,
-                glowWhenFocused: _isFocused,
-              ),
-
-              // Text input
-              Expanded(
-                child: Focus(
-                  onFocusChange: (focused) {
-                    setState(() => _isFocused = focused);
-                  },
-                  child: TextField(
-                    controller: widget.controller,
-                    enabled: !widget.isLoading,
-                    maxLines: 4,
-                    minLines: 1,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 10,
-                      ),
-                      border: InputBorder.none,
-                      hintText: widget.replyingToText != null
-                          ? "Yanıt yaz..."
-                          : widget.hintText,
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.28),
-                        fontSize: 15,
-                      ),
-                    ),
-                    onSubmitted: (_) => _handleSend(),
-                  ),
-                ),
-              ),
-
-              // Search icon
-              _buildIcon(
-                Icons.search_rounded,
-                glowWhenFocused: _isFocused,
-              ),
-
-              // Favorite icon
-              _buildIcon(
-                Icons.star_outline_rounded,
-                glowWhenFocused: _isFocused,
-              ),
-
-              const SizedBox(width: 4),
-
-              // Send button
-              _buildSendButton(),
-            ],
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: SyraColors.border,
+          width: 0.5,
         ),
       ),
-    );
-  }
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          // Plus button
+          Container(
+            width: 44,
+            height: 44,
+            margin: const EdgeInsets.only(left: 4, bottom: 4),
+            child: const Icon(
+              Icons.add_rounded,
+              color: SyraColors.textMuted,
+              size: 24,
+            ),
+          ),
 
-  Widget _buildIcon(IconData icon, {bool glowWhenFocused = false}) {
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: glowWhenFocused
-          ? BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: SyraColors.neonCyan.withValues(alpha: 0.08),
-                  blurRadius: 8,
-                  spreadRadius: 1,
+          // Text input
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              enabled: !widget.isLoading,
+              maxLines: 5,
+              minLines: 1,
+              style: const TextStyle(
+                color: SyraColors.textPrimary,
+                fontSize: 15,
+                height: 1.4,
+              ),
+              decoration: InputDecoration(
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 4,
+                  vertical: 12,
                 ),
-              ],
-            )
-          : null,
-      child: Icon(
-        icon,
-        size: 20,
-        color: Colors.white.withValues(alpha: glowWhenFocused ? 0.5 : 0.35),
-      ),
-    );
-  }
+                border: InputBorder.none,
+                hintText: widget.replyingToText != null
+                    ? "Yanıt yaz..."
+                    : widget.hintText,
+                hintStyle: TextStyle(
+                  color: SyraColors.textHint,
+                  fontSize: 15,
+                ),
+              ),
+              onSubmitted: (_) => _handleSend(),
+            ),
+          ),
 
-  Widget _buildSendButton() {
-    return GestureDetector(
-      onTapDown: (_) => _sendButtonController.forward(),
-      onTapUp: (_) {
-        _sendButtonController.reverse();
-        _handleSend();
-      },
-      onTapCancel: () => _sendButtonController.reverse(),
-      child: AnimatedBuilder(
-        animation: _sendButtonScale,
-        builder: (context, _) {
-          return Transform.scale(
-            scale: _sendButtonScale.value,
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 38,
-              height: 38,
+          // Send button
+          GestureDetector(
+            onTap: _handleSend,
+            child: Container(
+              width: 40,
+              height: 40,
+              margin: const EdgeInsets.only(right: 6, bottom: 6),
               decoration: BoxDecoration(
+                color: _hasText && !widget.isLoading
+                    ? SyraColors.textPrimary
+                    : SyraColors.textMuted.withOpacity(0.3),
                 shape: BoxShape.circle,
-                gradient: _hasText && !widget.isLoading
-                    ? const LinearGradient(
-                        colors: [SyraColors.neonPink, SyraColors.neonCyan],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : LinearGradient(
-                        colors: [
-                          Colors.white.withValues(alpha: 0.10),
-                          Colors.white.withValues(alpha: 0.06),
-                        ],
-                      ),
-                boxShadow: _hasText && !widget.isLoading
-                    ? [
-                        BoxShadow(
-                          color: SyraColors.neonPink.withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          spreadRadius: 1,
-                        ),
-                        BoxShadow(
-                          color: SyraColors.neonCyan.withValues(alpha: 0.2),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : [],
               ),
               child: widget.isLoading
                   ? const Padding(
                       padding: EdgeInsets.all(10),
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          SyraColors.background,
+                        ),
                       ),
                     )
-                  : Icon(
+                  : const Icon(
                       Icons.arrow_upward_rounded,
+                      color: SyraColors.background,
                       size: 20,
-                      color: _hasText
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.3),
                     ),
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
@@ -292,10 +180,11 @@ class _GlassInputBarState extends State<GlassInputBar>
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: SyraColors.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: SyraColors.border,
+          width: 0.5,
         ),
       ),
       child: Row(
@@ -304,11 +193,7 @@ class _GlassInputBarState extends State<GlassInputBar>
             width: 3,
             height: 28,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [SyraColors.neonCyan, SyraColors.neonPink],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+              color: SyraColors.accent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -321,7 +206,7 @@ class _GlassInputBarState extends State<GlassInputBar>
                 Text(
                   "Yanıtlanıyor",
                   style: TextStyle(
-                    color: SyraColors.neonCyan.withValues(alpha: 0.8),
+                    color: SyraColors.accent,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -332,7 +217,7 @@ class _GlassInputBarState extends State<GlassInputBar>
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
+                    color: SyraColors.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -346,7 +231,7 @@ class _GlassInputBarState extends State<GlassInputBar>
               child: Icon(
                 Icons.close_rounded,
                 size: 18,
-                color: Colors.white.withValues(alpha: 0.4),
+                color: SyraColors.textMuted,
               ),
             ),
           ),

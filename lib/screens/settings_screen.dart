@@ -7,9 +7,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/firestore_user.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
-import '../widgets/neon_ring.dart';
-
-// Import for premium management screen
 
 import 'chat_screen.dart';
 import 'premium_management_screen.dart';
@@ -22,9 +19,9 @@ import 'account_settings_screen.dart';
 import 'privacy_settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA SETTINGS SCREEN
+/// SYRA SETTINGS SCREEN v2.0 - ChatGPT 2025 Style
 /// ═══════════════════════════════════════════════════════════════
-/// Premium glassmorphism ayarlar ekranı.
+/// Modern, organized settings with multiple sections
 /// ═══════════════════════════════════════════════════════════════
 
 class SettingsScreen extends StatefulWidget {
@@ -39,7 +36,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _email = "";
   bool _loading = false;
 
-  // Günlük limit kitapçık bilgisi
+  // Daily limit info
   int _dailyLimit = 10;
   int _usedToday = 0;
 
@@ -54,7 +51,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (user != null) {
       _email = user.email ?? "Misafir kullanıcı";
 
-      // Tüm mesaj kullanım durumunu tek seferde çekiyoruz
       final status = await FirestoreUser.getMessageStatus();
 
       _isPremium = status['isPremium'] ?? false;
@@ -66,7 +62,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // MESAJ SİL
+  // CLEAR CHAT HISTORY
   // ─────────────────────────────────────────────────────────────
   Future<void> _clearChatHistory() async {
     final confirm = await _showConfirmDialog(
@@ -115,7 +111,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // HESABI SİL
+  // DELETE ACCOUNT
   // ─────────────────────────────────────────────────────────────
   Future<void> _deleteAccount() async {
     final confirm = await _showConfirmDialog(
@@ -167,16 +163,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (_) => Dialog(
         backgroundColor: Colors.transparent,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: SyraColors.surface.withValues(alpha: 0.95),
-                borderRadius: BorderRadius.circular(20),
+                color: SyraColors.surface.withOpacity(0.95),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.10),
+                  color: SyraColors.border,
+                  width: 0.5,
                 ),
               ),
               child: Column(
@@ -185,7 +182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: SyraColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -195,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     content,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
+                      color: SyraColors.textSecondary,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -209,14 +206,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.08),
+                              color: SyraColors.glassBg,
                               borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: SyraColors.border),
                             ),
                             child: Center(
                               child: Text(
                                 "İptal",
                                 style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.8),
+                                  color: SyraColors.textSecondary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -233,13 +231,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
                               color: isDanger
-                                  ? Colors.redAccent.withValues(alpha: 0.2)
-                                  : const Color(0xFF00D4FF).withValues(alpha: 0.2),
+                                  ? Colors.redAccent.withOpacity(0.2)
+                                  : SyraColors.accent.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: isDanger
-                                    ? Colors.redAccent.withValues(alpha: 0.5)
-                                    : const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                                    ? Colors.redAccent.withOpacity(0.5)
+                                    : SyraColors.accent.withOpacity(0.5),
                               ),
                             ),
                             child: Center(
@@ -248,7 +246,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 style: TextStyle(
                                   color: isDanger
                                       ? Colors.redAccent
-                                      : const Color(0xFF00D4FF),
+                                      : SyraColors.accent,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -285,8 +283,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: SyraColors.background,
       body: Stack(
         children: [
           // Background
@@ -302,36 +299,240 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 // Settings List
                 Expanded(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                     child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Profile Section
                         _buildProfileSection(),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
                         // Premium Section
                         _buildPremiumSection(),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
 
-                        // Usage Section (kitapçık gibi isteyen bakar)
+                        // Usage Section
                         _buildUsageSection(),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 28),
 
-                        // Chat Behavior Section
-                        _buildChatBehaviorSection(),
+                        // ─────────────────────────────────────────
+                        // APPEARANCE SECTION
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Görünüm"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.palette_outlined,
+                            title: "Tema",
+                            subtitle: "Koyu mavi tema aktif",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AppearanceSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.text_fields_rounded,
+                            title: "Yazı Boyutu",
+                            subtitle: "Normal",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AppearanceSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                        ]),
 
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 24),
 
-                        // New Settings Sections
-                        _buildNewSettingsSection(),
+                        // ─────────────────────────────────────────
+                        // CHAT BEHAVIOR SECTION
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Sohbet Davranışı"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.psychology_outlined,
+                            title: "Ton ve Stil",
+                            subtitle: "SYRA'nın konuşma tarzını ayarla",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const ChatBehaviorScreen(),
+                              ),
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.vibration_rounded,
+                            title: "Dokunsal Geri Bildirim",
+                            subtitle: "Açık",
+                            onTap: () {},
+                            trailing: Switch(
+                              value: true,
+                              onChanged: (_) {},
+                              activeColor: SyraColors.accent,
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.schedule_rounded,
+                            title: "Zaman Damgalarını Göster",
+                            subtitle: "Mesaj zamanlarını göster",
+                            onTap: () {},
+                            trailing: Switch(
+                              value: true,
+                              onChanged: (_) {},
+                              activeColor: SyraColors.accent,
+                            ),
+                          ),
+                        ]),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
 
-                        // Privacy Section
-                        _buildPrivacySection(),
+                        // ─────────────────────────────────────────
+                        // NOTIFICATIONS SECTION
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Bildirimler"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.notifications_outlined,
+                            title: "Push Bildirimleri",
+                            subtitle: "Günlük tavsiyeler ve hatırlatmalar",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const NotificationsSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.tips_and_updates_outlined,
+                            title: "Günlük İpuçları",
+                            subtitle: "Her gün bir ilişki ipucu al",
+                            onTap: () {},
+                            trailing: Switch(
+                              value: true,
+                              onChanged: (_) {},
+                              activeColor: SyraColors.accent,
+                            ),
+                          ),
+                        ]),
+
+                        const SizedBox(height: 24),
+
+                        // ─────────────────────────────────────────
+                        // ACCOUNT SECTION
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Hesap"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.person_outline_rounded,
+                            title: "Hesap Bilgileri",
+                            subtitle: _email,
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AccountSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.key_rounded,
+                            title: "Şifre Değiştir",
+                            subtitle: "Hesap güvenliği",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AccountSettingsScreen(),
+                              ),
+                            ),
+                          ),
+                        ]),
+
+                        const SizedBox(height: 24),
+
+                        // ─────────────────────────────────────────
+                        // PRIVACY & DATA SECTION
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Gizlilik ve Veri"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.shield_outlined,
+                            title: "Gizlilik Ayarları",
+                            subtitle: "Veri yönetimi ve gizlilik",
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const PrivacySettingsScreen(),
+                              ),
+                            ),
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.description_outlined,
+                            title: "Gizlilik Politikası",
+                            subtitle: "Politikayı görüntüle",
+                            onTap: () async {
+                              final url = Uri.parse(
+                                  "https://ariksoftware.com.tr/privacy-policy.html");
+                              await launchUrl(url,
+                                  mode: LaunchMode.externalApplication);
+                            },
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.download_outlined,
+                            title: "Verilerimi İndir",
+                            subtitle: "Tüm verilerinin bir kopyasını al",
+                            onTap: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                      "Bu özellik yakında aktif olacak"),
+                                  backgroundColor: SyraColors.surface,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            },
+                          ),
+                          _buildDivider(),
+                          _buildSettingsItem(
+                            icon: Icons.delete_outline_rounded,
+                            title: "Mesaj Geçmişini Sil",
+                            subtitle: "Tüm konuşmaları sil",
+                            onTap: _clearChatHistory,
+                            iconColor: Colors.orange,
+                          ),
+                        ]),
+
+                        const SizedBox(height: 24),
+
+                        // ─────────────────────────────────────────
+                        // DANGER ZONE
+                        // ─────────────────────────────────────────
+                        _buildSectionTitle("Tehlikeli Bölge"),
+                        const SizedBox(height: 8),
+                        _buildSettingsCard([
+                          _buildSettingsItem(
+                            icon: Icons.delete_forever_rounded,
+                            title: "Hesabı Sil",
+                            subtitle: "Kalıcı olarak hesabını sil",
+                            onTap: _deleteAccount,
+                            iconColor: Colors.redAccent,
+                          ),
+                        ]),
 
                         const SizedBox(height: 28),
 
@@ -353,9 +554,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // Loading overlay
           if (_loading)
             Container(
-              color: Colors.black.withValues(alpha: 0.6),
+              color: Colors.black.withOpacity(0.6),
               child: const Center(
-                child: CompactAuraRing(size: 50, isActive: true),
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(SyraColors.accent),
+                ),
               ),
             ),
         ],
@@ -367,61 +570,45 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // APP BAR
   // ─────────────────────────────────────────────────────────────
   Widget _buildAppBar() {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.25),
-            border: Border(
-              bottom: BorderSide(
-                color: Colors.white.withValues(alpha: 0.06),
-                width: 0.5,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      decoration: BoxDecoration(
+        color: SyraColors.background,
+        border: Border(
+          bottom: BorderSide(
+            color: SyraColors.divider,
+            width: 0.5,
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          // Back button
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(
+              Icons.arrow_back_ios_rounded,
+              color: SyraColors.textPrimary,
+              size: 20,
+            ),
+          ),
+
+          // Title
+          const Expanded(
+            child: Center(
+              child: Text(
+                "Ayarlar",
+                style: TextStyle(
+                  color: SyraColors.textPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),
-          child: Row(
-            children: [
-              // Back button
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(
-                  Icons.arrow_back_ios_rounded,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
 
-              // Title
-              const Expanded(
-                child: Center(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.settings_rounded,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        "Ayarlar",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(width: 48),
-            ],
-          ),
-        ),
+          const SizedBox(width: 48),
+        ],
       ),
     );
   }
@@ -430,30 +617,37 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // PROFILE SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildProfileSection() {
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SyraColors.border, width: 0.5),
+      ),
       child: Row(
         children: [
           // Avatar
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFFFF6B9D), Color(0xFF00D4FF)],
+              color: SyraColors.accent.withOpacity(0.2),
+              border: Border.all(
+                color: SyraColors.accent.withOpacity(0.4),
+                width: 1,
               ),
             ),
             child: const Center(
               child: Icon(
                 Icons.person_rounded,
-                color: Colors.white,
-                size: 28,
+                color: SyraColors.accent,
+                size: 26,
               ),
             ),
           ),
 
-          const SizedBox(width: 16),
+          const SizedBox(width: 14),
 
           // Info
           Expanded(
@@ -463,22 +657,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Text(
                   _email.isEmpty ? "Kullanıcı" : _email,
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
+                    color: SyraColors.textPrimary,
+                    fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  _isPremium ? "Premium Üye ✨" : "Ücretsiz Plan",
-                  style: TextStyle(
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
                     color: _isPremium
-                        ? const Color(0xFFFFD54F)
-                        : Colors.white.withValues(alpha: 0.6),
-                    fontSize: 13,
-                    fontWeight: _isPremium ? FontWeight.w600 : FontWeight.w400,
+                        ? SyraColors.accent.withOpacity(0.2)
+                        : SyraColors.glassBg,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    _isPremium ? "Premium ✨" : "Ücretsiz Plan",
+                    style: TextStyle(
+                      color: _isPremium
+                          ? SyraColors.accent
+                          : SyraColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
@@ -493,76 +699,144 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // PREMIUM SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildPremiumSection() {
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: _buildSettingsItem(
-        icon: Icons.workspace_premium_rounded,
-        iconColor: const Color(0xFFFFD54F),
-        title: _isPremium ? "Premium Aktif 🎉" : "Premium'a Geç",
-        subtitle: _isPremium
-            ? "Sınırsız sohbet ve analiz aktif"
-            : "Sınırsız mesaj ve özel özellikler",
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => _isPremium
-                  ? const PremiumManagementScreen()
-                  : const PremiumScreen(),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _isPremium
+                ? const PremiumManagementScreen()
+                : const PremiumScreen(),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: SyraColors.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: SyraColors.border, width: 0.5),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFFFD54F).withOpacity(0.15),
+              ),
+              child: const Icon(
+                Icons.workspace_premium_rounded,
+                color: Color(0xFFFFD54F),
+                size: 20,
+              ),
             ),
-          );
-        },
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _isPremium ? "Premium Aktif 🎉" : "Premium'a Geç",
+                    style: const TextStyle(
+                      color: SyraColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _isPremium
+                        ? "Sınırsız mesaj ve analiz aktif"
+                        : "Sınırsız mesaj ve özel özellikler",
+                    style: TextStyle(
+                      color: SyraColors.textMuted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.chevron_right_rounded,
+              color: SyraColors.textHint,
+              size: 22,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // USAGE SECTION (Günlük mesaj hakkın)
+  // USAGE SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildUsageSection() {
-    return GlassCard(
-      padding: const EdgeInsets.all(20),
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SyraColors.border, width: 0.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            "Günlük mesaj hakkın",
+            "Günlük Mesaj Hakkı",
             style: TextStyle(
-              color: Colors.white,
+              color: SyraColors.textPrimary,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           if (_isPremium)
-            const Text(
+            Text(
               "Premium üyesin, mesajların sınırsız ✨",
               style: TextStyle(
-                color: Colors.white70,
-                fontSize: 12,
+                color: SyraColors.textSecondary,
+                fontSize: 13,
               ),
             )
           else
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: LinearProgressIndicator(
-                    value: (_dailyLimit <= 0)
-                        ? 0
-                        : (_usedToday / _dailyLimit).clamp(0.0, 1.0),
-                    minHeight: 5,
-                    backgroundColor: Colors.white.withValues(alpha: 0.10),
-                    valueColor: const AlwaysStoppedAnimation(
-                      Color(0xFFFF6B9D),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: (_dailyLimit <= 0)
+                              ? 0
+                              : (_usedToday / _dailyLimit).clamp(0.0, 1.0),
+                          minHeight: 6,
+                          backgroundColor: SyraColors.glassBg,
+                          valueColor: const AlwaysStoppedAnimation(
+                            SyraColors.accent,
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 12),
+                    Text(
+                      "$_usedToday / $_dailyLimit",
+                      style: TextStyle(
+                        color: SyraColors.textSecondary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(height: 8),
                 Text(
-                  "$_usedToday / $_dailyLimit",
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
+                  "Günlük sıfırlanma: Gece yarısı",
+                  style: TextStyle(
+                    color: SyraColors.textHint,
+                    fontSize: 11,
                   ),
                 ),
               ],
@@ -573,170 +847,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // CHAT BEHAVIOR SECTION
+  // SECTION TITLE
   // ─────────────────────────────────────────────────────────────
-  Widget _buildChatBehaviorSection() {
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: _buildSettingsItem(
-        icon: Icons.psychology_rounded,
-        iconColor: const Color(0xFF76E4FF),
-        title: "Sohbet Davranışı",
-        subtitle: "Ton, enerji ve stil ayarları",
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const ChatBehaviorScreen(),
-            ),
-          );
-        },
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title.toUpperCase(),
+        style: TextStyle(
+          color: SyraColors.textHint,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.8,
+        ),
       ),
     );
   }
 
   // ─────────────────────────────────────────────────────────────
-  // NEW SETTINGS SECTION
+  // SETTINGS CARD
   // ─────────────────────────────────────────────────────────────
-  Widget _buildNewSettingsSection() {
-    return GlassCard(
-      padding: EdgeInsets.zero,
-      child: Column(
-        children: [
-          _buildSettingsItem(
-            icon: Icons.palette_rounded,
-            iconColor: const Color(0xFFB388FF),
-            title: "Görünüm",
-            subtitle: "Tema, parlaklık ve animasyon",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AppearanceSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          _buildDivider(),
-          _buildSettingsItem(
-            icon: Icons.notifications_rounded,
-            iconColor: const Color(0xFFFFD54F),
-            title: "Bildirimler",
-            subtitle: "Bildirim tercihleri",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const NotificationsSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          _buildDivider(),
-          _buildSettingsItem(
-            icon: Icons.person_rounded,
-            iconColor: const Color(0xFF64B5F6),
-            title: "Hesap",
-            subtitle: "Hesap bilgileri ve değişiklikler",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const AccountSettingsScreen(),
-                ),
-              );
-            },
-          ),
-          _buildDivider(),
-          _buildSettingsItem(
-            icon: Icons.shield_rounded,
-            iconColor: const Color(0xFF4DB6AC),
-            title: "Gizlilik ve Veri",
-            subtitle: "Veri yönetimi ve gizlilik",
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const PrivacySettingsScreen(),
-                ),
-              );
-            },
-          ),
-        ],
+  Widget _buildSettingsCard(List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: SyraColors.border, width: 0.5),
       ),
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // PRIVACY SECTION
-  // ─────────────────────────────────────────────────────────────
-  Widget _buildPrivacySection() {
-    return GlassCard(
-      padding: EdgeInsets.zero,
       child: Column(
-        children: [
-          _buildSettingsItem(
-            icon: Icons.privacy_tip_rounded,
-            iconColor: const Color(0xFF00D4FF),
-            title: "Gizlilik Politikası",
-            subtitle: "Politikayı görüntüle",
-            onTap: () async {
-              final url =
-                  Uri.parse("https://ariksoftware.com.tr/privacy-policy.html");
-              await launchUrl(url, mode: LaunchMode.externalApplication);
-            },
-          ),
-          _buildDivider(),
-          _buildSettingsItem(
-            icon: Icons.delete_outline_rounded,
-            iconColor: Colors.orangeAccent,
-            title: "Mesaj Geçmişini Sil",
-            subtitle: "Tüm konuşmalar silinir",
-            onTap: _clearChatHistory,
-          ),
-          _buildDivider(),
-          _buildSettingsItem(
-            icon: Icons.delete_forever_rounded,
-            iconColor: Colors.redAccent,
-            title: "Hesabı Sil",
-            subtitle: "Geri alınamaz işlem",
-            onTap: _deleteAccount,
-          ),
-        ],
+        children: children,
       ),
     );
   }
 
   Widget _buildSettingsItem({
     required IconData icon,
-    required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
+    Widget? trailing,
+    Color? iconColor,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             // Icon
             Container(
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: iconColor.withValues(alpha: 0.15),
+                color: (iconColor ?? SyraColors.textSecondary).withOpacity(0.12),
               ),
               child: Icon(
                 icon,
-                color: iconColor,
-                size: 20,
+                color: iconColor ?? SyraColors.textSecondary,
+                size: 18,
               ),
             ),
 
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
 
             // Text
             Expanded(
@@ -746,29 +920,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      color: SyraColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.6),
-                      fontSize: 13,
+                      color: SyraColors.textMuted,
+                      fontSize: 12,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
 
-            // Arrow
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white.withValues(alpha: 0.3),
-              size: 22,
-            ),
+            // Trailing
+            trailing ??
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: SyraColors.textHint,
+                  size: 20,
+                ),
           ],
         ),
       ),
@@ -777,9 +954,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildDivider() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
       height: 0.5,
-      color: Colors.white.withValues(alpha: 0.08),
+      color: SyraColors.divider,
     );
   }
 
@@ -802,10 +979,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.redAccent.withValues(alpha: 0.12),
+          color: Colors.redAccent.withOpacity(0.1),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: Colors.redAccent.withValues(alpha: 0.3),
+            color: Colors.redAccent.withOpacity(0.3),
           ),
         ),
         child: const Center(
@@ -823,17 +1000,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // VERSION INFO - Long press for Developer Tools
+  // VERSION INFO
   // ─────────────────────────────────────────────────────────────
   Widget _buildVersionInfo() {
     return Column(
       children: [
-        const SyraLogo(fontSize: 18),
-        const SizedBox(height: 8),
         Text(
-          "Versiyon 1.0.1",
+          "SYRA",
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.4),
+            color: SyraColors.textMuted,
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 2,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          "Versiyon 2.0.0",
+          style: TextStyle(
+            color: SyraColors.textHint,
             fontSize: 12,
           ),
         ),

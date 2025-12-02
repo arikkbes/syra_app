@@ -1,21 +1,16 @@
 import 'dart:ui';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/auth_providers.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
-import '../widgets/syra_orb.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA LOGIN SCREEN
+/// SYRA LOGIN SCREEN v2.0 - ChatGPT 2025 Style
 /// ═══════════════════════════════════════════════════════════════
-/// Premium glassmorphism login ekranı.
-/// - SYRA ORB header
-/// - Glass card login form
-/// - Animated transitions
+/// Clean, minimal login screen
 /// ═══════════════════════════════════════════════════════════════
 
 class LoginScreen extends StatefulWidget {
@@ -42,7 +37,7 @@ class _LoginScreenState extends State<LoginScreen>
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
     );
 
     _fadeAnimation = CurvedAnimation(
@@ -143,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: SyraColors.background,
       body: Stack(
         children: [
           // Background
@@ -158,29 +154,29 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // SYRA ORB Logo
-                      const SyraOrb(
-                        state: OrbState.idle,
-                        size: 140,
-                      ),
-
-                      const SizedBox(height: 24),
-
                       // SYRA Logo
-                      const SyraLogo(fontSize: 32),
+                      Text(
+                        "SYRA",
+                        style: TextStyle(
+                          fontSize: 48,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 8,
+                          color: SyraColors.textPrimary,
+                        ),
+                      ),
 
                       const SizedBox(height: 8),
 
                       Text(
                         "İlişki Danışmanın",
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: SyraColors.textMuted,
                           fontSize: 14,
                           letterSpacing: 1,
                         ),
                       ),
 
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 48),
 
                       // Login Card
                       _buildLoginCard(),
@@ -209,103 +205,85 @@ class _LoginScreenState extends State<LoginScreen>
   // LOGIN CARD
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoginCard() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-        child: Container(
-          constraints: const BoxConstraints(maxWidth: 400),
-          padding: const EdgeInsets.all(28),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                Colors.white.withValues(alpha: 0.10),
-                Colors.white.withValues(alpha: 0.05),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.15),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFFF6B9D).withValues(alpha: 0.15),
-                blurRadius: 30,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Welcome text
-              Text(
-                "Tekrar hoş geldin 👋",
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Email input
-              _buildTextField(
-                controller: _email,
-                hint: "E-posta",
-                icon: Icons.mail_outline_rounded,
-                keyboardType: TextInputType.emailAddress,
-              ),
-
-              const SizedBox(height: 14),
-
-              // Password input
-              _buildTextField(
-                controller: _pass,
-                hint: "Şifre",
-                icon: Icons.lock_outline_rounded,
-                obscure: _obscure,
-                trailing: IconButton(
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(
-                    _obscure
-                        ? Icons.visibility_rounded
-                        : Icons.visibility_off_rounded,
-                    color: Colors.white.withValues(alpha: 0.4),
-                    size: 20,
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 24),
-
-              // Sign in button
-              _buildPrimaryButton(
-                text: "Giriş Yap",
-                onPressed: _signIn,
-              ),
-
-              const SizedBox(height: 12),
-
-              // Guest button
-              _buildSecondaryButton(
-                text: "Misafir olarak devam et",
-                onPressed: _guest,
-              ),
-
-              // Social login (Web only)
-              if (kIsWeb) ...[
-                const SizedBox(height: 20),
-                _buildDivider(),
-                const SizedBox(height: 16),
-                _buildSocialButtons(),
-              ],
-            ],
-          ),
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 400),
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: SyraColors.border,
+          width: 0.5,
         ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Welcome text
+          Text(
+            "Tekrar hoş geldin 👋",
+            style: TextStyle(
+              color: SyraColors.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Email input
+          _buildTextField(
+            controller: _email,
+            hint: "E-posta",
+            icon: Icons.mail_outline_rounded,
+            keyboardType: TextInputType.emailAddress,
+          ),
+
+          const SizedBox(height: 14),
+
+          // Password input
+          _buildTextField(
+            controller: _pass,
+            hint: "Şifre",
+            icon: Icons.lock_outline_rounded,
+            obscure: _obscure,
+            trailing: IconButton(
+              onPressed: () => setState(() => _obscure = !_obscure),
+              icon: Icon(
+                _obscure
+                    ? Icons.visibility_rounded
+                    : Icons.visibility_off_rounded,
+                color: SyraColors.textHint,
+                size: 20,
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+
+          // Sign in button
+          _buildPrimaryButton(
+            text: "Giriş Yap",
+            onPressed: _signIn,
+          ),
+
+          const SizedBox(height: 16),
+
+          _buildDivider(),
+
+          const SizedBox(height: 16),
+
+          // Social buttons
+          _buildSocialButtons(),
+
+          const SizedBox(height: 16),
+
+          // Guest button
+          _buildSecondaryButton(
+            text: "Misafir Olarak Devam Et",
+            onPressed: _guest,
+          ),
+        ],
       ),
     );
   }
@@ -323,10 +301,11 @@ class _LoginScreenState extends State<LoginScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(14),
+        color: SyraColors.background,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.08),
+          color: SyraColors.border,
+          width: 0.5,
         ),
       ),
       child: TextField(
@@ -334,17 +313,17 @@ class _LoginScreenState extends State<LoginScreen>
         obscureText: obscure,
         keyboardType: keyboardType,
         style: const TextStyle(
-          color: Colors.white,
+          color: SyraColors.textPrimary,
           fontSize: 15,
         ),
         decoration: InputDecoration(
           hintText: hint,
           hintStyle: TextStyle(
-            color: Colors.white.withValues(alpha: 0.35),
+            color: SyraColors.textHint,
           ),
           prefixIcon: Icon(
             icon,
-            color: Colors.white.withValues(alpha: 0.4),
+            color: SyraColors.textMuted,
             size: 20,
           ),
           suffixIcon: trailing,
@@ -371,25 +350,14 @@ class _LoginScreenState extends State<LoginScreen>
         width: double.infinity,
         height: 52,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFFFF6B9D), Color(0xFF00D4FF)],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-          ),
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFFFF6B9D).withValues(alpha: 0.35),
-              blurRadius: 20,
-              offset: const Offset(0, 6),
-            ),
-          ],
+          color: SyraColors.textPrimary,
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: Text(
-            "Giriş Yap",
+            text,
             style: TextStyle(
-              color: Colors.white,
+              color: SyraColors.background,
               fontSize: 16,
               fontWeight: FontWeight.w600,
             ),
@@ -413,16 +381,17 @@ class _LoginScreenState extends State<LoginScreen>
         height: 48,
         decoration: BoxDecoration(
           color: Colors.transparent,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.20),
+            color: SyraColors.border,
+            width: 0.5,
           ),
         ),
         child: Center(
           child: Text(
             text,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.8),
+              color: SyraColors.textSecondary,
               fontSize: 14,
               fontWeight: FontWeight.w500,
             ),
@@ -441,7 +410,7 @@ class _LoginScreenState extends State<LoginScreen>
         Expanded(
           child: Container(
             height: 0.5,
-            color: Colors.white.withValues(alpha: 0.15),
+            color: SyraColors.divider,
           ),
         ),
         Padding(
@@ -449,7 +418,7 @@ class _LoginScreenState extends State<LoginScreen>
           child: Text(
             "veya",
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.5),
+              color: SyraColors.textHint,
               fontSize: 12,
             ),
           ),
@@ -457,7 +426,7 @@ class _LoginScreenState extends State<LoginScreen>
         Expanded(
           child: Container(
             height: 0.5,
-            color: Colors.white.withValues(alpha: 0.15),
+            color: SyraColors.divider,
           ),
         ),
       ],
@@ -517,10 +486,11 @@ class _LoginScreenState extends State<LoginScreen>
       child: Container(
         height: 46,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: SyraColors.background,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.white.withValues(alpha: 0.12),
+            color: SyraColors.border,
+            width: 0.5,
           ),
         ),
         child: Row(
@@ -528,14 +498,14 @@ class _LoginScreenState extends State<LoginScreen>
           children: [
             Icon(
               icon,
-              color: Colors.white.withValues(alpha: 0.8),
+              color: SyraColors.textSecondary,
               size: 20,
             ),
             const SizedBox(width: 8),
             Text(
               label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.8),
+                color: SyraColors.textSecondary,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -556,16 +526,16 @@ class _LoginScreenState extends State<LoginScreen>
         Text(
           "Hesabın yok mu? ",
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.6),
+            color: SyraColors.textMuted,
             fontSize: 14,
           ),
         ),
         GestureDetector(
           onTap: () => Navigator.pushNamed(context, '/signup'),
-          child: const Text(
+          child: Text(
             "Kayıt ol",
             style: TextStyle(
-              color: Color(0xFFFF6B9D),
+              color: SyraColors.accent,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -580,11 +550,10 @@ class _LoginScreenState extends State<LoginScreen>
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Colors.black.withValues(alpha: 0.6),
+      color: Colors.black.withOpacity(0.6),
       child: const Center(
-        child: SyraOrb(
-          state: OrbState.thinking,
-          size: 90,
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(SyraColors.accent),
         ),
       ),
     );

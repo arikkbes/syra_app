@@ -1,75 +1,81 @@
 import 'package:flutter/material.dart';
 
 /// =============================================================
-///  SYRA CLASSIC DARK THEME v1.0
-///  Stable, elegant, App Store ready
-///  Logo-aligned neon gradient (Pink → Cyan)
+///  SYRA MODERN THEME v2.0 - ChatGPT 2025 Style
+///  Deep blue background (#072233) + Clean white text (#FEFEFE)
+///  Minimal, elegant, lots of negative space
 /// =============================================================
 
 class SyraColors {
   // ─────────────────────────────────────────────────────────────
-  // BACKGROUND (Deep dark with subtle blue undertone)
+  // BACKGROUND - Deep blue (main app background)
   // ─────────────────────────────────────────────────────────────
-  static const Color bgTop = Color(0xFF05050A);
-  static const Color bgMiddle = Color(0xFF070A10);
-  static const Color bgBottom = Color(0xFF0B0F16);
+  static const Color background = Color(0xFF072233);
+  static const Color bgTop = Color(0xFF072233);
+  static const Color bgMiddle = Color(0xFF072233);
+  static const Color bgBottom = Color(0xFF061A29);
 
-  /// Global background color shortcut
-  static const Color background = bgMiddle;
-
-  // Surface colors
-  static const Color surface = Color(0xFF0D1117);
-  static const Color surfaceLight = Color(0xFF131920);
-  static const Color surfaceGlass = Color(0xFF101418);
-
-  // ─────────────────────────────────────────────────────────────
-  // ACCENT COLORS (Logo-aligned: Pink → Cyan)
-  // ─────────────────────────────────────────────────────────────
-  // Primary Pink (from logo)
-  static const Color neonPink = Color(0xFFFF3B8F);
-  static const Color neonPinkLight = Color(0xFFFF4FA3);
-  static const Color neonPinkDark = Color(0xFFE6357F);
-
-  // Primary Cyan (from logo)
-  static const Color neonCyan = Color(0xFF00E5FF);
-  static const Color neonCyanLight = Color(0xFF42E4FF);
-  static const Color neonCyanDark = Color(0xFF00B8CC);
-
-  // Transition violet
-  static const Color neonViolet = Color(0xFFB388FF);
-
-  // ─────────────────────────────────────────────────────────────
-  // LOGO GRADIENT (Premium Gold for "SYRA" text)
-  // ─────────────────────────────────────────────────────────────
-  static const Color logoGoldTop = Color(0xFFF8EBC7);
-  static const Color logoGoldBottom = Color(0xFFC1A873);
-  static const Color logoGlow = Color(0xFFE8D4A0);
-
-  // ─────────────────────────────────────────────────────────────
-  // CHAT BUBBLE COLORS
-  // ─────────────────────────────────────────────────────────────
-  static const Color syraBubbleBg = Color(0xFF141B22);
-  static const Color syraBubbleGlow = Color(0xFF42E4FF);
-  static const Color userBubbleBg = Color(0xFF1E2530);
-  static const Color userBubbleShadow = Color(0xFF0D1117);
+  // Surface colors (slightly lighter/darker variants)
+  static const Color surface = Color(0xFF0A2D42);
+  static const Color surfaceLight = Color(0xFF0D3650);
+  static const Color surfaceDark = Color(0xFF051B2A);
 
   // ─────────────────────────────────────────────────────────────
   // TEXT COLORS
   // ─────────────────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFF5F7FA);
-  static const Color textSecondary = Color(0xFFA0A8B5);
-  static const Color textMuted = Color(0xFF6B7280);
-  static const Color textHint = Color(0xFF4B5563);
+  static const Color textPrimary = Color(0xFFFEFEFE);
+  static const Color textSecondary = Color(0xB3FEFEFE); // 70% opacity
+  static const Color textMuted = Color(0x80FEFEFE); // 50% opacity
+  static const Color textHint = Color(0x4DFEFEFE); // 30% opacity
 
   // ─────────────────────────────────────────────────────────────
-  // GLASSMORPHISM
+  // ACCENT COLOR (subtle, cold neutral)
   // ─────────────────────────────────────────────────────────────
-  static const Color glassBg = Color(0x0DFFFFFF); // ~5% white
-  static const Color glassBorder = Color(0xFF1F2937);
-  static const Color glassHighlight = Color(0x14FFFFFF); // ~8% white
+  static const Color accent = Color(0xFF5B9BD5); // Subtle blue accent
+  static const Color accentLight = Color(0xFF7EB3E8);
+  static const Color accentMuted = Color(0x4D5B9BD5); // 30% opacity
 
   // ─────────────────────────────────────────────────────────────
-  // GRADIENTS
+  // NEUTRAL GREYS for dividers, icons, status
+  // ─────────────────────────────────────────────────────────────
+  static const Color divider = Color(0xFF1A3A4F);
+  static const Color border = Color(0xFF1E4460);
+  static const Color iconMuted = Color(0xFF6B8A9E);
+  static const Color iconActive = Color(0xFFFEFEFE);
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAT BUBBLE COLORS (ChatGPT style - minimal)
+  // ─────────────────────────────────────────────────────────────
+  static const Color syraBubbleBg = Color(0xFF0A2D42);
+  static const Color userBubbleBg = Color(0xFF1A4A65);
+  static const Color syraBubbleGlow = Color(0xFF5B9BD5);
+  static const Color userBubbleShadow = Color(0xFF051B2A);
+  
+  // ─────────────────────────────────────────────────────────────
+  // GLASSMORPHISM (subtle, not heavy)
+  // ─────────────────────────────────────────────────────────────
+  static const Color glassBg = Color(0x0DFEFEFE); // ~5% white
+  static const Color glassBorder = Color(0xFF1E4460);
+  static const Color glassHighlight = Color(0x14FEFEFE); // ~8% white
+
+  // ─────────────────────────────────────────────────────────────
+  // LEGACY COLORS (kept for backward compatibility)
+  // ─────────────────────────────────────────────────────────────
+  static const Color neonPink = Color(0xFF5B9BD5); // Remapped to accent
+  static const Color neonCyan = Color(0xFF5B9BD5); // Remapped to accent
+  static const Color neonPinkLight = Color(0xFF7EB3E8);
+  static const Color neonCyanLight = Color(0xFF7EB3E8);
+  static const Color neonPinkDark = Color(0xFF4A8BC5);
+  static const Color neonCyanDark = Color(0xFF4A8BC5);
+  static const Color neonViolet = Color(0xFF7B9FB8);
+
+  // Logo colors (now use white)
+  static const Color logoGoldTop = Color(0xFFFEFEFE);
+  static const Color logoGoldBottom = Color(0xFFD0D0D0);
+  static const Color logoGlow = Color(0xFFFEFEFE);
+
+  // ─────────────────────────────────────────────────────────────
+  // GRADIENTS (minimal, subtle)
   // ─────────────────────────────────────────────────────────────
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -84,102 +90,64 @@ class SyraColors {
     colors: [logoGoldTop, logoGoldBottom],
   );
 
-  /// Primary accent gradient (Pink → Cyan, logo-aligned)
+  /// Primary accent gradient (subtle)
   static const LinearGradient accentGradient = LinearGradient(
-    colors: [neonPink, neonCyan],
+    colors: [accent, accentLight],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
-  /// Orb gradient (matches logo ring)
+  /// Legacy orb gradient (now subtle accent)
   static const LinearGradient orbGradient = LinearGradient(
-    colors: [neonPink, neonCyan],
+    colors: [accent, accentLight],
     begin: Alignment.topRight,
     end: Alignment.bottomLeft,
   );
 
   // ─────────────────────────────────────────────────────────────
-  // GLOW EFFECTS (Subtle, not harsh)
+  // SHADOWS (minimal)
   // ─────────────────────────────────────────────────────────────
-  static List<BoxShadow> orbIdleGlow() => [
-        BoxShadow(
-          color: neonPink.withValues(alpha: 0.18),
-          blurRadius: 25,
-          spreadRadius: 4,
-        ),
-        BoxShadow(
-          color: neonCyan.withValues(alpha: 0.12),
-          blurRadius: 35,
-          spreadRadius: 6,
-        ),
-      ];
+  static List<BoxShadow> orbIdleGlow() => [];
+  static List<BoxShadow> orbThinkingGlow() => [];
+  static List<BoxShadow> bubbleGlow({double intensity = 0.025}) => [];
+  static List<BoxShadow> cardGlow() => [];
 
-  static List<BoxShadow> orbThinkingGlow() => [
-        BoxShadow(
-          color: neonPink.withValues(alpha: 0.35),
-          blurRadius: 40,
-          spreadRadius: 8,
-        ),
-        BoxShadow(
-          color: neonCyan.withValues(alpha: 0.25),
-          blurRadius: 50,
-          spreadRadius: 12,
-        ),
-        BoxShadow(
-          color: neonPink.withValues(alpha: 0.15),
-          blurRadius: 70,
-          spreadRadius: 20,
-        ),
-      ];
-
-  static List<BoxShadow> bubbleGlow({double intensity = 0.025}) => [
-        BoxShadow(
-          color: neonCyanLight.withValues(alpha: intensity),
-          blurRadius: 16,
-          spreadRadius: 1,
-        ),
-      ];
-
-  static List<BoxShadow> cardGlow() => [
-        BoxShadow(
-          color: neonPink.withValues(alpha: 0.08),
-          blurRadius: 20,
-          offset: const Offset(0, 4),
-        ),
-        BoxShadow(
-          color: neonCyan.withValues(alpha: 0.06),
-          blurRadius: 25,
-          offset: const Offset(0, 6),
-        ),
-      ];
+  // Subtle shadows for cards
+  static List<BoxShadow> subtleShadow() => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.2),
+      blurRadius: 8,
+      offset: const Offset(0, 2),
+    ),
+  ];
 }
 
 // ═══════════════════════════════════════════════════════════════
 // TYPOGRAPHY
 // ═══════════════════════════════════════════════════════════════
 class SyraTypography {
-  static const String logoFont = "Georgia";
+  static const String logoFont = "SF Pro Display";
   static const String mainFont = "SF Pro Display";
   static const String fallbackFont = ".SF UI Text";
 
   static TextStyle logoStyle({double fontSize = 22}) => TextStyle(
         fontFamily: logoFont,
         fontSize: fontSize,
-        fontWeight: FontWeight.w400,
-        letterSpacing: fontSize * 0.45,
+        fontWeight: FontWeight.w600,
+        letterSpacing: fontSize * 0.15,
         color: SyraColors.textPrimary,
       );
 
   static const TextStyle messageText = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w400,
-    height: 1.45,
+    height: 1.5,
     letterSpacing: 0.1,
     color: SyraColors.textPrimary,
   );
 
   static const TextStyle timeText = TextStyle(
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.2,
     color: SyraColors.textMuted,
@@ -187,7 +155,7 @@ class SyraTypography {
 
   static const TextStyle headingLarge = TextStyle(
     fontSize: 24,
-    fontWeight: FontWeight.w700,
+    fontWeight: FontWeight.w600,
     color: SyraColors.textPrimary,
   );
 
@@ -215,8 +183,8 @@ class SyraTheme {
         scaffoldBackgroundColor: SyraColors.background,
         fontFamily: SyraTypography.fallbackFont,
         colorScheme: const ColorScheme.dark(
-          primary: SyraColors.neonCyan,
-          secondary: SyraColors.neonPink,
+          primary: SyraColors.accent,
+          secondary: SyraColors.accentLight,
           surface: SyraColors.surface,
           onPrimary: SyraColors.textPrimary,
           onSecondary: SyraColors.textPrimary,
@@ -238,13 +206,13 @@ class SyraTheme {
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: SyraColors.glassBorder),
+            side: const BorderSide(color: SyraColors.border),
           ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: SyraColors.neonCyan,
-            foregroundColor: SyraColors.background,
+            backgroundColor: SyraColors.accent,
+            foregroundColor: SyraColors.textPrimary,
             elevation: 0,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -253,7 +221,7 @@ class SyraTheme {
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
-            foregroundColor: SyraColors.neonCyan,
+            foregroundColor: SyraColors.accent,
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -261,15 +229,15 @@ class SyraTheme {
           fillColor: SyraColors.surface,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.glassBorder),
+            borderSide: const BorderSide(color: SyraColors.border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.glassBorder),
+            borderSide: const BorderSide(color: SyraColors.border),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.neonCyan),
+            borderSide: const BorderSide(color: SyraColors.accent),
           ),
           hintStyle: const TextStyle(color: SyraColors.textHint),
         ),
@@ -282,10 +250,10 @@ class SyraTheme {
           ),
         ),
         progressIndicatorTheme: const ProgressIndicatorThemeData(
-          color: SyraColors.neonCyan,
+          color: SyraColors.accent,
         ),
-        dividerTheme: DividerThemeData(
-          color: SyraColors.glassBorder.withValues(alpha: 0.5),
+        dividerTheme: const DividerThemeData(
+          color: SyraColors.divider,
           thickness: 0.5,
         ),
       );

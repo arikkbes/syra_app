@@ -1,18 +1,12 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA MESSAGE BUBBLE — Premium Apple-Grade Design
+/// SYRA MESSAGE BUBBLE v2.0 — ChatGPT 2025 Style
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA messages:
-/// - Soft teal glass effect
-/// - 2-3% bloom glow behind
-/// - Rounded corners, no harsh edges
-///
-/// User messages:
-/// - Charcoal gray (#2A2A2C)
-/// - Faint inner shadow for realism
+/// - Minimal, text-focused design
+/// - No heavy bubbles or gradients
+/// - Subtle visual distinction between user/bot
 /// ═══════════════════════════════════════════════════════════════
 
 class SyraMessageBubble extends StatefulWidget {
@@ -53,20 +47,20 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 
     _fadeController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 450),
+      duration: const Duration(milliseconds: 350),
     );
 
     _fadeAnimation = CurvedAnimation(
       parent: _fadeController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOut,
     );
 
     _slideAnimation = Tween<Offset>(
-      begin: Offset(widget.isUser ? 0.15 : -0.15, 0.02),
+      begin: const Offset(0, 0.1),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _fadeController,
-      curve: Curves.easeOutCubic,
+      curve: Curves.easeOut,
     ));
 
     _fadeController.forward();
@@ -86,38 +80,55 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         position: _slideAnimation,
         child: GestureDetector(
           onLongPress: widget.onLongPress,
-          child: Align(
-            alignment:
-                widget.isUser ? Alignment.centerRight : Alignment.centerLeft,
-            child: Container(
-              margin: EdgeInsets.only(
-                left: widget.isUser ? 55 : 0,
-                right: widget.isUser ? 0 : 55,
-                top: 3,
-                bottom: 3,
-              ),
-              child: Column(
-                crossAxisAlignment: widget.isUser
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
-                children: [
-                  if (widget.replyToText != null) _buildReplyIndicator(),
-                  Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      _buildBubble(),
-                      if (widget.hasRedFlag || widget.hasGreenFlag)
-                        Positioned(
-                          top: -5,
-                          right: widget.isUser ? null : -5,
-                          left: widget.isUser ? -5 : null,
-                          child: _buildFlagIndicator(),
-                        ),
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: widget.isUser
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                // Reply indicator
+                if (widget.replyToText != null) _buildReplyIndicator(),
+
+                // Message content
+                Row(
+                  mainAxisAlignment: widget.isUser
+                      ? MainAxisAlignment.end
+                      : MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Bot avatar (only for bot messages)
+                    if (!widget.isUser) ...[
+                      _buildAvatar(),
+                      const SizedBox(width: 12),
                     ],
-                  ),
-                  if (widget.time != null) _buildTimestamp(),
-                ],
-              ),
+
+                    // Message text
+                    Flexible(
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildMessageContent(),
+                          // Flag indicator
+                          if (widget.hasRedFlag || widget.hasGreenFlag)
+                            Positioned(
+                              top: -6,
+                              right: widget.isUser ? null : -6,
+                              left: widget.isUser ? -6 : null,
+                              child: _buildFlagIndicator(),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // User spacing
+                    if (widget.isUser) const SizedBox(width: 4),
+                  ],
+                ),
+
+                // Timestamp
+                if (widget.time != null) _buildTimestamp(),
+              ],
             ),
           ),
         ),
@@ -125,85 +136,55 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
     );
   }
 
-  Widget _buildBubble() {
-    final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(18),
-      topRight: const Radius.circular(18),
-      bottomLeft: Radius.circular(widget.isUser ? 18 : 4),
-      bottomRight: Radius.circular(widget.isUser ? 4 : 18),
+  Widget _buildAvatar() {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: SyraColors.surface,
+        border: Border.all(
+          color: SyraColors.border,
+          width: 0.5,
+        ),
+      ),
+      child: Center(
+        child: Text(
+          "S",
+          style: TextStyle(
+            color: SyraColors.textPrimary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
+  }
 
+  Widget _buildMessageContent() {
     if (widget.isUser) {
-      // ─────────────────────────────────────────────────────────
-      // USER BUBBLE: Hafif açılmış koyu gri + okunaklı metin
-      // ─────────────────────────────────────────────────────────
+      // User message - subtle background
       return Container(
-        constraints: const BoxConstraints(maxWidth: 280),
+        constraints: const BoxConstraints(maxWidth: 300),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
           color: SyraColors.userBubbleBg,
-          borderRadius: borderRadius,
-          boxShadow: [
-            // Outer shadow
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
           widget.text,
-          style: SyraTypography.messageText.copyWith(
-            color: Colors.white.withValues(alpha: 0.95),
-          ),
+          style: SyraTypography.messageText,
         ),
       );
     } else {
-      // ─────────────────────────────────────────────────────────
-      // SYRA BUBBLE: Neon teal glass + güçlü glow
-      // ─────────────────────────────────────────────────────────
+      // Bot message - minimal, no background
       return Container(
-        constraints: const BoxConstraints(maxWidth: 280),
-        decoration: BoxDecoration(
-          borderRadius: borderRadius,
-          // 3–4% bloom arka glow
-          boxShadow: [
-            BoxShadow(
-              color: SyraColors.neonCyan.withValues(alpha: 0.04),
-              blurRadius: 24,
-              spreadRadius: 3,
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: borderRadius,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    SyraColors.syraBubbleBg.withValues(alpha: 0.95),
-                    SyraColors.neonCyanLight.withValues(alpha: 0.35),
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: borderRadius,
-                border: Border.all(
-                  color: SyraColors.neonCyan.withValues(alpha: 0.16),
-                  width: 0.6,
-                ),
-              ),
-              child: Text(
-                widget.text,
-                style: SyraTypography.messageText.copyWith(
-                  color: Colors.white.withValues(alpha: 0.94),
-                ),
-              ),
-            ),
+        constraints: const BoxConstraints(maxWidth: 320),
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Text(
+          widget.text,
+          style: SyraTypography.messageText.copyWith(
+            color: SyraColors.textPrimary.withOpacity(0.95),
           ),
         ),
       );
@@ -212,13 +193,17 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 
   Widget _buildReplyIndicator() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
+      margin: EdgeInsets.only(
+        bottom: 6,
+        left: widget.isUser ? 0 : 40,
+      ),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
-        borderRadius: BorderRadius.circular(10),
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.06),
+          color: SyraColors.border,
+          width: 0.5,
         ),
       ),
       child: Row(
@@ -226,13 +211,9 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         children: [
           Container(
             width: 2,
-            height: 20,
+            height: 16,
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [SyraColors.neonCyan, SyraColors.neonPink],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+              color: SyraColors.accent,
               borderRadius: BorderRadius.circular(1),
             ),
           ),
@@ -243,9 +224,8 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.5),
+                color: SyraColors.textMuted,
                 fontSize: 12,
-                fontStyle: FontStyle.italic,
               ),
             ),
           ),
@@ -260,13 +240,13 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: isRed
-            ? Colors.orange.withValues(alpha: 0.15)
-            : Colors.green.withValues(alpha: 0.15),
+            ? Colors.orange.withOpacity(0.15)
+            : Colors.green.withOpacity(0.15),
         shape: BoxShape.circle,
         border: Border.all(
           color: isRed
-              ? Colors.orange.withValues(alpha: 0.3)
-              : Colors.green.withValues(alpha: 0.3),
+              ? Colors.orange.withOpacity(0.3)
+              : Colors.green.withOpacity(0.3),
         ),
       ),
       child: Icon(
@@ -282,12 +262,13 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         "${widget.time!.hour.toString().padLeft(2, '0')}:${widget.time!.minute.toString().padLeft(2, '0')}";
 
     return Padding(
-      padding: const EdgeInsets.only(top: 3, left: 4, right: 4),
+      padding: EdgeInsets.only(
+        top: 4,
+        left: widget.isUser ? 0 : 40,
+      ),
       child: Text(
         timeStr,
-        style: SyraTypography.timeText.copyWith(
-          color: Colors.white.withValues(alpha: 0.25),
-        ),
+        style: SyraTypography.timeText,
       ),
     );
   }
@@ -344,51 +325,54 @@ class _TypingIndicatorBubbleState extends State<TypingIndicatorBubble>
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: SyraColors.neonCyan.withValues(alpha: 0.08),
+    return Row(
+      children: [
+        // Avatar
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: SyraColors.surface,
+            border: Border.all(
+              color: SyraColors.border,
+              width: 0.5,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              "S",
+              style: TextStyle(
+                color: SyraColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ),
-        child: Row(
+        const SizedBox(width: 12),
+        // Dots
+        Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(3, (i) {
             return AnimatedBuilder(
               animation: _dotAnimations[i],
               builder: (context, _) {
-                final colors = [
-                  SyraColors.neonCyan,
-                  SyraColors.neonViolet,
-                  SyraColors.neonPink,
-                ];
                 return Container(
-                  margin: EdgeInsets.only(left: i == 0 ? 0 : 5),
+                  margin: EdgeInsets.only(left: i == 0 ? 0 : 4),
                   width: 6,
                   height: 6,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: colors[i].withValues(alpha: _dotAnimations[i].value),
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors[i]
-                            .withValues(alpha: _dotAnimations[i].value * 0.5),
-                        blurRadius: 6,
-                        spreadRadius: 1,
-                      ),
-                    ],
+                    color: SyraColors.textMuted
+                        .withOpacity(_dotAnimations[i].value),
                   ),
                 );
               },
             );
           }),
         ),
-      ),
+      ],
     );
   }
 }
