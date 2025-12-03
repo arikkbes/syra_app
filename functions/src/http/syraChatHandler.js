@@ -1,22 +1,8 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * SYRA CHAT HTTP HANDLER
+ * SYRA CHAT HTTP HANDLER - FIXED
  * ═══════════════════════════════════════════════════════════════
- * Pure HTTP handler for SYRA chat endpoint
- * 
- * Handles:
- * - CORS
- * - Authentication (Firebase ID token)
- * - Request validation
- * - Rate limiting
- * - Response formatting
- * 
- * CONTRACT COMPATIBILITY:
- * This handler is designed to match the Flutter app's expectations:
- * - Endpoint: POST to /api/syra/chat
- * - Auth: Bearer token in Authorization header
- * - Request: { message, context }
- * - Response: { response, ...metadata }
+ * ✅ Now accepts mode, tone, messageLength from frontend
  */
 
 import { auth } from "../config/firebaseAdmin.js";
@@ -27,10 +13,6 @@ import {
 } from "../firestore/userProfileRepository.js";
 import { hasHitBackendLimit } from "../domain/limitEngine.js";
 
-/**
- * Main SYRA chat handler
- * Compatible with Flutter lib/services/chat_service.dart
- */
 export async function syraChatHandler(req, res) {
   // -------------------------------------------------------------------------
   // CORS HANDLING
@@ -89,7 +71,13 @@ export async function syraChatHandler(req, res) {
     // -----------------------------------------------------------------------
     // REQUEST VALIDATION
     // -----------------------------------------------------------------------
-    const { message, context } = req.body || {};
+    const { 
+      message, 
+      context,
+      mode = 'default',
+      tone = 'default',
+      messageLength = 'default',
+    } = req.body || {};
 
     if (!message || typeof message !== "string" || message.trim().length === 0) {
       return res.status(400).json({
@@ -98,6 +86,8 @@ export async function syraChatHandler(req, res) {
         code: "EMPTY_MESSAGE",
       });
     }
+
+    console.log(`[${uid}] Request params - Mode: ${mode}, Tone: ${tone}, Length: ${messageLength}`);
 
     // -----------------------------------------------------------------------
     // LOAD USER PROFILE & CHECK LIMITS
@@ -120,7 +110,6 @@ export async function syraChatHandler(req, res) {
     // -----------------------------------------------------------------------
     let replyTo = null;
     if (context && Array.isArray(context) && context.length > 0) {
-      // Check if user is replying to a specific message
       const replyContext = context.find(
         (msg) => msg.content && msg.content.startsWith("[Replying to:")
       );
@@ -135,7 +124,16 @@ export async function syraChatHandler(req, res) {
     // -----------------------------------------------------------------------
     // PROCESS CHAT WITH ORCHESTRATOR
     // -----------------------------------------------------------------------
-    const result = await processChat(uid, message, replyTo, isPremium);
+    // Pass mode, tone, messageLength to chatOrchestrator
+    const result = await processChat(
+      uid, 
+      message, 
+      replyTo, 
+      isPremium,
+      mode,
+      tone,
+      messageLength
+    );
 
     // -----------------------------------------------------------------------
     // INCREMENT MESSAGE COUNT
@@ -147,7 +145,6 @@ export async function syraChatHandler(req, res) {
     // -----------------------------------------------------------------------
     // SEND RESPONSE
     // -----------------------------------------------------------------------
-    // IMPORTANT: Flutter expects 'response' field, not 'reply'
     const responsePayload = {
       response: result.reply,
       extractedTraits: result.extractedTraits,
@@ -155,6 +152,9 @@ export async function syraChatHandler(req, res) {
       patterns: result.patterns,
       meta: {
         ...result.meta,
+        mode,
+        tone,
+        messageLength,
         totalProcessingTime: Date.now() - startTime,
       },
     };

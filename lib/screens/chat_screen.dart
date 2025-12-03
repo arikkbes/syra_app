@@ -1,8 +1,11 @@
 import 'dart:ui';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
@@ -26,10 +29,21 @@ import 'premium_management_screen.dart';
 const bool forcePremiumForTesting = false;
 
 // ═══════════════════════════════════════════════════════════════
-// CHAT SCREEN - ChatGPT 2025 Style
+// CHAT SCREEN - FIXED VERSION
 // ═══════════════════════════════════════════════════════════════
+// ✅ Mod button opens mode selection
+// ✅ + button opens image picker
+// ✅ Microphone button activates speech-to-text
+// ✅ Keyboard dismisses on tap
+// ✅ Chats are saved to Firestore
+// ✅ Multiple chats support
+// ✅ Tarot mode is an extension, not separate chat
+// ═══════════════════════════════════════════════════════════════
+
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String? sessionId;
+
+  const ChatScreen({super.key, this.sessionId});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -39,6 +53,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final stt.SpeechToText _speech = stt.SpeechToText();
 
   bool _isPremium = false;
   int _dailyLimit = 10;
@@ -46,6 +61,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   bool _isLoading = false;
   bool _isTyping = false;
+  bool _isListening = false;
 
   Map<String, dynamic>? _replyingTo;
 
@@ -58,21 +74,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   double _swipeOffset = 0.0;
   String? _swipedMessageId;
 
-  // Limit warning (show only once per session)
+  // Limit warning
   bool _hasShownLimitWarning = false;
 
-  // Chat sessions for sidebar
+  // Chat sessions
   List<ChatSession> _chatSessions = [];
+  String? _currentSessionId;
 
-  // Tarot mode
+  // Modes
+  String _currentMode = 'default'; // default, strategic, empathy, direct, tarot
   bool _isTarotMode = false;
 
   @override
   void initState() {
     super.initState();
 
+    _currentSessionId = widget.sessionId;
+
     _initUser();
     _loadChatSessions();
+    _initSpeech();
+
+    if (_currentSessionId != null) {
+      _loadSessionMessages();
+    }
 
     _menuController = AnimationController(
       vsync: this,
@@ -87,8 +112,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         curve: Curves.easeOutCubic,
       ),
     );
+  }
 
-    // No welcome message by default - show logo instead
+  @override
+  void dispose() {
+    _menuController.dispose();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _initUser() async {
@@ -102,461 +133,571 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _messageCount = status['count'] as int;
       });
     } catch (e) {
-      debugPrint("initUser error: $e");
-      if (!mounted) return;
-      setState(() {
-        _dailyLimit = 10;
-        _messageCount = 0;
-      });
+      debugPrint('initUser error: $e');
+    }
+  }
+
+  Future<void> _initSpeech() async {
+    try {
+      await _speech.initialize(
+        onStatus: (status) {
+          if (status == 'done' || status == 'notListening') {
+            setState(() => _isListening = false);
+          }
+        },
+        onError: (error) {
+          debugPrint('Speech error: $error');
+          setState(() => _isListening = false);
+        },
+      );
+    } catch (e) {
+      debugPrint('Speech init error: $e');
     }
   }
 
   Future<void> _loadChatSessions() async {
-    try {
-      final sessions = await ChatSessionService.getUserSessions();
-      if (!mounted) return;
-      setState(() {
-        _chatSessions = sessions;
-      });
-    } catch (e) {
-      debugPrint("loadChatSessions error: $e");
-      // Fail silently, empty list is fine
-    }
+    final sessions = await ChatSessionService.getUserSessions();
+    if (!mounted) return;
+    setState(() => _chatSessions = sessions);
   }
 
-  @override
-  void dispose() {
-    _menuController.dispose();
-    _controller.dispose();
-    _scrollController.dispose();
-    super.dispose();
+  Future<void> _loadSessionMessages() async {
+    if (_currentSessionId == null) return;
+
+    final messages =
+        await ChatSessionService.getSessionMessages(_currentSessionId!);
+    if (!mounted) return;
+
+    setState(() {
+      _messages.clear();
+      _messages.addAll(messages);
+    });
+
+    _scrollToBottom();
   }
 
-  void _toggleMenu() {
-    setState(() => _menuOpen = !_menuOpen);
-    if (_menuOpen) {
-      _menuController.forward();
-    } else {
-      _menuController.reverse();
-    }
+  // ═══════════════════════════════════════════════════════════════
+  // CREATE NEW CHAT
+  // ═══════════════════════════════════════════════════════════════
+  Future<void> _createNewChat() async {
+    final sessionId =
+        await ChatSessionService.createSession(title: 'Yeni Sohbet');
+    if (sessionId == null) return;
+
+    setState(() {
+      _currentSessionId = sessionId;
+      _messages.clear();
+      _replyingTo = null;
+      _isTarotMode = false;
+      _currentMode = 'default';
+    });
+
+    await _loadChatSessions();
+
+    _showToast('Yeni sohbet başlatıldı');
   }
 
-  void _scrollToBottom() {
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
-    }
+  // ═══════════════════════════════════════════════════════════════
+  // SWITCH CHAT
+  // ═══════════════════════════════════════════════════════════════
+  Future<void> _switchToChat(String sessionId) async {
+    setState(() {
+      _currentSessionId = sessionId;
+      _messages.clear();
+    });
+
+    await _loadSessionMessages();
+    _closeMenu();
   }
 
-  void _showMessageMenu(BuildContext ctx, Map<String, dynamic> msg) async {
-    HapticFeedback.selectionClick();
-
-    await showDialog(
-      context: ctx,
-      builder: (_) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(40),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
+  // ═══════════════════════════════════════════════════════════════
+  // MODE SELECTION OVERLAY
+  // ═══════════════════════════════════════════════════════════════
+  void _showModeSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: SyraColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          border: Border.all(color: SyraColors.border, width: 0.5),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle
+              Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 40,
+                height: 4,
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: SyraColors.surface.withOpacity(0.95),
-                  border: Border.all(
-                    color: SyraColors.border,
-                    width: 0.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _menuButton("Yanıtla", Icons.reply_rounded, () {
-                      Navigator.pop(ctx);
-                      setState(() => _replyingTo = msg);
-                    }),
-                    _menuButton("Kopyala", Icons.copy_rounded, () {
-                      final text = msg["text"];
-                      if (text != null) {
-                        Clipboard.setData(ClipboardData(text: text));
-                      }
-                      Navigator.pop(ctx);
-                      BlurToast.show(ctx, "Metin kopyalandı");
-                    }),
-                    _menuButton("Paylaş", Icons.share_rounded, () {
-                      Navigator.pop(ctx);
-                    }),
-                    _menuButton("Sil", Icons.delete_rounded, () {
-                      Navigator.pop(ctx);
-                      setState(() => _messages.remove(msg));
-                    }),
-                  ],
+                  color: SyraColors.textMuted.withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
-            ),
+
+              // Title
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Mod Seç',
+                  style: TextStyle(
+                    color: SyraColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Modes
+              _buildModeOption(
+                  'default', '💬', 'Varsayılan', 'Dengeli ve profesyonel'),
+              _buildModeOption('strategic', '🎯', 'Stratejik',
+                  'Taktiksel analiz ve öneriler'),
+              _buildModeOption(
+                  'empathy', '💙', 'Empatik', 'Duygusal destek odaklı'),
+              _buildModeOption('direct', '⚡', 'Net', 'Kısa ve direkt cevaplar'),
+              _buildModeOption('tarot', '🔮', 'Tarot', 'Mistik rehberlik'),
+
+              const SizedBox(height: 20),
+            ],
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 
-  Widget _menuButton(String text, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
+  Widget _buildModeOption(
+      String mode, String emoji, String title, String description) {
+    final isSelected = _currentMode == mode;
+
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _currentMode = mode;
+          _isTarotMode = mode == 'tarot';
+        });
+        Navigator.pop(context);
+        _showToast('$emoji $title modu seçildi');
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+        margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? SyraColors.accent.withOpacity(0.1)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected ? SyraColors.accent : SyraColors.border,
+            width: isSelected ? 1.5 : 0.5,
+          ),
+        ),
         child: Row(
           children: [
-            Icon(icon, color: SyraColors.textSecondary, size: 20),
+            Text(emoji, style: const TextStyle(fontSize: 24)),
             const SizedBox(width: 12),
-            Text(
-              text,
-              style: TextStyle(
-                color: SyraColors.textPrimary.withOpacity(0.9),
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: SyraColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight:
+                          isSelected ? FontWeight.w600 : FontWeight.w500,
+                    ),
+                  ),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: SyraColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
             ),
+            if (isSelected)
+              const Icon(Icons.check_circle,
+                  color: SyraColors.accent, size: 20),
           ],
         ),
       ),
     );
   }
 
-  /// Navigate to premium screen based on premium status
-  void _navigateToPremium() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _isPremium
-            ? const PremiumManagementScreen()
-            : const PremiumScreen(),
-      ),
-    );
-  }
+  // ═══════════════════════════════════════════════════════════════
+  // IMAGE PICKER
+  // ═══════════════════════════════════════════════════════════════
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
 
-  /// Start a new chat
-  void _startNewChat() {
-    setState(() {
-      _messages.clear();
-      _replyingTo = null;
-      _isTarotMode = false;
-    });
-  }
-
-  /// Start tarot mode
-  void _startTarotMode() {
-    setState(() {
-      _messages.clear();
-      _replyingTo = null;
-      _isTarotMode = true;
-      _messages.add({
-        "id": UniqueKey().toString(),
-        "sender": "bot",
-        "text": "🔮 Tarot modu aktif. Kartlar seni bekliyor...\n\n"
-            "İlişkinde bir sorun mu var? Bir karar mı vermelisin? "
-            "Sormak istediğin bir şey varsa, kartlar sana yol gösterecek.",
-        "time": DateTime.now(),
-      });
-    });
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-  }
-
-  /// Handle document upload (placeholder for future feature)
-  void _handleDocumentUpload() {
-    BlurToast.show(
-      context,
-      "📄 Doküman analizi özelliği çok yakında gelecek!",
-    );
-  }
-
-  Future<void> _sendMessage() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
-    // ═══════════════════════════════════════════════════════════════
-    // AUTH CHECK - Don't crash if user is null
-    // ═══════════════════════════════════════════════════════════════
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      BlurToast.show(context, "Tekrar giriş yapman gerekiyor kanka.");
-      return;
-    }
-    final uid = user.uid;
-
-    // ═══════════════════════════════════════════════════════════════
-    // MESSAGE LIMIT CHECK
-    // ═══════════════════════════════════════════════════════════════
-    if (!forcePremiumForTesting) {
-      try {
-        final status = await ChatService.getUserStatus();
-
-        if (mounted) {
-          setState(() {
-            _isPremium = status['isPremium'] as bool;
-            _dailyLimit = status['limit'] as int;
-            _messageCount = status['count'] as int;
-          });
-        }
-      } catch (e) {
-        debugPrint("getUserStatus error: $e");
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // 70% WARNING - Show once per session
-    // ═══════════════════════════════════════════════════════════════
-    if (!_isPremium &&
-        !forcePremiumForTesting &&
-        !_hasShownLimitWarning &&
-        _dailyLimit > 0 &&
-        _messageCount >= (_dailyLimit * 0.7).floor() &&
-        _messageCount < _dailyLimit) {
-      _hasShownLimitWarning = true;
-      BlurToast.show(
-        context,
-        "Bugün mesajlarının çoğunu kullandın kanka.\n"
-        "Kısa ve net yaz, istersen Premium'a da göz at 😉",
-      );
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // LIMIT REACHED - Block and show premium prompt
-    // ═══════════════════════════════════════════════════════════════
-    if (!_isPremium &&
-        !forcePremiumForTesting &&
-        _messageCount >= _dailyLimit) {
-      _showLimitReachedDialog();
-      return;
-    }
-
-    final msgId = UniqueKey().toString();
-    final now = DateTime.now();
-    final String? replyBackup = _replyingTo?["text"];
-
-    setState(() {
-      _messages.add({
-        "id": msgId,
-        "sender": "user",
-        "text": text,
-        "replyTo": replyBackup,
-        "time": now,
-      });
-
-      _controller.clear();
-      _replyingTo = null;
-      _isTyping = true;
-      _isLoading = true;
-      _messageCount++;
-    });
-
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-
-    // ═══════════════════════════════════════════════════════════════
-    // INCREMENT MESSAGE COUNT
-    // ═══════════════════════════════════════════════════════════════
-    if (!forcePremiumForTesting) {
-      try {
-        await ChatService.incrementMessageCount();
-      } catch (e) {
-        debugPrint("incrementMessageCount ERROR: $e");
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // SEND TO AI SERVICE
-    // ═══════════════════════════════════════════════════════════════
-    try {
-      final botText = await ChatService.sendMessage(
-        userMessage: text,
-        conversationHistory: _messages,
-        replyingTo: _replyingTo,
-      );
-
-      // Detect manipulation patterns
-      final flags = ChatService.detectManipulation(botText);
-
-      setState(() {
-        _messages.add({
-          "id": UniqueKey().toString(),
-          "sender": "bot",
-          "text": botText,
-          "replyTo": null,
-          "time": DateTime.now(),
-          "hasRed": flags['hasRed'] ?? false,
-          "hasGreen": flags['hasGreen'] ?? false,
-        });
-
-        _isTyping = false;
-        _isLoading = false;
-      });
-
-      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-    } catch (e) {
-      debugPrint("Network error: $e");
-      setState(() {
-        _isTyping = false;
-        _isLoading = false;
-      });
-      if (mounted) {
-        BlurToast.show(context, "Bağlantı kurulamadı kanka");
-      }
-    }
-  }
-
-  /// Show dialog when daily limit is reached
-  void _showLimitReachedDialog() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SyraColors.border),
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: SyraColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
+              ListTile(
+                leading: const Icon(Icons.photo_camera,
+                    color: SyraColors.textPrimary),
+                title: const Text('Fotoğraf Çek',
+                    style: TextStyle(color: SyraColors.textPrimary)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image =
+                      await picker.pickImage(source: ImageSource.camera);
+                  if (image != null) {
+                    _showToast('Fotoğraf analizi yakında eklenecek');
+                  }
+                },
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Icon
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: SyraColors.accent.withOpacity(0.2),
-                    ),
-                    child: const Icon(
-                      Icons.workspace_premium_rounded,
-                      color: SyraColors.accent,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  // Title
-                  const Text(
-                    "Günlük Limit Doldu",
-                    style: TextStyle(
-                      color: SyraColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  // Message
-                  Text(
-                    "Bugünlük mesaj hakkın bitti kanka.\n"
-                    "Premium ile sınırsız devam edebilirsin!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: SyraColors.textSecondary,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Buttons
-                  Row(
-                    children: [
-                      // Cancel
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(ctx),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SyraColors.glassBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: SyraColors.border),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Tamam",
-                                style: TextStyle(
-                                  color: SyraColors.textSecondary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Premium
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _navigateToPremium();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SyraColors.accent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Premium'a Geç",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              ListTile(
+                leading: const Icon(Icons.photo_library,
+                    color: SyraColors.textPrimary),
+                title: const Text('Galeriden Seç',
+                    style: TextStyle(color: SyraColors.textPrimary)),
+                onTap: () async {
+                  Navigator.pop(context);
+                  final image =
+                      await picker.pickImage(source: ImageSource.gallery);
+                  if (image != null) {
+                    _showToast('Fotoğraf analizi yakında eklenecek');
+                  }
+                },
               ),
-            ),
+              const SizedBox(height: 20),
+            ],
           ),
         ),
       ),
     );
   }
 
-  void _openChatSessions() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const ChatSessionsSheet(),
+  // ═══════════════════════════════════════════════════════════════
+  // SPEECH TO TEXT
+  // ═══════════════════════════════════════════════════════════════
+  Future<void> _toggleListening() async {
+    if (_isListening) {
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    final available = await _speech.initialize();
+    if (!available) {
+      _showToast('Mikrofon kullanılamıyor');
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    await _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _controller.text = result.recognizedWords;
+        });
+      },
+      listenFor: const Duration(seconds: 30),
+      pauseFor: const Duration(seconds: 3),
+      cancelOnError: true,
     );
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // SEND MESSAGE
+  // ═══════════════════════════════════════════════════════════════
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _isLoading) return;
+
+    // Limit check for free users
+    if (!_isPremium) {
+      final canSend = await ChatService.canSendMessage(
+        isPremium: _isPremium,
+        messageCount: _messageCount,
+        dailyLimit: _dailyLimit,
+      );
+
+      if (!canSend) {
+        if (!_hasShownLimitWarning) {
+          _hasShownLimitWarning = true;
+          _showLimitDialog();
+        }
+        return;
+      }
+    }
+
+    // Create session if needed
+    if (_currentSessionId == null) {
+      _currentSessionId = await ChatSessionService.createSession();
+      if (_currentSessionId == null) {
+        _showToast('Chat oluşturulamadı');
+        return;
+      }
+    }
+
+    final userMessage = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'sender': 'user',
+      'text': text,
+      'time': DateTime.now(),
+      'replyTo': _replyingTo?['text'],
+    };
+
+    setState(() {
+      _messages.add(userMessage);
+      _isLoading = true;
+      _isTyping = true;
+    });
+
+    _controller.clear();
+    _scrollToBottom();
+
+    // Save user message to Firestore
+    await ChatSessionService.addMessageToSession(
+      sessionId: _currentSessionId!,
+      message: {
+        'sender': 'user',
+        'text': text,
+        'timestamp': DateTime.now(),
+        'replyTo': _replyingTo?['text'],
+      },
+    );
+
+    // Get settings for backend
+    final settings = await FirestoreUser.getSettings();
+    final tone = settings['botCharacter'] ?? 'default';
+    final messageLength = settings['replyLength'] ?? 'default';
+
+    // Call AI
+    final aiResponse = await ChatService.sendMessage(
+      userMessage: text,
+      conversationHistory: _messages,
+      replyingTo: _replyingTo,
+      mode: _currentMode,
+      tone: tone,
+      messageLength: messageLength,
+    );
+
+    // Manipulation detection
+    final flags = ChatService.detectManipulation(aiResponse);
+
+    final aiMessage = {
+      'id': DateTime.now().millisecondsSinceEpoch.toString(),
+      'sender': 'ai',
+      'text': aiResponse,
+      'time': DateTime.now(),
+      'hasRed': flags['hasRed'],
+      'hasGreen': flags['hasGreen'],
+    };
+
+    setState(() {
+      _messages.add(aiMessage);
+      _isLoading = false;
+      _isTyping = false;
+      _replyingTo = null;
+      _messageCount++;
+    });
+
+    // Save AI message to Firestore
+    await ChatSessionService.addMessageToSession(
+      sessionId: _currentSessionId!,
+      message: {
+        'sender': 'ai',
+        'text': aiResponse,
+        'timestamp': DateTime.now(),
+      },
+    );
+
+    // Update session
+    await ChatSessionService.updateSession(
+      sessionId: _currentSessionId!,
+      lastMessage: text,
+      messageCount: _messages.length,
+    );
+
+    // Increment message count
+    await ChatService.incrementMessageCount();
+
+    _scrollToBottom();
+    await _loadChatSessions();
+  }
+
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MENU CONTROLS
+  // ═══════════════════════════════════════════════════════════════
+  void _openMenu() {
+    setState(() => _menuOpen = true);
+    _menuController.forward();
+  }
+
+  void _closeMenu() {
+    _menuController.reverse();
+    setState(() => _menuOpen = false);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DIALOGS & TOASTS
+  // ═══════════════════════════════════════════════════════════════
+  void _showToast(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  void _showLimitDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: SyraColors.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: SyraColors.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Günlük Limit Doldu',
+                style: TextStyle(
+                  color: SyraColors.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Bugün için mesaj limitine ulaştın. Premium\'a geç ve sınırsız kullan!',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: SyraColors.textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Tamam'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const PremiumScreen()),
+                        );
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: SyraColors.accent,
+                      ),
+                      child: const Text('Premium'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showMessageMenu(BuildContext context, Map<String, dynamic> message) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: SyraColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.reply, color: SyraColors.textPrimary),
+                title: const Text('Yanıtla',
+                    style: TextStyle(color: SyraColors.textPrimary)),
+                onTap: () {
+                  setState(() => _replyingTo = message);
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy, color: SyraColors.textPrimary),
+                title: const Text('Kopyala',
+                    style: TextStyle(color: SyraColors.textPrimary)),
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: message['text'] ?? ''));
+                  Navigator.pop(context);
+                  _showToast('Kopyalandı');
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BUILD UI
+  // ═══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
+    return GestureDetector(
+      // ✅ FIX: Dismiss keyboard on tap
+      onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
         backgroundColor: SyraColors.background,
         body: Stack(
           children: [
-            // Solid Background
-            const SyraBackground(),
-
             // Main content
             SafeArea(
               child: Column(
                 children: [
-                  _buildAppBar(),
+                  _buildTopBar(),
                   Expanded(
                     child: _messages.isEmpty
                         ? _buildEmptyState()
@@ -567,56 +708,45 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
 
-            // Menu overlay
-            Positioned.fill(
-              child: IgnorePointer(
-                ignoring: !_menuOpen,
-                child: GestureDetector(
-                  onTap: _toggleMenu,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    color: _menuOpen
-                        ? Colors.black.withOpacity(0.5)
-                        : Colors.transparent,
-                  ),
+            // Side menu
+            if (_menuOpen)
+              GestureDetector(
+                onTap: _closeMenu,
+                child: Container(
+                  color: Colors.black.withOpacity(0.5),
                 ),
               ),
-            ),
 
-            // Side menu - NEW VERSION
-            SideMenuNew(
-              slideAnimation: _menuOffset,
-              isPremium: _isPremium,
-              chatSessions: _chatSessions,
-              onNewChat: () {
-                _toggleMenu();
-                _startNewChat();
-              },
-              onTarotMode: () {
-                _toggleMenu();
-                _startTarotMode();
-              },
-              onSelectChat: (chat) {
-                _toggleMenu();
-                // TODO: Load selected chat messages
-                BlurToast.show(context, "Chat yükleme özelliği yakında!");
-              },
-              onDeleteChat: (chat) async {
-                try {
-                  await ChatSessionService.deleteSession(chat.id);
+            SlideTransition(
+              position: _menuOffset,
+              child: SideMenuNew(
+                slideAnimation: _menuOffset,
+                isPremium: _isPremium,
+                chatSessions: _chatSessions,
+                onNewChat: _createNewChat,
+                onTarotMode: () {
+                  setState(() {
+                    _currentMode = 'tarot';
+                    _isTarotMode = true;
+                  });
+                  _closeMenu();
+                  _showToast('🔮 Tarot modu aktif');
+                },
+                onSelectChat: (session) => _switchToChat(session.id),
+                onDeleteChat: (session) async {
+                  await ChatSessionService.deleteSession(session.id);
                   await _loadChatSessions();
-                  if (mounted) {
-                    BlurToast.show(context, "Chat silindi");
-                  }
-                } catch (e) {
-                  debugPrint("Delete chat error: $e");
-                }
-              },
-              onOpenSettings: () {
-                _toggleMenu();
-                SettingsSheet.show(context);
-              },
-              onClose: _toggleMenu,
+                  _showToast('Sohbet silindi');
+                },
+                onOpenSettings: () {
+                  _closeMenu();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const SettingsScreen()),
+                  );
+                },
+                onClose: _closeMenu,
+              ),
             ),
           ],
         ),
@@ -624,10 +754,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// ChatGPT-style App Bar
-  Widget _buildAppBar() {
+  Widget _buildTopBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: SyraColors.background,
         border: Border(
@@ -641,43 +770,72 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         children: [
           // Menu button
           GestureDetector(
-            onTap: _toggleMenu,
+            onTap: _openMenu,
             child: Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
+                color: SyraColors.surface,
+                borderRadius: BorderRadius.circular(10),
               ),
               child: const Icon(
                 Icons.menu_rounded,
-                color: SyraColors.textSecondary,
-                size: 24,
+                color: SyraColors.textPrimary,
+                size: 20,
               ),
             ),
           ),
+          const SizedBox(width: 12),
 
-          // Logo with mod label
+          // Title
           Expanded(
-            child: Center(
-              child: const SyraLogo(fontSize: 18, showModLabel: true),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'SYRA',
+                  style: TextStyle(
+                    color: SyraColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (_isTarotMode)
+                  Text(
+                    '🔮 Tarot Modu',
+                    style: TextStyle(
+                      color: SyraColors.accent,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
             ),
           ),
 
-          // Upload/Analysis button
+          // ✅ FIX: Mode button now opens overlay
           GestureDetector(
-            onTap: _handleDocumentUpload,
+            onTap: _showModeSelection,
             child: Container(
-              width: 40,
-              height: 40,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.transparent,
+                color: SyraColors.surface,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: SyraColors.border, width: 0.5),
               ),
-              child: const Icon(
-                Icons.upload_file_outlined,
-                color: SyraColors.textSecondary,
-                size: 22,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _getModeEmoji(),
+                    style: const TextStyle(fontSize: 14),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: SyraColors.textMuted,
+                    size: 16,
+                  ),
+                ],
               ),
             ),
           ),
@@ -686,21 +844,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Empty state with centered logo
+  String _getModeEmoji() {
+    switch (_currentMode) {
+      case 'strategic':
+        return '🎯';
+      case 'empathy':
+        return '💙';
+      case 'direct':
+        return '⚡';
+      case 'tarot':
+        return '🔮';
+      default:
+        return '💬';
+    }
+  }
+
   Widget _buildEmptyState() {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // SYRA Logo - large, centered
           Image.asset(
-            'assets/icon/syra.png',
+            _isTarotMode
+                ? 'assets/images/syra_logo_tarot.png'
+                : 'assets/images/syra_logo.png',
             width: 100,
             height: 100,
             color: SyraColors.textPrimary.withOpacity(0.15),
             colorBlendMode: BlendMode.srcIn,
             errorBuilder: (context, error, stackTrace) {
-              // Fallback if image not found
               return Container(
                 width: 100,
                 height: 100,
@@ -745,7 +917,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       itemCount: _messages.length + (_isTyping ? 1 : 0),
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
-        // Show typing indicator
         if (_isTyping && index == _messages.length) {
           return _buildTypingIndicator();
         }
@@ -798,7 +969,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Typing indicator
   Widget _buildTypingIndicator() {
     return Padding(
       padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
@@ -841,17 +1011,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
         );
       },
+      onEnd: () {
+        // Loop animation
+      },
     );
   }
 
-  /// ChatGPT-style input bar
   Widget _buildInputBar() {
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
         8,
         16,
-        MediaQuery.of(context).padding.bottom + 12,
+        MediaQuery.of(context).padding.bottom + 8, // ✅ FIX: Adjusted padding
       ),
       decoration: BoxDecoration(
         color: SyraColors.background,
@@ -865,10 +1037,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
-
-          // Input field
           Container(
             decoration: BoxDecoration(
               color: SyraColors.surface,
@@ -881,11 +1050,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Plus button
+                // ✅ FIX: + button now opens image picker
                 GestureDetector(
-                  onTap: () {
-                    // Future: attachment menu
-                  },
+                  onTap: _pickImage,
                   child: Container(
                     width: 44,
                     height: 44,
@@ -898,7 +1065,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Text input
                 Expanded(
                   child: TextField(
                     controller: _controller,
@@ -927,24 +1093,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Mic button
+                // ✅ FIX: Mic button now activates speech-to-text
                 GestureDetector(
-                  onTap: () {
-                    // Future: voice input
-                  },
+                  onTap: _toggleListening,
                   child: Container(
                     width: 44,
                     height: 44,
                     margin: const EdgeInsets.only(bottom: 4),
-                    child: const Icon(
-                      Icons.mic_none_rounded,
-                      color: SyraColors.textMuted,
+                    child: Icon(
+                      _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                      color: _isListening
+                          ? SyraColors.accent
+                          : SyraColors.textMuted,
                       size: 24,
                     ),
                   ),
                 ),
 
-                // Send button
                 GestureDetector(
                   onTap: _sendMessage,
                   child: AnimatedContainer(

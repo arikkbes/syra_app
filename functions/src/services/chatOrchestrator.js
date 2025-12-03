@@ -1,8 +1,8 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * CHAT ORCHESTRATOR - FIXED VERSION
+ * CHAT ORCHESTRATOR - FIXED VERSION WITH MODE/TONE/LENGTH
  * ═══════════════════════════════════════════════════════════════
- * Orchestrates all chat logic with improved error handling
+ * ✅ Now accepts and applies mode, tone, messageLength parameters
  */
 
 import { openai } from "../config/openaiClient.js";
@@ -30,11 +30,24 @@ import {
  * @param {string} message - User message
  * @param {string} replyTo - Message being replied to (optional)
  * @param {boolean} isPremium - Premium status
+ * @param {string} mode - Chat mode (default, strategic, empathy, direct, tarot)
+ * @param {string} tone - Bot tone (default, professional, friendly, direct)
+ * @param {string} messageLength - Response length (default, short, detailed)
  * 
  * @returns {Object} { reply, extractedTraits, outcomePrediction, patterns, meta }
  */
-export async function processChat(uid, message, replyTo, isPremium) {
+export async function processChat(
+  uid, 
+  message, 
+  replyTo, 
+  isPremium,
+  mode = 'default',
+  tone = 'default',
+  messageLength = 'default'
+) {
   const startTime = Date.now();
+
+  console.log(`[${uid}] Processing with Mode: ${mode}, Tone: ${tone}, Length: ${messageLength}`);
 
   // -----------------------------------------------------------------------
   // CRITICAL: Check OpenAI availability first
@@ -148,15 +161,97 @@ export async function processChat(uid, message, replyTo, isPremium) {
   });
 
   // -----------------------------------------------------------------------
-  // BUILD DYNAMIC PERSONA
+  // BUILD DYNAMIC PERSONA WITH MODE, TONE, LENGTH
   // -----------------------------------------------------------------------
   const persona = buildUltimatePersona(
     isPremium,
     userProfile,
     extractedTraits,
     patterns,
-    conversationSummary
+    conversationSummary,
+    mode,
+    tone,
+    messageLength
   );
+
+  // -----------------------------------------------------------------------
+  // MODE-SPECIFIC ADJUSTMENTS
+  // -----------------------------------------------------------------------
+  let modeInstructions = "";
+  
+  switch(mode) {
+    case 'strategic':
+      modeInstructions = `
+🎯 STRATEJİK MOD AKTİF:
+• Taktiksel düşünce ve analiz odaklı ol
+• Somut adımlar ve stratejiler sun
+• "Ne yapmalı?" sorusuna net cevaplar ver
+• Manipülasyon ve oyunları çöz
+      `;
+      break;
+      
+    case 'empathy':
+      modeInstructions = `
+💙 EMPATİK MOD AKTİF:
+• Duygusal destek ve anlayış ön planda
+• Yargılamadan dinle ve valide et
+• Kullanıcının hislerini merkeze al
+• Sakin, sıcak ve destekleyici ol
+      `;
+      break;
+      
+    case 'direct':
+      modeInstructions = `
+⚡ NET MOD AKTİF:
+• Kısa, öz ve net cevaplar
+• Gereksiz detaya girme
+• Direkt sonuca odaklan
+• Maximum 2-3 cümle ile cevapla
+      `;
+      break;
+      
+    case 'tarot':
+      modeInstructions = `
+🔮 TAROT MOD AKTİF:
+• Mistik ve sembolik dil kullan
+• Kartlardan ilham al (ama direkt kart çekme)
+• Sezgisel ve derin yorumlar yap
+• Evrensel sembollerle bağlantı kur
+• "Kartlar diyor ki..." tarzında konuş
+      `;
+      break;
+  }
+
+  // -----------------------------------------------------------------------
+  // TONE-SPECIFIC ADJUSTMENTS
+  // -----------------------------------------------------------------------
+  let toneInstructions = "";
+  
+  switch(tone) {
+    case 'professional':
+      toneInstructions = "Profesyonel, ölçülü ve saygılı bir dil kullan.";
+      break;
+    case 'friendly':
+      toneInstructions = "Samimi, arkadaşça ve rahat bir dil kullan. 'Kanka' diyebilirsin.";
+      break;
+    case 'direct':
+      toneInstructions = "Direkt, açık sözlü ve filter olmadan konuş.";
+      break;
+  }
+
+  // -----------------------------------------------------------------------
+  // LENGTH-SPECIFIC ADJUSTMENTS
+  // -----------------------------------------------------------------------
+  let lengthInstructions = "";
+  
+  switch(messageLength) {
+    case 'short':
+      lengthInstructions = "Cevabını kısa tut (maximum 2-3 cümle).";
+      break;
+    case 'detailed':
+      lengthInstructions = "Detaylı ve kapsamlı bir cevap ver. Örneklerle açıkla.";
+      break;
+  }
 
   // -----------------------------------------------------------------------
   // REPLY CONTEXT (replyTo feature)
@@ -227,6 +322,19 @@ PATTERN:
     { role: "system", content: replyContext },
   ];
 
+  // Add mode/tone/length instructions
+  if (modeInstructions) {
+    systemMessages.push({ role: "system", content: modeInstructions });
+  }
+  
+  if (toneInstructions) {
+    systemMessages.push({ role: "system", content: toneInstructions });
+  }
+  
+  if (lengthInstructions) {
+    systemMessages.push({ role: "system", content: lengthInstructions });
+  }
+
   if (enrichedContext) {
     systemMessages.push({
       role: "system",
@@ -262,7 +370,7 @@ PATTERN:
   ];
 
   // -----------------------------------------------------------------------
-  // MAIN OPENAI COMPLETION - IMPROVED ERROR HANDLING
+  // MAIN OPENAI COMPLETION
   // -----------------------------------------------------------------------
   let replyText = null;
   let openaiError = null;
@@ -281,7 +389,6 @@ PATTERN:
 
     console.log(`[${uid}] OpenAI response received`);
 
-    // Extract reply with detailed validation
     if (!completion) {
       console.error(`[${uid}] 🔥 OpenAI returned null completion`);
       openaiError = "NULL_COMPLETION";
@@ -305,42 +412,17 @@ PATTERN:
       }
     }
 
-    // Check for unusually short premium responses
-    if (
-      replyText &&
-      isPremium &&
-      (intent === "deep" || intent === "deep_analysis") &&
-      replyText.length < 150
-    ) {
-      console.warn(
-        `[${uid}] ⚠️ Premium deep response unusually short: ${replyText.length} chars`
-      );
-    }
-
   } catch (e) {
     console.error(`[${uid}] 🔥 OpenAI API Error:`, e);
-    console.error(`[${uid}] Error type: ${e.constructor.name}`);
-    console.error(`[${uid}] Error message: ${e.message}`);
-    
-    if (e.code) {
-      console.error(`[${uid}] Error code: ${e.code}`);
-    }
-    
-    if (e.response) {
-      console.error(`[${uid}] Error response status: ${e.response.status}`);
-      console.error(`[${uid}] Error response data:`, JSON.stringify(e.response.data).slice(0, 500));
-    }
-
     openaiError = e.message || "UNKNOWN_ERROR";
   }
 
   // -----------------------------------------------------------------------
-  // FALLBACK HANDLING - User-friendly messages
+  // FALLBACK HANDLING
   // -----------------------------------------------------------------------
   if (!replyText) {
     console.error(`[${uid}] 🔥 No reply text - using fallback. Error: ${openaiError}`);
     
-    // Provide different messages based on error type
     if (openaiError && openaiError.includes("rate_limit")) {
       replyText = "Kanka şu an çok yoğunuz, 30 saniye sonra tekrar dener misin?";
     } else if (openaiError && openaiError.includes("timeout")) {
@@ -350,13 +432,10 @@ PATTERN:
     } else {
       replyText = "Sistem şu an cevap üretemedi kanka. Lütfen tekrar dene, bu sefer olacak! 💪";
     }
-    
-    // This is now a real error - should be logged as such
-    console.error(`[${uid}] 🚨 FALLBACK MESSAGE SENT: ${replyText}`);
   }
 
   // -----------------------------------------------------------------------
-  // SAVE CONVERSATION HISTORY (async, fire-and-forget)
+  // SAVE CONVERSATION HISTORY (async)
   // -----------------------------------------------------------------------
   saveConversationHistory(uid, safeMessage, replyText, historyData).catch(
     (e) => {
@@ -369,7 +448,7 @@ PATTERN:
   // -----------------------------------------------------------------------
   const processingTime = Date.now() - startTime;
   console.log(
-    `[${uid}] ✅ Processing complete: ${processingTime}ms, Intent: ${intent}, Model: ${model}, Success: ${!openaiError}`
+    `[${uid}] ✅ Processing complete: ${processingTime}ms, Mode: ${mode}, Tone: ${tone}, Length: ${messageLength}`
   );
 
   // -----------------------------------------------------------------------
@@ -386,6 +465,9 @@ PATTERN:
       premium: isPremium,
       messageCount: userProfile.messageCount,
       processingTime,
+      mode,
+      tone,
+      messageLength,
       hasLongTermMemory: !!conversationSummary,
       hasPatterns: !!patterns,
       hadError: !!openaiError,

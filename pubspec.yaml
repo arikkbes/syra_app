@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.2+55
+version: 1.0.3+58
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -28,7 +28,7 @@ dependencies:
   firebase_auth: ^5.7.0
   cloud_firestore: ^5.6.3
 
-  # 🛒 RevenueCat - En stabil sürüm (8.4.2 bazı cihazlarda crash ediyor)
+  # 🛒 RevenueCat - En stabil sürüm
   purchases_flutter: ^8.3.0
 
   # 🔗 URL launcher
@@ -36,6 +36,12 @@ dependencies:
 
   # 📅 intl
   intl: ^0.20.1
+
+  # 📸 Image picker
+  image_picker: ^1.0.8
+
+  # 🎤 Speech to text
+  speech_to_text: ^6.6.2
 
 dev_dependencies:
   flutter_test:
@@ -55,3 +61,5 @@ flutter:
 
   assets:
     - assets/icon/syra.png
+    - assets/images/syra_logo.png
+    - assets/images/syra_logo_tarot.png

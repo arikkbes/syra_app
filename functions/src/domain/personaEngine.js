@@ -1,8 +1,8 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * PERSONA ENGINE
+ * PERSONA ENGINE - FIXED WITH MODE/TONE/LENGTH SUPPORT
  * ═══════════════════════════════════════════════════════════════
- * Builds SYRA's dynamic persona based on user context and premium status
+ * ✅ Now supports custom mode, tone, and messageLength parameters
  */
 
 /**
@@ -34,13 +34,19 @@ export function normalizeTone(t) {
 
 /**
  * Build SYRA's ultimate persona with all context
+ * @param {string} mode - Chat mode (default, strategic, empathy, direct, tarot)
+ * @param {string} tone - User preference for tone
+ * @param {string} messageLength - User preference for message length
  */
 export function buildUltimatePersona(
   isPremium,
   userProfile,
   extractedTraits,
   patterns,
-  conversationSummary
+  conversationSummary,
+  mode = 'default',
+  tone = 'default',
+  messageLength = 'default'
 ) {
   const gender = userProfile.gender || "belirsiz";
   const genderPronoun =
@@ -51,7 +57,7 @@ export function buildUltimatePersona(
     ? normalizeTone(extractedTraits.tone)
     : baseTone;
 
-  const toneModifier = getToneModifier(currentTone);
+  const toneModifier = getToneModifier(currentTone, tone);
 
   const premiumDepth = isPremium
     ? `
@@ -85,6 +91,46 @@ Nazikçe farkındalık oluştur.
 `
       : "";
 
+  // Mode-specific persona adjustments
+  let modeContext = "";
+  switch(mode) {
+    case 'strategic':
+      modeContext = `
+🎯 STRATEJİK MOD:
+Sen şimdi taktiksel düşünme modundasın. Analitik ol, somut adımlar ver, oyunları çöz.
+`;
+      break;
+    case 'empathy':
+      modeContext = `
+💙 EMPATİK MOD:
+Sen şimdi tam destek modundasın. Duygusal olarak kucakla, yargılamadan dinle, valide et.
+`;
+      break;
+    case 'direct':
+      modeContext = `
+⚡ NET MOD:
+Kısa ve öz konuş. Maximum 2-3 cümle. Gereksiz detay yok, direkt sonuca odaklan.
+`;
+      break;
+    case 'tarot':
+      modeContext = `
+🔮 TAROT MOD:
+Mistik ve sembolik dil kullan. Kartlardan ilham al, sezgisel yorumlar yap. "Kartlar diyor ki..." tarzında konuş.
+`;
+      break;
+  }
+
+  // Message length preference
+  let lengthContext = "";
+  switch(messageLength) {
+    case 'short':
+      lengthContext = "\n⚡ UZUNLUK: Kısa ve öz cevap ver (maximum 2-3 cümle).";
+      break;
+    case 'detailed':
+      lengthContext = "\n📝 UZUNLUK: Detaylı ve kapsamlı açıklama yap. Örnekler ver.";
+      break;
+  }
+
   const persona = `
 SEN SYRA'SIN – TÜRK GENÇLERİNİN GÜVEN DUYDUĞU #1 İLİŞKİ DANIŞMANI
 
@@ -93,6 +139,9 @@ SEN SYRA'SIN – TÜRK GENÇLERİNİN GÜVEN DUYDUĞU #1 İLİŞKİ DANIŞMANI
 • Kişilik: ${genderPronoun} diyerek samimi, empati dolu, ama manipulation'a karşı sert tavrınla bilinen akıl hocası
 • Uzmanlık: İlişki psikolojisi, manipulation detection, attachment theory, red/green flag analizi
 • Ton: ${toneModifier}
+${lengthContext}
+
+${modeContext}
 
 🧠 TEMEL PRENSİPLER:
 1. HER ZAMAN EMPATİK VE DESTEKLEYICI OL
@@ -154,20 +203,37 @@ ${patternWarning}
 }
 
 /**
- * Get tone modifier text based on detected emotional state
+ * Get tone modifier text based on detected emotional state and user preference
  */
-function getToneModifier(tone) {
-  const modifiers = {
-    sad: "Yumuşak, empatik, teselli edici",
-    happy: "Enerjik, pozitif, destekleyici",
-    angry: "Sakinleştirici, anlayışlı, yatıştırıcı",
-    flirty: "Eğlenceli, nazik, rehberlik eden",
-    anxious: "Güven verici, sakinleştirici, net",
-    confused: "Netleştirici, açıklayıcı, yol gösterici",
-    desperate: "Umut verici, destekleyici, güçlendirici",
-    hopeful: "Pozitif, gerçekçi, motive edici",
-    neutral: "Samimi, arkadaşça, profesyonel",
-  };
-
-  return modifiers[tone] || modifiers.neutral;
+function getToneModifier(detectedTone, userTone = 'default') {
+  // First apply user's tone preference
+  let baseTone = "";
+  
+  switch(userTone) {
+    case 'professional':
+      baseTone = "Profesyonel, ölçülü, saygılı";
+      break;
+    case 'friendly':
+      baseTone = "Samimi, arkadaşça, rahat";
+      break;
+    case 'direct':
+      baseTone = "Direkt, açık sözlü, filtresiz";
+      break;
+    default:
+      // Use detected emotional tone
+      const modifiers = {
+        sad: "Yumuşak, empatik, teselli edici",
+        happy: "Enerjik, pozitif, destekleyici",
+        angry: "Sakinleştirici, anlayışlı, yatıştırıcı",
+        flirty: "Eğlenceli, nazik, rehberlik eden",
+        anxious: "Güven verici, sakinleştirici, net",
+        confused: "Netleştirici, açıklayıcı, yol gösterici",
+        desperate: "Umut verici, destekleyici, güçlendirici",
+        hopeful: "Pozitif, gerçekçi, motive edici",
+        neutral: "Samimi, arkadaşça, profesyonel",
+      };
+      baseTone = modifiers[detectedTone] || modifiers.neutral;
+  }
+  
+  return baseTone;
 }
