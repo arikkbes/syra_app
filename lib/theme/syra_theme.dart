@@ -1,87 +1,117 @@
 import 'package:flutter/material.dart';
 
-/// =============================================================
-///  SYRA MODERN THEME v2.0 - ChatGPT 2025 Style
-///  Deep blue background (#072233) + Clean white text (#FEFEFE)
-///  Minimal, elegant, lots of negative space
-/// =============================================================
+/// ═══════════════════════════════════════════════════════════════
+///  SYRA THEME v3.0 - 2025 AI App Dark Theme
+///  Shadow mentor aesthetic: Dark, cool, masculine
+///  Background: #0B0E14 (almost black with blue undertone)
+///  Accent: #66E0FF (cool premium blue)
+/// ═══════════════════════════════════════════════════════════════
 
 class SyraColors {
   // ─────────────────────────────────────────────────────────────
-  // BACKGROUND - Deep blue (main app background)
+  // BACKGROUND & SURFACES
   // ─────────────────────────────────────────────────────────────
-  static const Color background = Color(0xFF072233);
-  static const Color bgTop = Color(0xFF072233);
-  static const Color bgMiddle = Color(0xFF072233);
-  static const Color bgBottom = Color(0xFF061A29);
+  /// Main scaffold background - SYRA's signature dark
+  static const Color background = Color(0xFF0B0E14);
+  
+  /// Surface for cards, sheets, panels (slightly lighter)
+  static const Color surface = Color(0xFF11131A);
+  
+  /// Dividers and hairlines
+  static const Color divider = Color(0xFF1A1E24);
+  
+  /// Border color for subtle outlines
+  static const Color border = Color(0xFF1A1E24);
 
-  // Surface colors (slightly lighter/darker variants)
-  static const Color surface = Color(0xFF0A2D42);
-  static const Color surfaceLight = Color(0xFF0D3650);
-  static const Color surfaceDark = Color(0xFF051B2A);
+  // Legacy background variants (mapped to new theme)
+  static const Color bgTop = background;
+  static const Color bgMiddle = background;
+  static const Color bgBottom = background;
+  static const Color surfaceLight = Color(0xFF16181F);
+  static const Color surfaceDark = Color(0xFF0C0F15);
 
   // ─────────────────────────────────────────────────────────────
   // TEXT COLORS
   // ─────────────────────────────────────────────────────────────
-  static const Color textPrimary = Color(0xFFFEFEFE);
-  static const Color textSecondary = Color(0xB3FEFEFE); // 70% opacity
-  static const Color textMuted = Color(0x80FEFEFE); // 50% opacity
-  static const Color textHint = Color(0x4DFEFEFE); // 30% opacity
-
-  // ─────────────────────────────────────────────────────────────
-  // ACCENT COLOR (subtle, cold neutral)
-  // ─────────────────────────────────────────────────────────────
-  static const Color accent = Color(0xFF5B9BD5); // Subtle blue accent
-  static const Color accentLight = Color(0xFF7EB3E8);
-  static const Color accentMuted = Color(0x4D5B9BD5); // 30% opacity
-
-  // ─────────────────────────────────────────────────────────────
-  // NEUTRAL GREYS for dividers, icons, status
-  // ─────────────────────────────────────────────────────────────
-  static const Color divider = Color(0xFF1A3A4F);
-  static const Color border = Color(0xFF1E4460);
-  static const Color iconMuted = Color(0xFF6B8A9E);
-  static const Color iconActive = Color(0xFFFEFEFE);
-
-  // ─────────────────────────────────────────────────────────────
-  // CHAT BUBBLE COLORS (ChatGPT style - minimal)
-  // ─────────────────────────────────────────────────────────────
-  static const Color syraBubbleBg = Color(0xFF0A2D42);
-  static const Color userBubbleBg = Color(0xFF1A4A65);
-  static const Color syraBubbleGlow = Color(0xFF5B9BD5);
-  static const Color userBubbleShadow = Color(0xFF051B2A);
+  /// Primary text - crisp white
+  static const Color textPrimary = Color(0xFFEDEDED);
   
-  // ─────────────────────────────────────────────────────────────
-  // GLASSMORPHISM (subtle, not heavy)
-  // ─────────────────────────────────────────────────────────────
-  static const Color glassBg = Color(0x0DFEFEFE); // ~5% white
-  static const Color glassBorder = Color(0xFF1E4460);
-  static const Color glassHighlight = Color(0x14FEFEFE); // ~8% white
+  /// Secondary text - medium grey
+  static const Color textSecondary = Color(0xFF9AA0A6);
+  
+  /// Muted/disabled/hint text
+  static const Color textMuted = Color(0xFF5A5F66);
+  
+  /// Hint text (lightest muted)
+  static const Color textHint = Color(0xFF5A5F66);
 
   // ─────────────────────────────────────────────────────────────
-  // LEGACY COLORS (kept for backward compatibility)
+  // ACCENT - Cool premium blue
   // ─────────────────────────────────────────────────────────────
-  static const Color neonPink = Color(0xFF5B9BD5); // Remapped to accent
-  static const Color neonCyan = Color(0xFF5B9BD5); // Remapped to accent
-  static const Color neonPinkLight = Color(0xFF7EB3E8);
-  static const Color neonCyanLight = Color(0xFF7EB3E8);
-  static const Color neonPinkDark = Color(0xFF4A8BC5);
-  static const Color neonCyanDark = Color(0xFF4A8BC5);
-  static const Color neonViolet = Color(0xFF7B9FB8);
-
-  // Logo colors (now use white)
-  static const Color logoGoldTop = Color(0xFFFEFEFE);
-  static const Color logoGoldBottom = Color(0xFFD0D0D0);
-  static const Color logoGlow = Color(0xFFFEFEFE);
+  /// Primary accent color for buttons, toggles, highlights
+  static const Color accent = Color(0xFF66E0FF);
+  
+  /// Lighter accent variant
+  static const Color accentLight = Color(0xFF8AEAFF);
+  
+  /// Muted accent (for backgrounds)
+  static const Color accentMuted = Color(0x3366E0FF);
 
   // ─────────────────────────────────────────────────────────────
-  // GRADIENTS (minimal, subtle)
+  // ICONS
+  // ─────────────────────────────────────────────────────────────
+  /// Icon stroke/outline color
+  static const Color iconStroke = Color(0xFFCFCFCF);
+  
+  /// Active icon color
+  static const Color iconActive = textPrimary;
+  
+  /// Muted icon color
+  static const Color iconMuted = textSecondary;
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAT BUBBLES
+  // ─────────────────────────────────────────────────────────────
+  static const Color syraBubbleBg = surface;
+  static const Color userBubbleBg = Color(0xFF16181F);
+  static const Color syraBubbleGlow = accent;
+  static const Color userBubbleShadow = Color(0xFF000000);
+
+  // ─────────────────────────────────────────────────────────────
+  // GLASS/BLUR EFFECTS
+  // ─────────────────────────────────────────────────────────────
+  /// Glass background for modals
+  static const Color glassBg = Color(0x3311131A); // 20% opacity surface
+  
+  /// Glass border
+  static const Color glassBorder = divider;
+  
+  /// Glass highlight
+  static const Color glassHighlight = Color(0x1AEDEDED);
+
+  // ─────────────────────────────────────────────────────────────
+  // LEGACY COLORS (for backward compatibility)
+  // ─────────────────────────────────────────────────────────────
+  static const Color neonPink = accent;
+  static const Color neonCyan = accent;
+  static const Color neonPinkLight = accentLight;
+  static const Color neonCyanLight = accentLight;
+  static const Color neonPinkDark = Color(0xFF4DC4E0);
+  static const Color neonCyanDark = Color(0xFF4DC4E0);
+  static const Color neonViolet = Color(0xFF7AC7E0);
+
+  // Logo colors
+  static const Color logoGoldTop = textPrimary;
+  static const Color logoGoldBottom = Color(0xFFCFCFCF);
+  static const Color logoGlow = accent;
+
+  // ─────────────────────────────────────────────────────────────
+  // GRADIENTS
   // ─────────────────────────────────────────────────────────────
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
-    colors: [bgTop, bgMiddle, bgBottom],
-    stops: [0.0, 0.5, 1.0],
+    colors: [background, background, background],
   );
 
   static const LinearGradient logoGradient = LinearGradient(
@@ -90,14 +120,12 @@ class SyraColors {
     colors: [logoGoldTop, logoGoldBottom],
   );
 
-  /// Primary accent gradient (subtle)
   static const LinearGradient accentGradient = LinearGradient(
     colors: [accent, accentLight],
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
   );
 
-  /// Legacy orb gradient (now subtle accent)
   static const LinearGradient orbGradient = LinearGradient(
     colors: [accent, accentLight],
     begin: Alignment.topRight,
@@ -105,17 +133,43 @@ class SyraColors {
   );
 
   // ─────────────────────────────────────────────────────────────
-  // SHADOWS (minimal)
+  // SHADOWS
   // ─────────────────────────────────────────────────────────────
-  static List<BoxShadow> orbIdleGlow() => [];
-  static List<BoxShadow> orbThinkingGlow() => [];
-  static List<BoxShadow> bubbleGlow({double intensity = 0.025}) => [];
-  static List<BoxShadow> cardGlow() => [];
+  static List<BoxShadow> orbIdleGlow() => [
+    BoxShadow(
+      color: accent.withValues(alpha: 0.2),
+      blurRadius: 20,
+      spreadRadius: 2,
+    ),
+  ];
 
-  // Subtle shadows for cards
+  static List<BoxShadow> orbThinkingGlow() => [
+    BoxShadow(
+      color: accent.withValues(alpha: 0.4),
+      blurRadius: 30,
+      spreadRadius: 5,
+    ),
+  ];
+
+  static List<BoxShadow> bubbleGlow({double intensity = 0.1}) => [
+    BoxShadow(
+      color: accent.withValues(alpha: intensity),
+      blurRadius: 12,
+      offset: const Offset(0, 2),
+    ),
+  ];
+
+  static List<BoxShadow> cardGlow() => [
+    BoxShadow(
+      color: Colors.black.withValues(alpha: 0.3),
+      blurRadius: 12,
+      offset: const Offset(0, 4),
+    ),
+  ];
+
   static List<BoxShadow> subtleShadow() => [
     BoxShadow(
-      color: Colors.black.withOpacity(0.2),
+      color: Colors.black.withValues(alpha: 0.2),
       blurRadius: 8,
       offset: const Offset(0, 2),
     ),
@@ -123,21 +177,89 @@ class SyraColors {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TYPOGRAPHY
+// TYPOGRAPHY - Inter/SF Pro Style
 // ═══════════════════════════════════════════════════════════════
 class SyraTypography {
   static const String logoFont = "SF Pro Display";
   static const String mainFont = "SF Pro Display";
   static const String fallbackFont = ".SF UI Text";
 
-  static TextStyle logoStyle({double fontSize = 22}) => TextStyle(
+  /// Logo style - for SYRA branding
+  static TextStyle logoStyle({double fontSize = 20}) => TextStyle(
         fontFamily: logoFont,
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
-        letterSpacing: fontSize * 0.15,
+        letterSpacing: fontSize * 0.12,
         color: SyraColors.textPrimary,
       );
 
+  // ─────────────────────────────────────────────────────────────
+  // HEADERS
+  // ─────────────────────────────────────────────────────────────
+  /// Large header (screen titles)
+  static const TextStyle headingLarge = TextStyle(
+    fontSize: 28,
+    fontWeight: FontWeight.w700,
+    color: SyraColors.textPrimary,
+    letterSpacing: -0.5,
+    height: 1.2,
+  );
+
+  /// Medium header (section titles)
+  static const TextStyle headingMedium = TextStyle(
+    fontSize: 20,
+    fontWeight: FontWeight.w600,
+    color: SyraColors.textPrimary,
+    letterSpacing: -0.3,
+  );
+
+  /// Small header (subsections)
+  static const TextStyle headingSmall = TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: SyraColors.textPrimary,
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // BODY TEXT
+  // ─────────────────────────────────────────────────────────────
+  /// Primary body text
+  static const TextStyle bodyText = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+    letterSpacing: 0.1,
+    color: SyraColors.textPrimary,
+  );
+
+  /// Secondary body text (descriptions)
+  static const TextStyle bodyTextSecondary = TextStyle(
+    fontSize: 14,
+    fontWeight: FontWeight.w400,
+    height: 1.5,
+    color: SyraColors.textSecondary,
+  );
+
+  /// Small text (hints, captions)
+  static const TextStyle caption = TextStyle(
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    letterSpacing: 0.2,
+    color: SyraColors.textMuted,
+  );
+
+  /// Overline (section labels - small caps style)
+  static const TextStyle overline = TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 1.2,
+    color: SyraColors.textSecondary,
+  );
+
+  // ─────────────────────────────────────────────────────────────
+  // CHAT SPECIFIC
+  // ─────────────────────────────────────────────────────────────
+  /// Message text in chat
   static const TextStyle messageText = TextStyle(
     fontSize: 15,
     fontWeight: FontWeight.w400,
@@ -146,6 +268,7 @@ class SyraTypography {
     color: SyraColors.textPrimary,
   );
 
+  /// Timestamp in chat
   static const TextStyle timeText = TextStyle(
     fontSize: 11,
     fontWeight: FontWeight.w400,
@@ -153,108 +276,279 @@ class SyraTypography {
     color: SyraColors.textMuted,
   );
 
-  static const TextStyle headingLarge = TextStyle(
-    fontSize: 24,
+  // ─────────────────────────────────────────────────────────────
+  // BUTTONS
+  // ─────────────────────────────────────────────────────────────
+  /// Button text
+  static const TextStyle button = TextStyle(
+    fontSize: 15,
     fontWeight: FontWeight.w600,
-    color: SyraColors.textPrimary,
+    letterSpacing: 0.3,
   );
 
-  static const TextStyle headingMedium = TextStyle(
-    fontSize: 18,
+  /// Small button text
+  static const TextStyle buttonSmall = TextStyle(
+    fontSize: 13,
     fontWeight: FontWeight.w600,
-    color: SyraColors.textPrimary,
-  );
-
-  static const TextStyle bodyText = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    color: SyraColors.textSecondary,
+    letterSpacing: 0.3,
   );
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MAIN THEME
+// MAIN THEME DATA
 // ═══════════════════════════════════════════════════════════════
 class SyraTheme {
+  /// Spacing constants (16-20px as per spec)
+  static const double horizontalPadding = 16.0;
+  static const double cardRadius = 12.0;
+  static const double sheetRadius = 12.0;
+
+  /// Glass blur constants
+  static const double glassBlurRadius = 28.0;
+  static const double glassOpacity = 0.22;
+
   static ThemeData get theme => ThemeData(
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: SyraColors.background,
         fontFamily: SyraTypography.fallbackFont,
+
+        // ─────────────────────────────────────────────────────────────
+        // COLOR SCHEME
+        // ─────────────────────────────────────────────────────────────
         colorScheme: const ColorScheme.dark(
           primary: SyraColors.accent,
           secondary: SyraColors.accentLight,
           surface: SyraColors.surface,
-          onPrimary: SyraColors.textPrimary,
-          onSecondary: SyraColors.textPrimary,
+          surfaceContainer: SyraColors.surface,
+          onPrimary: Colors.white,
+          onSecondary: Colors.white,
           onSurface: SyraColors.textPrimary,
+          outline: SyraColors.border,
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // APP BAR
+        // ─────────────────────────────────────────────────────────────
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.transparent,
           elevation: 0,
           centerTitle: true,
-          iconTheme: IconThemeData(color: SyraColors.textPrimary),
+          iconTheme: IconThemeData(
+            color: SyraColors.iconStroke,
+            size: 24,
+          ),
           titleTextStyle: TextStyle(
             color: SyraColors.textPrimary,
-            fontSize: 17,
+            fontSize: 16,
             fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
           ),
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // CARDS
+        // ─────────────────────────────────────────────────────────────
         cardTheme: CardThemeData(
           color: SyraColors.surface,
           elevation: 0,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-            side: const BorderSide(color: SyraColors.border),
+            borderRadius: BorderRadius.circular(cardRadius),
+            side: const BorderSide(
+              color: SyraColors.border,
+              width: 1,
+            ),
           ),
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // BUTTONS
+        // ─────────────────────────────────────────────────────────────
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: SyraColors.accent,
-            foregroundColor: SyraColors.textPrimary,
+            foregroundColor: Colors.white,
             elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 14,
             ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(cardRadius),
+            ),
+            textStyle: SyraTypography.button,
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             foregroundColor: SyraColors.accent,
+            textStyle: SyraTypography.button,
           ),
         ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: SyraColors.textPrimary,
+            side: const BorderSide(
+              color: SyraColors.border,
+              width: 1,
+            ),
+            padding: const EdgeInsets.symmetric(
+              horizontal: 24,
+              vertical: 14,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(cardRadius),
+            ),
+          ),
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // INPUT FIELDS
+        // ─────────────────────────────────────────────────────────────
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: SyraColors.surface,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.border),
+            borderRadius: BorderRadius.circular(cardRadius),
+            borderSide: const BorderSide(
+              color: SyraColors.border,
+              width: 1,
+            ),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.border),
+            borderRadius: BorderRadius.circular(cardRadius),
+            borderSide: const BorderSide(
+              color: SyraColors.border,
+              width: 1,
+            ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: SyraColors.accent),
+            borderRadius: BorderRadius.circular(cardRadius),
+            borderSide: const BorderSide(
+              color: SyraColors.accent,
+              width: 1.5,
+            ),
           ),
-          hintStyle: const TextStyle(color: SyraColors.textHint),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(cardRadius),
+            borderSide: const BorderSide(
+              color: Colors.redAccent,
+              width: 1,
+            ),
+          ),
+          hintStyle: const TextStyle(
+            color: SyraColors.textMuted,
+            fontSize: 15,
+          ),
+          labelStyle: const TextStyle(
+            color: SyraColors.textSecondary,
+            fontSize: 14,
+          ),
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // LIST TILES
+        // ─────────────────────────────────────────────────────────────
+        listTileTheme: const ListTileThemeData(
+          contentPadding: EdgeInsets.symmetric(
+            horizontal: horizontalPadding,
+            vertical: 8,
+          ),
+          iconColor: SyraColors.iconStroke,
+          textColor: SyraColors.textPrimary,
+          titleTextStyle: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: SyraColors.textPrimary,
+          ),
+          subtitleTextStyle: TextStyle(
+            fontSize: 13,
+            color: SyraColors.textSecondary,
+          ),
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // BOTTOM SHEET
+        // ─────────────────────────────────────────────────────────────
+        bottomSheetTheme: BottomSheetThemeData(
+          backgroundColor: SyraColors.surface,
+          modalBackgroundColor: SyraColors.surface,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(sheetRadius),
+            ),
+          ),
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // SNACKBAR
+        // ─────────────────────────────────────────────────────────────
         snackBarTheme: SnackBarThemeData(
           backgroundColor: SyraColors.surface,
-          contentTextStyle: const TextStyle(color: SyraColors.textPrimary),
+          contentTextStyle: const TextStyle(
+            color: SyraColors.textPrimary,
+            fontSize: 14,
+          ),
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(cardRadius),
           ),
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // PROGRESS INDICATOR
+        // ─────────────────────────────────────────────────────────────
         progressIndicatorTheme: const ProgressIndicatorThemeData(
           color: SyraColors.accent,
+          circularTrackColor: SyraColors.divider,
         ),
+
+        // ─────────────────────────────────────────────────────────────
+        // DIVIDER
+        // ─────────────────────────────────────────────────────────────
         dividerTheme: const DividerThemeData(
           color: SyraColors.divider,
-          thickness: 0.5,
+          thickness: 1,
+          space: 1,
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // ICON THEME
+        // ─────────────────────────────────────────────────────────────
+        iconTheme: const IconThemeData(
+          color: SyraColors.iconStroke,
+          size: 24,
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // SWITCH / TOGGLE
+        // ─────────────────────────────────────────────────────────────
+        switchTheme: SwitchThemeData(
+          thumbColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return Colors.white;
+            }
+            return SyraColors.textMuted;
+          }),
+          trackColor: WidgetStateProperty.resolveWith((states) {
+            if (states.contains(WidgetState.selected)) {
+              return SyraColors.accent;
+            }
+            return SyraColors.divider;
+          }),
+        ),
+
+        // ─────────────────────────────────────────────────────────────
+        // DRAWER
+        // ─────────────────────────────────────────────────────────────
+        drawerTheme: const DrawerThemeData(
+          backgroundColor: SyraColors.background,
+          elevation: 0,
         ),
       );
 }

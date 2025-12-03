@@ -6,13 +6,16 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
+import '../services/chat_session_service.dart';
+import '../models/chat_session.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_message_bubble.dart';
 import 'premium_screen.dart';
 import 'settings_screen.dart';
-import 'side_menu.dart';
+import 'side_menu_new.dart';
+import 'settings_sheet.dart';
 import 'relationship_analysis_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'tactical_moves_screen.dart';
@@ -58,11 +61,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // Limit warning (show only once per session)
   bool _hasShownLimitWarning = false;
 
+  // Chat sessions for sidebar
+  List<ChatSession> _chatSessions = [];
+
+  // Tarot mode
+  bool _isTarotMode = false;
+
   @override
   void initState() {
     super.initState();
 
     _initUser();
+    _loadChatSessions();
 
     _menuController = AnimationController(
       vsync: this,
@@ -98,6 +108,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _dailyLimit = 10;
         _messageCount = 0;
       });
+    }
+  }
+
+  Future<void> _loadChatSessions() async {
+    try {
+      final sessions = await ChatSessionService.getUserSessions();
+      if (!mounted) return;
+      setState(() {
+        _chatSessions = sessions;
+      });
+    } catch (e) {
+      debugPrint("loadChatSessions error: $e");
+      // Fail silently, empty list is fine
     }
   }
 
@@ -223,7 +246,34 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     setState(() {
       _messages.clear();
       _replyingTo = null;
+      _isTarotMode = false;
     });
+  }
+
+  /// Start tarot mode
+  void _startTarotMode() {
+    setState(() {
+      _messages.clear();
+      _replyingTo = null;
+      _isTarotMode = true;
+      _messages.add({
+        "id": UniqueKey().toString(),
+        "sender": "bot",
+        "text": "🔮 Tarot modu aktif. Kartlar seni bekliyor...\n\n"
+            "İlişkinde bir sorun mu var? Bir karar mı vermelisin? "
+            "Sormak istediğin bir şey varsa, kartlar sana yol gösterecek.",
+        "time": DateTime.now(),
+      });
+    });
+    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+  }
+
+  /// Handle document upload (placeholder for future feature)
+  void _handleDocumentUpload() {
+    BlurToast.show(
+      context,
+      "📄 Doküman analizi özelliği çok yakında gelecek!",
+    );
   }
 
   Future<void> _sendMessage() async {
@@ -533,66 +583,40 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
 
-            // Side menu
-            SideMenu(
+            // Side menu - NEW VERSION
+            SideMenuNew(
               slideAnimation: _menuOffset,
               isPremium: _isPremium,
-              onTapPremium: () {
-                _navigateToPremium();
+              chatSessions: _chatSessions,
+              onNewChat: () {
                 _toggleMenu();
+                _startNewChat();
               },
-              onTapChatSessions: () {
-                _openChatSessions();
+              onTarotMode: () {
                 _toggleMenu();
+                _startTarotMode();
               },
-              onTapTactical: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const TacticalMovesScreen(),
-                  ),
-                );
+              onSelectChat: (chat) {
                 _toggleMenu();
+                // TODO: Load selected chat messages
+                BlurToast.show(context, "Chat yükleme özelliği yakında!");
               },
-              onTapAnalysis: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const RelationshipAnalysisScreen(),
-                  ),
-                );
+              onDeleteChat: (chat) async {
+                try {
+                  await ChatSessionService.deleteSession(chat.id);
+                  await _loadChatSessions();
+                  if (mounted) {
+                    BlurToast.show(context, "Chat silindi");
+                  }
+                } catch (e) {
+                  debugPrint("Delete chat error: $e");
+                }
+              },
+              onOpenSettings: () {
                 _toggleMenu();
+                SettingsSheet.show(context);
               },
-              onTapArchive: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ChatArchiveScreen(),
-                  ),
-                );
-                _toggleMenu();
-              },
-              onTapDailyTip: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const DailyTipScreen(),
-                  ),
-                );
-                _toggleMenu();
-              },
-              onTapSettings: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const SettingsScreen()),
-                );
-                _toggleMenu();
-              },
-              onTapLogout: () async {
-                await FirebaseAuth.instance.signOut();
-                if (!mounted) return;
-                Navigator.pushReplacementNamed(context, "/login");
-              },
+              onClose: _toggleMenu,
             ),
           ],
         ),
@@ -640,9 +664,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // New chat button
+          // Upload/Analysis button
           GestureDetector(
-            onTap: _startNewChat,
+            onTap: _handleDocumentUpload,
             child: Container(
               width: 40,
               height: 40,
@@ -651,7 +675,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(
-                Icons.edit_square,
+                Icons.upload_file_outlined,
                 color: SyraColors.textSecondary,
                 size: 22,
               ),
@@ -689,7 +713,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
                 child: Center(
                   child: Text(
-                    "S",
+                    _isTarotMode ? "🔮" : "S",
                     style: TextStyle(
                       fontSize: 48,
                       fontWeight: FontWeight.w300,
@@ -702,9 +726,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
           const SizedBox(height: 24),
           Text(
-            "Bugün neyi çözüyoruz?",
+            _isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
             style: TextStyle(
-              color: SyraColors.textMuted,
+              color: _isTarotMode ? SyraColors.accent : SyraColors.textMuted,
               fontSize: 16,
               fontWeight: FontWeight.w400,
             ),
