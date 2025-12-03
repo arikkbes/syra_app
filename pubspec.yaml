@@ -40,8 +40,8 @@ dependencies:
   # 📸 Image picker
   image_picker: ^1.0.8
 
-  # 🎤 Speech to text
-  speech_to_text: ^6.6.2
+  # 🎤 Speech to text — FIXED 7.3.0
+  speech_to_text: ^7.3.0
 
 dev_dependencies:
   flutter_test:
