@@ -1,13 +1,8 @@
 import 'package:flutter/material.dart';
-import '../services/firestore_user.dart';
-import '../theme/syra_theme.dart';
 
-/// ═══════════════════════════════════════════════════════════════
-/// CHAT BEHAVIOR SCREEN - FIXED
-/// ═══════════════════════════════════════════════════════════════
-/// ✅ Now saves settings to Firestore
-/// ✅ Settings are applied in ChatService and backend
-/// ═══════════════════════════════════════════════════════════════
+/// SYRA Chat Behavior Screen – iskelet
+/// Buradaki ayarlar sadece UI tarafında tutuluyor.
+/// İleride Firestore + backend ile kalıcı hale getirilecek.
 
 class ChatBehaviorScreen extends StatefulWidget {
   const ChatBehaviorScreen({super.key});
@@ -17,242 +12,124 @@ class ChatBehaviorScreen extends StatefulWidget {
 }
 
 class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
-  String _tone = "default";
-  String _replyLength = "default";
-  bool _loading = true;
-  bool _saving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-  }
-
-  Future<void> _loadSettings() async {
-    try {
-      final settings = await FirestoreUser.getSettings();
-      
-      if (!mounted) return;
-      
-      setState(() {
-        _tone = settings['botCharacter'] ?? 'default';
-        _replyLength = settings['replyLength'] ?? 'default';
-        _loading = false;
-      });
-    } catch (e) {
-      debugPrint('Error loading settings: $e');
-      if (mounted) {
-        setState(() => _loading = false);
-      }
-    }
-  }
-
-  Future<void> _saveSettings() async {
-    setState(() => _saving = true);
-
-    try {
-      await FirestoreUser.saveSettings(
-        botCharacter: _tone,
-        replyLength: _replyLength,
-      );
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Ayarlar kaydedildi'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error saving settings: $e');
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hata: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-
-    if (mounted) {
-      setState(() => _saving = false);
-    }
-  }
+  String _tone = "Otomatik";
+  String _replyLength = "Dengeli";
+  bool _streetMode = true;
+  bool _emotionalHints = true;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SyraColors.background,
       appBar: AppBar(
-        backgroundColor: SyraColors.background,
-        elevation: 0,
-        title: const Text(
-          "Sohbet Davranışı",
-          style: TextStyle(
-            color: SyraColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: SyraColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
+        title: const Text("Sohbet Davranışı"),
       ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(
-                color: SyraColors.accent,
-              ),
-            )
-          : SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Text(
-                          "SYRA'nın sana nasıl konuşacağını özelleştir. Bu ayarlar tüm cihazlarda geçerli olur.",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: SyraColors.textSecondary,
-                            height: 1.4,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        // TONE SELECTION
-                        _buildSectionTitle("Konuşma Tonu"),
-                        const SizedBox(height: 12),
-                        _buildToneOption(
-                          'default',
-                          'Varsayılan',
-                          'Duruma göre otomatik ton',
-                        ),
-                        _buildToneOption(
-                          'professional',
-                          'Profesyonel',
-                          'Ölçülü ve saygılı dil',
-                        ),
-                        _buildToneOption(
-                          'friendly',
-                          'Samimi',
-                          'Arkadaşça ve rahat ton',
-                        ),
-                        _buildToneOption(
-                          'direct',
-                          'Direkt',
-                          'Açık sözlü ve filtresiz',
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        // MESSAGE LENGTH
-                        _buildSectionTitle("Mesaj Uzunluğu"),
-                        const SizedBox(height: 12),
-                        _buildLengthOption(
-                          'short',
-                          'Kısa & Net',
-                          'Maximum 2-3 cümle',
-                        ),
-                        _buildLengthOption(
-                          'default',
-                          'Dengeli',
-                          'Orta uzunlukta cevaplar',
-                        ),
-                        _buildLengthOption(
-                          'detailed',
-                          'Detaylı',
-                          'Kapsamlı açıklamalar',
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // INFO
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: SyraColors.surface,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: SyraColors.border,
-                              width: 0.5,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.info_outline,
-                                color: SyraColors.accent,
-                                size: 20,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  'Bu ayarlar bir sonraki mesajından itibaren geçerli olacak.',
-                                  style: TextStyle(
-                                    color: SyraColors.textSecondary,
-                                    fontSize: 12,
-                                    height: 1.4,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // SAVE BUTTON
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: SyraColors.background,
-                      border: Border(
-                        top: BorderSide(
-                          color: SyraColors.divider,
-                          width: 0.5,
-                        ),
-                      ),
-                    ),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: _saving ? null : _saveSettings,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: SyraColors.accent,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: _saving
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Kaydet',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                  ),
-                ],
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Text(
+              "Buradaki ayarlar SYRA'nın sana nasıl konuşacağını etkiler.\n"
+              "Şu an sadece bu cihazda geçerli, ileride hesap bazlı saklanacak.",
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.white70,
+                height: 1.4,
               ),
             ),
+            const SizedBox(height: 16),
+
+            // TON SEÇİMİ
+            _buildSectionTitle("Konuşma tonu"),
+            const SizedBox(height: 8),
+            _buildDropdownTile(
+              value: _tone,
+              items: const [
+                "Otomatik",
+                "Kanka modu",
+                "Sakin analizci",
+                "Maskülen mentor",
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _tone = v);
+              },
+              subtitle:
+                  "SYRA'nın sana yaklaşım tarzını seç. Otomatikte mesajına göre karar verir.",
+            ),
+
+            const SizedBox(height: 20),
+
+            // MESAJ UZUNLUĞU
+            _buildSectionTitle("Mesaj uzunluğu"),
+            const SizedBox(height: 8),
+            _buildDropdownTile(
+              value: _replyLength,
+              items: const [
+                "Kısa & net",
+                "Dengeli",
+                "Detaylı açıklama",
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _replyLength = v);
+              },
+              subtitle: "Cevapların ne kadar uzun olmasını istediğini seç.",
+            ),
+
+            const SizedBox(height: 20),
+
+            // STREET MODE
+            _buildSectionTitle("Sokak modu"),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              value: _streetMode,
+              onChanged: (v) {
+                setState(() => _streetMode = v);
+              },
+              title: const Text(
+                "Street / kanka dili",
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                "Ağzı daha kanka, daha sokak, daha samimi olsun.",
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              activeThumbColor: Colors.blueAccent,
+            ),
+
+            const SizedBox(height: 12),
+
+            // EMOTIONAL HINTS
+            SwitchListTile(
+              value: _emotionalHints,
+              onChanged: (v) {
+                setState(() => _emotionalHints = v);
+              },
+              title: const Text(
+                "Duygusal analiz cümleleri",
+                style: TextStyle(color: Colors.white),
+              ),
+              subtitle: const Text(
+                "Mesajlara yorum yaparken araya 'bence burada kız trip atmış' gibi "
+                "duygusal yorumlar serpiştirsin.",
+                style: TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              activeThumbColor: Colors.blueAccent,
+            ),
+
+            const SizedBox(height: 24),
+            const Text(
+              "Not: Bu ekran şu an sadece iskelet. Değerler henüz Firestore'a "
+              "yazılmıyor, backend ile bağlayınca gerçek etkiyi kazanacak.",
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white38,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -260,119 +137,62 @@ class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
     return Text(
       text,
       style: const TextStyle(
-        color: SyraColors.textPrimary,
-        fontSize: 16,
+        color: Colors.white,
+        fontSize: 14,
         fontWeight: FontWeight.w600,
       ),
     );
   }
 
-  Widget _buildToneOption(String value, String title, String subtitle) {
-    final isSelected = _tone == value;
-
-    return GestureDetector(
-      onTap: () => setState(() => _tone = value),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? SyraColors.accent.withOpacity(0.1)
-              : SyraColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? SyraColors.accent : SyraColors.border,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: SyraColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: SyraColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: SyraColors.accent,
-                size: 20,
-              ),
-          ],
+  Widget _buildDropdownTile({
+    required String value,
+    required List<String> items,
+    required ValueChanged<String?> onChanged,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
         ),
       ),
-    );
-  }
-
-  Widget _buildLengthOption(String value, String title, String subtitle) {
-    final isSelected = _replyLength == value;
-
-    return GestureDetector(
-      onTap: () => setState(() => _replyLength = value),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? SyraColors.accent.withOpacity(0.1)
-              : SyraColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? SyraColors.accent : SyraColors.border,
-            width: isSelected ? 1.5 : 0.5,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: SyraColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: TextStyle(
-                      color: SyraColors.textSecondary,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              isExpanded: true,
+              icon: const Icon(
+                Icons.expand_more_rounded,
+                color: Colors.white70,
               ),
+              dropdownColor: Colors.grey.shade900,
+              style: const TextStyle(color: Colors.white),
+              items: items
+                  .map(
+                    (e) => DropdownMenuItem(
+                      value: e,
+                      child: Text(e),
+                    ),
+                  )
+                  .toList(),
+              onChanged: onChanged,
             ),
-            if (isSelected)
-              Icon(
-                Icons.check_circle,
-                color: SyraColors.accent,
-                size: 20,
-              ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              height: 1.3,
+            ),
+          ),
+        ],
       ),
     );
   }

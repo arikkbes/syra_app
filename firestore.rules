@@ -1,0 +1,245 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ═══════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check if user is accessing their own data
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Check if user is premium
+    function isPremium() {
+      return isAuthenticated() && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isPremium == true;
+    }
+    
+    // Check if data size is within limits
+    function isValidMessageSize() {
+      return request.resource.data.text.size() < 5000; // Max 5000 characters
+    }
+    
+    // Check if timestamp is recent (prevent backdating)
+    function isRecentTimestamp() {
+      return request.resource.data.timestamp != null &&
+             request.resource.data.timestamp > request.time - duration.value(1, 'h');
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // USER PROFILES
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /users/{userId} {
+      // Users can read and write their own profile
+      allow read: if isOwner(userId);
+      
+      // Only allow writing specific fields to prevent abuse
+      allow create: if isOwner(userId) && 
+                      request.resource.data.keys().hasAll(['email', 'createdAt']);
+      
+      allow update: if isOwner(userId) && 
+                      // Protect critical fields
+                      !request.resource.data.diff(resource.data).affectedKeys().hasAny(['uid', 'createdAt']) &&
+                      // Allow updating these fields
+                      request.resource.data.diff(resource.data).affectedKeys()
+                        .hasOnly(['displayName', 'photoURL', 'messageCount', 'dailyLimit', 
+                                 'lastResetDate', 'isPremium', 'tone', 'messageLength', 
+                                 'notificationsEnabled', 'dailyTipsEnabled', 'lastUpdated']);
+      
+      // ═════════════════════════════════════════════════════════════
+      // CHAT SESSIONS - NEW MULTI-CHAT FEATURE
+      // ═════════════════════════════════════════════════════════════
+      
+      match /chat_sessions/{sessionId} {
+        // Users can read/write/delete their own chat sessions
+        allow read, create, update, delete: if isOwner(userId);
+        
+        // Messages within chat sessions
+        match /messages/{messageId} {
+          allow read: if isOwner(userId);
+          
+          allow create: if isOwner(userId) && 
+                          isValidMessageSize() &&
+                          request.resource.data.keys().hasAll(['sender', 'text', 'timestamp']) &&
+                          request.resource.data.sender in ['user', 'bot', 'assistant'];
+          
+          allow update: if isOwner(userId);
+          
+          allow delete: if isOwner(userId);
+        }
+      }
+      
+      // ═════════════════════════════════════════════════════════════
+      // LEGACY: OLD CONVERSATIONS (for backward compatibility)
+      // ═════════════════════════════════════════════════════════════
+      
+      match /conversations/{conversationId} {
+        // Users can read/write their own conversations
+        allow read, write: if isOwner(userId);
+        
+        // Messages within conversations
+        match /messages/{messageId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+      
+      // ═════════════════════════════════════════════════════════════
+      // PROFILE MEMORY (User Preferences & Settings)
+      // ═════════════════════════════════════════════════════════════
+      
+      match /profile_memory/{traitId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // ═════════════════════════════════════════════════════════════
+      // USER SETTINGS & PREFERENCES
+      // ═════════════════════════════════════════════════════════════
+      
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // ═════════════════════════════════════════════════════════════
+      // ARCHIVED CHATS
+      // ═════════════════════════════════════════════════════════════
+      
+      match /archived_chats/{chatId} {
+        allow read, create, delete: if isOwner(userId);
+        
+        match /messages/{messageId} {
+          allow read, write: if isOwner(userId);
+        }
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // CONVERSATION HISTORY (Backend Long-term Memory)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /conversation_history/{userId} {
+      // Users can read their own history
+      allow read: if isOwner(userId);
+      
+      // Only backend (Firebase Admin) can write
+      allow write: if false; // Only via Cloud Functions with Admin SDK
+      
+      // Subcollections for conversation data
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow write: if false; // Only backend
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // USER PROFILE REPOSITORY (Backend Analysis Data)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /user_profiles/{userId} {
+      // Users can read their AI-generated profile
+      allow read: if isOwner(userId);
+      
+      // Only backend can write (persona, traits, patterns)
+      allow write: if false; // Only via Cloud Functions
+      
+      match /traits/{traitId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+      
+      match /patterns/{patternId} {
+        allow read: if isOwner(userId);
+        allow write: if false;
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // MESSAGE COUNTS & LIMITS
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /messageCounts/{userId} {
+      allow read: if isOwner(userId);
+      
+      // Only allow incrementing count
+      allow update: if isOwner(userId) &&
+                      request.resource.data.count >= resource.data.count;
+      
+      allow create: if isOwner(userId);
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // DAILY TIPS (if stored in Firestore)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /daily_tips/{tipId} {
+      // Everyone can read tips
+      allow read: if isAuthenticated();
+      
+      // Only backend can write
+      allow write: if false;
+    }
+    
+    match /user_daily_tips/{userId} {
+      // Users can read their personalized tips
+      allow read: if isOwner(userId);
+      
+      // Only backend can write
+      allow write: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // PREMIUM PURCHASES & SUBSCRIPTIONS
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /purchases/{userId} {
+      // Users can read their own purchases
+      allow read: if isOwner(userId);
+      
+      // Only backend can write (RevenueCat webhook)
+      allow write: if false;
+    }
+    
+    match /subscriptions/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // Only backend
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ANALYTICS & LOGS (Optional)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /analytics/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false; // Only backend
+    }
+    
+    match /error_logs/{logId} {
+      // Only backend can write error logs
+      allow read, write: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // ADMIN COLLECTION (for future admin panel)
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /admin/{document=**} {
+      // Only accessible via Admin SDK
+      allow read, write: if false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // DENY ALL OTHER ACCESS
+    // ═══════════════════════════════════════════════════════════════
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,20 +1,14 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../services/firestore_user.dart';
-import '../services/chat_session_service.dart';
 import '../theme/syra_theme.dart';
-import 'login_screen.dart';
-import 'chat_screen.dart';
+import '../widgets/glass_background.dart';
+import '../widgets/blur_toast.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PRIVACY SETTINGS SCREEN - FIXED
+/// PRIVACY SETTINGS SCREEN
 /// ═══════════════════════════════════════════════════════════════
-/// ✅ Clear History - works
-/// ✅ Privacy Policy - opens URL
-/// ✅ Delete My Data - fully functional
+/// Gizlilik ve veri ayarları.
 /// ═══════════════════════════════════════════════════════════════
 
 class PrivacySettingsScreen extends StatefulWidget {
@@ -25,182 +19,348 @@ class PrivacySettingsScreen extends StatefulWidget {
 }
 
 class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
-  bool _loading = false;
+  bool _sendAnalytics = true;
+  bool _sendErrorReports = true;
+
+  void _clearChatHistory() {
+    BlurToast.show(context, "Konuşma geçmişi temizleme SYRA 1.1 ile gelecek.");
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: SyraColors.background,
-      appBar: AppBar(
-        backgroundColor: SyraColors.background,
-        elevation: 0,
-        title: const Text(
-          "Veri & Gizlilik",
-          style: TextStyle(
-            color: SyraColors.textPrimary,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: SyraColors.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: SyraColors.accent),
-            )
-          : SafeArea(
-              child: ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // INFO
-                  Text(
-                    "Verilerinizi yönetin ve gizliliğinizi koruyun.",
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: SyraColors.textSecondary,
-                      height: 1.4,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // CLEAR HISTORY
-                  _buildOptionTile(
-                    icon: Icons.delete_sweep_rounded,
-                    title: 'Geçmişi Temizle',
-                    subtitle: 'Tüm sohbet geçmişini sil',
-                    isDanger: true,
-                    onTap: _showClearHistoryDialog,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // PRIVACY POLICY
-                  _buildOptionTile(
-                    icon: Icons.privacy_tip_outlined,
-                    title: 'Gizlilik Politikası',
-                    subtitle: 'Verilerinizi nasıl koruduğumuzu öğrenin',
-                    onTap: _openPrivacyPolicy,
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  // DELETE MY DATA
-                  _buildOptionTile(
-                    icon: Icons.warning_amber_rounded,
-                    title: 'Verilerimi Sil',
-                    subtitle: 'Hesap ve tüm verilerinizi kalıcı olarak silin',
-                    isDanger: true,
-                    onTap: _showDeleteAccountDialog,
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // WARNING INFO
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: SyraColors.surface,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: Colors.red.withOpacity(0.3),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Row(
+      extendBodyBehindAppBar: true,
+      backgroundColor: Colors.transparent,
+      body: Stack(
+        children: [
+          const SyraBackground(),
+          SafeArea(
+            child: Column(
+              children: [
+                _buildAppBar(context),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 32),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: Colors.red.withOpacity(0.8),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            'Veri silme işlemleri geri alınamaz. Dikkatli olun.',
-                            style: TextStyle(
-                              color: SyraColors.textSecondary,
-                              fontSize: 12,
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
+                        _buildPrivacyInfoCard(),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle("Veri Paylaşımı"),
+                        const SizedBox(height: 12),
+                        _buildDataSharingCard(),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle("Veri Yönetimi"),
+                        const SizedBox(height: 12),
+                        _buildDataManagementCard(),
+                        const SizedBox(height: 24),
+                        _buildSectionTitle("Gizlilik Politikası"),
+                        const SizedBox(height: 12),
+                        _buildPrivacyPolicyCard(),
+                        const SizedBox(height: 32),
+                        _buildInfoNote(),
                       ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildOptionTile({
+  Widget _buildAppBar(BuildContext context) {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.25),
+            border: Border(
+              bottom: BorderSide(
+                color: Colors.white.withValues(alpha: 0.06),
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(
+                  Icons.arrow_back_ios_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const Expanded(
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shield_rounded,
+                        color: Color(0xFF4DB6AC),
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        "Gizlilik ve Veri",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPrivacyInfoCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFF4DB6AC).withValues(alpha: 0.15),
+                ),
+                child: const Icon(
+                  Icons.lock_rounded,
+                  color: Color(0xFF4DB6AC),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Text(
+                  "Gizliliğin Bizim İçin Önemli",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "SYRA, konuşmalarını güvenli bir şekilde saklar ve üçüncü taraflarla paylaşmaz. "
+            "Verilerinin nasıl kullanıldığını aşağıdan kontrol edebilirsin.",
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 14,
+              height: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: Text(
+        title,
+        style: TextStyle(
+          color: Colors.white.withValues(alpha: 0.5),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDataSharingCard() {
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          _buildSwitchItem(
+            icon: Icons.analytics_rounded,
+            iconColor: const Color(0xFF64B5F6),
+            title: "Kullanım Analitiği Gönder",
+            subtitle: "Uygulamayı geliştirmemize yardımcı ol",
+            value: _sendAnalytics,
+            onChanged: (v) => setState(() => _sendAnalytics = v),
+          ),
+          _buildDivider(),
+          _buildSwitchItem(
+            icon: Icons.bug_report_rounded,
+            iconColor: const Color(0xFFFF6B9D),
+            title: "Hata Raporu Gönder",
+            subtitle: "Hataları otomatik olarak bildir",
+            value: _sendErrorReports,
+            onChanged: (v) => setState(() => _sendErrorReports = v),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSwitchItem({
     required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: iconColor.withValues(alpha: 0.15),
+            ),
+            child: Icon(
+              icon,
+              color: iconColor,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.5),
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF00D4FF),
+            activeTrackColor: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+            inactiveThumbColor: Colors.white.withValues(alpha: 0.5),
+            inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDataManagementCard() {
+    return GlassCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          _buildActionItem(
+            icon: Icons.delete_sweep_rounded,
+            iconColor: Colors.orangeAccent,
+            title: "Konuşma Geçmişini Temizle",
+            subtitle: "Tüm sohbetleri sil",
+            onTap: _clearChatHistory,
+          ),
+          _buildDivider(),
+          _buildActionItem(
+            icon: Icons.download_rounded,
+            iconColor: const Color(0xFFB388FF),
+            title: "Verilerimi İndir",
+            subtitle: "Tüm verilerinin bir kopyasını al",
+            onTap: () {
+              BlurToast.show(context, "Veri indirme SYRA 1.1 ile gelecek.");
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionItem({
+    required IconData icon,
+    required Color iconColor,
     required String title,
     required String subtitle,
     required VoidCallback onTap,
-    bool isDanger = false,
   }) {
-    return GestureDetector(
+    return InkWell(
       onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: SyraColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: SyraColors.border,
-            width: 0.5,
-          ),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
             Container(
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: isDanger
-                    ? Colors.red.withOpacity(0.1)
-                    : SyraColors.accent.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
+                shape: BoxShape.circle,
+                color: iconColor.withValues(alpha: 0.15),
               ),
               child: Icon(
                 icon,
-                color: isDanger ? Colors.red : SyraColors.accent,
+                color: iconColor,
                 size: 20,
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: isDanger ? Colors.red : SyraColors.textPrimary,
+                    style: const TextStyle(
+                      color: Colors.white,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 2),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: SyraColors.textSecondary,
-                      fontSize: 13,
+                      color: Colors.white.withValues(alpha: 0.5),
+                      fontSize: 12,
                     ),
                   ),
                 ],
               ),
             ),
             Icon(
-              Icons.chevron_right,
-              color: SyraColors.textMuted,
-              size: 20,
+              Icons.chevron_right_rounded,
+              color: Colors.white.withValues(alpha: 0.3),
+              size: 22,
             ),
           ],
         ),
@@ -208,239 +368,74 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // CLEAR HISTORY
-  // ═══════════════════════════════════════════════════════════════
-  void _showClearHistoryDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => _buildConfirmDialog(
-        title: 'Geçmişi Temizle',
-        message:
-            'Tüm sohbet geçmişin silinecek. Bu işlem geri alınamaz.\n\nDevam etmek istiyor musun?',
-        confirmText: 'Sil',
-        isDanger: true,
-        onConfirm: _clearHistory,
-      ),
-    );
-  }
-
-  Future<void> _clearHistory() async {
-    Navigator.pop(context); // Close dialog
-    setState(() => _loading = true);
-
-    try {
-      // Clear all chat sessions and messages
-      final sessions = await ChatSessionService.getUserSessions();
-      for (final session in sessions) {
-        await ChatSessionService.deleteSession(session.id);
-      }
-
-      // Clear conversations from FirestoreUser
-      await FirestoreUser.clearAllConversations();
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Tüm geçmiş silindi'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      // Navigate to fresh chat
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const ChatScreen()),
-        (route) => false,
-      );
-    } catch (e) {
-      debugPrint('Error clearing history: $e');
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hata: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-
-    if (mounted) {
-      setState(() => _loading = false);
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // PRIVACY POLICY
-  // ═══════════════════════════════════════════════════════════════
-  Future<void> _openPrivacyPolicy() async {
-    final url = Uri.parse('https://ariksoftware.com.tr/privacy-policy.html');
-
-    try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        throw 'URL açılamadı';
-      }
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('URL açılamadı: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // DELETE ACCOUNT
-  // ═══════════════════════════════════════════════════════════════
-  void _showDeleteAccountDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => _buildConfirmDialog(
-        title: 'Hesabı Sil',
-        message:
-            'Hesabın ve TÜM VERİLERİN kalıcı olarak silinecek:\n\n• Tüm sohbet geçmişi\n• Profil bilgileri\n• Premium üyelik\n• Tüm ayarlar\n\nBu işlem GERİ ALINAMAZ!\n\nDevam etmek istediğine emin misin?',
-        confirmText: 'Evet, Sil',
-        isDanger: true,
-        onConfirm: _deleteAccount,
-      ),
-    );
-  }
-
-  Future<void> _deleteAccount() async {
-    Navigator.pop(context); // Close dialog
-    setState(() => _loading = true);
-
-    try {
-      await FirestoreUser.deleteAccountCompletely();
-
-      if (!mounted) return;
-
-      // Navigate to login
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-        (route) => false,
-      );
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Hesabın başarıyla silindi'),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error deleting account: $e');
-      if (!mounted) return;
-
-      setState(() => _loading = false);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hata: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // CONFIRM DIALOG BUILDER
-  // ═══════════════════════════════════════════════════════════════
-  Widget _buildConfirmDialog({
-    required String title,
-    required String message,
-    required String confirmText,
-    required VoidCallback onConfirm,
-    bool isDanger = false,
-  }) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: SyraColors.border,
-                width: 0.5,
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: SyraColors.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: SyraColors.textSecondary,
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        child: const Text(
-                          'İptal',
-                          style: TextStyle(
-                            color: SyraColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: onConfirm,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              isDanger ? Colors.red : SyraColors.accent,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: Text(
-                          confirmText,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+  Widget _buildPrivacyPolicyCard() {
+    return GlassCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Veri Saklama",
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
             ),
           ),
+          const SizedBox(height: 8),
+          Text(
+            "• Konuşma geçmişin şifreli olarak saklanır\n"
+            "• Kişisel verilerin üçüncü taraflarla paylaşılmaz\n"
+            "• İstediğin zaman verilerini silebilirsin\n"
+            "• AI modeli eğitimi için veriler kullanılmaz",
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.6),
+              fontSize: 13,
+              height: 1.6,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDivider() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      height: 0.5,
+      color: Colors.white.withValues(alpha: 0.06),
+    );
+  }
+
+  Widget _buildInfoNote() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.08),
         ),
+        color: Colors.white.withValues(alpha: 0.03),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.info_outline_rounded,
+            color: Colors.white.withValues(alpha: 0.4),
+            size: 20,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              "Gizlilik ayarları şimdilik sadece bu oturumda geçerli. Kalıcı kayıt SYRA 1.1'de eklenecek.",
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.5),
+                fontSize: 13,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
