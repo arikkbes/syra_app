@@ -57,7 +57,6 @@ class ChatSessionsSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // Dummy chat listesi
             Flexible(
               child: ListView.separated(
                 shrinkWrap: true,
@@ -119,7 +118,6 @@ class ChatSessionsSheet extends StatelessWidget {
 
             const SizedBox(height: 8),
 
-            // Yeni sohbet butonu
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: GestureDetector(

@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -15,7 +14,6 @@ class ChatArchiveScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Dummy archived chats
     final List<Map<String, dynamic>> archivedChats = [
       {
         "title": "İlk buluşma tavsiyeleri",

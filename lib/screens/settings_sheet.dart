@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../theme/syra_theme.dart';
 import '../utils/syra_prefs.dart';
 
@@ -11,7 +10,6 @@ import '../utils/syra_prefs.dart';
 /// Sections:
 /// 1. Personalization (Theme, Appearance)
 /// 2. Chat Behavior (Tone, Length)
-/// 3. Notifications (Push, Daily Tips)
 /// 4. Data & Privacy (Clear, Archive, Delete)
 /// 5. Account (Email, Logout)
 /// 6. Premium (SYRA Plus)
@@ -79,7 +77,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
       child: Column(
         children: [
           // ─────────────────────────────────────────────────────
-          // HANDLE BAR
           // ─────────────────────────────────────────────────────
           Container(
             margin: const EdgeInsets.symmetric(vertical: 12),
@@ -92,7 +89,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
           ),
 
           // ─────────────────────────────────────────────────────
-          // HEADER
           // ─────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -115,13 +111,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
           const Divider(height: 1),
 
           // ─────────────────────────────────────────────────────
-          // CONTENT
           // ─────────────────────────────────────────────────────
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 16),
               children: [
-                // PERSONALIZATION
                 _buildSection(
                   title: 'PERSONALIZATION',
                   children: [
@@ -144,7 +138,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
                   ],
                 ),
 
-                // CHAT BEHAVIOR
                 _buildSection(
                   title: 'CHAT BEHAVIOR',
                   children: [
@@ -163,7 +156,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
                   ],
                 ),
 
-                // NOTIFICATIONS
                 _buildSection(
                   title: 'NOTIFICATIONS',
                   children: [
@@ -193,7 +185,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
                   ],
                 ),
 
-                // DATA & PRIVACY
                 _buildSection(
                   title: 'DATA & PRIVACY',
                   children: [
@@ -227,7 +218,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
                   ],
                 ),
 
-                // ACCOUNT
                 _buildSection(
                   title: 'ACCOUNT',
                   children: [
@@ -248,7 +238,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
                   ],
                 ),
 
-                // PREMIUM
                 _buildSection(
                   title: 'PREMIUM',
                   children: [
@@ -279,7 +268,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // HELPER METHODS
   // ═════════════════════════════════════════════════════════════════
 
   Widget _buildSection({
@@ -360,7 +348,6 @@ class _SettingsSheetState extends State<SettingsSheet> {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // DIALOGS & PICKERS
   // ═════════════════════════════════════════════════════════════════
 
   void _showTonePicker() {

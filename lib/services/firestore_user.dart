@@ -5,25 +5,16 @@ class FirestoreUser {
   static final _firestore = FirebaseFirestore.instance;
   static final _auth = FirebaseAuth.instance;
 
-  // -------------------------------------------------------------------------
-  // 🔗 USER REF
-  // -------------------------------------------------------------------------
   static DocumentReference<Map<String, dynamic>> _userRef() {
     final uid = _auth.currentUser?.uid;
     return _firestore.collection("users").doc(uid);
   }
 
-  // -------------------------------------------------------------------------
-  // 🔥 GET USER DATA
-  // -------------------------------------------------------------------------
   static Future<Map<String, dynamic>?> getUserData() async {
     final snap = await _userRef().get();
     return snap.data();
   }
 
-  // -------------------------------------------------------------------------
-  // ⭐ PREMIUM FLAG
-  // -------------------------------------------------------------------------
   static Future<bool> isPremium() async {
     final data = await getUserData();
     return data?["isPremium"] == true;
@@ -36,23 +27,18 @@ class FirestoreUser {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // 👤 CREATE PROFILE
-  // -------------------------------------------------------------------------
   static Future<void> createProfile(User user) async {
     await _firestore.collection("users").doc(user.uid).set({
       "uid": user.uid,
       "email": user.email ?? '',
       "createdAt": FieldValue.serverTimestamp(),
 
-      // LIMIT SİSTEMİ
       "isPremium": false,
       "dailyMessageLimit": 10,
       "dailyMessageCount": 0,
       "lastMessageDate": DateTime.now().toIso8601String(),
       "cooldownEnd": null,
 
-      // BOT AYARLARI
       "botCharacter": "default",
       "replyLength": "default",
       "notifDaily": true,
@@ -60,9 +46,6 @@ class FirestoreUser {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // 💬 LIMIT SYSTEM
-  // -------------------------------------------------------------------------
   static Future<void> incrementMessageCount() async {
     final doc = await _userRef().get();
     if (!doc.exists) return;
@@ -95,9 +78,6 @@ class FirestoreUser {
     };
   }
 
-  // -------------------------------------------------------------------------
-  // 💬 CHAT HISTORY — (save/get)
-  // -------------------------------------------------------------------------
   static Future<void> saveMessage({
     required String sender,
     required String text,
@@ -146,9 +126,6 @@ class FirestoreUser {
     }).toList();
   }
 
-  // -------------------------------------------------------------------------
-  // 🧠 PREMIUM TRAIT MEMORY
-  // -------------------------------------------------------------------------
   static Future<void> saveTrait({
     required String traitName,
     required String value,
@@ -186,9 +163,6 @@ class FirestoreUser {
     return traits;
   }
 
-  // -------------------------------------------------------------------------
-  // ⚙️ SETTINGS (bot tarzı, uzunluk, bildirimler)
-  // -------------------------------------------------------------------------
   static Future<Map<String, dynamic>> getSettings() async {
     final data = await getUserData() ?? {};
 
@@ -218,9 +192,6 @@ class FirestoreUser {
     }
   }
 
-  // -------------------------------------------------------------------------
-  // 🧹 CLEAR MESSAGE HISTORY — SYRA FINAL PATCH
-  // -------------------------------------------------------------------------
   static Future<void> clearAllConversations() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -231,7 +202,6 @@ class FirestoreUser {
         .collection("conversations")
         .get();
 
-    // 1) Tüm konuşmaları ve mesajları sil
     for (final convDoc in convSnap.docs) {
       final msgsSnap = await convDoc.reference.collection("messages").get();
       for (final msg in msgsSnap.docs) {
@@ -240,7 +210,6 @@ class FirestoreUser {
       await convDoc.reference.delete();
     }
 
-    // 2) SYRA FIX → Bugünün konuşmasını boş şekilde yeniden oluştur
     final todayId = DateTime.now().toIso8601String().split("T").first;
 
     await _firestore
@@ -253,16 +222,12 @@ class FirestoreUser {
     });
   }
 
-  // -------------------------------------------------------------------------
-  // 💣 DELETE ACCOUNT COMPLETELY — **FULL WORKING**
-  // -------------------------------------------------------------------------
   static Future<void> deleteAccountCompletely() async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     final uid = user.uid;
 
-    // traits
     final traitsSnap = await _firestore
         .collection("users")
         .doc(uid)
@@ -272,13 +237,10 @@ class FirestoreUser {
       await d.reference.delete();
     }
 
-    // chat history
     await clearAllConversations();
 
-    // delete root user document
     await _firestore.collection("users").doc(uid).delete();
 
-    // delete authentication account
     await user.delete();
   }
 }

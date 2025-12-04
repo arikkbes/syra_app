@@ -5,7 +5,6 @@ import '../theme/syra_theme.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// GLASS INPUT BAR — Legacy Compatibility
 /// ═══════════════════════════════════════════════════════════════
-/// This file is kept for backward compatibility.
 /// The new chat screen uses an integrated input bar.
 /// ═══════════════════════════════════════════════════════════════
 
@@ -97,7 +96,6 @@ class _GlassInputBarState extends State<GlassInputBar> {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Plus button
           Container(
             width: 44,
             height: 44,
@@ -109,7 +107,6 @@ class _GlassInputBarState extends State<GlassInputBar> {
             ),
           ),
 
-          // Text input
           Expanded(
             child: TextField(
               controller: widget.controller,
@@ -140,7 +137,6 @@ class _GlassInputBarState extends State<GlassInputBar> {
             ),
           ),
 
-          // Send button
           GestureDetector(
             onTap: _handleSend,
             child: Container(

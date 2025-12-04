@@ -33,7 +33,6 @@ class SyraBackground extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SYRA LOGO WIDGET (Clean White)
 // ═══════════════════════════════════════════════════════════════
 class SyraLogo extends StatelessWidget {
   final double fontSize;
@@ -88,7 +87,6 @@ class SyraLogo extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// GLASS CARD (Minimal glassmorphism)
 // ═══════════════════════════════════════════════════════════════
 class GlassCard extends StatelessWidget {
   final Widget child;

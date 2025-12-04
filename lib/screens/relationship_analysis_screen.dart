@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -38,7 +37,6 @@ class _RelationshipAnalysisScreenState
       _isAnalyzing = true;
     });
 
-    // Simulate analysis delay
     Future.delayed(const Duration(milliseconds: 1500), () {
       if (!mounted) return;
       setState(() {

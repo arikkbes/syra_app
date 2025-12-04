@@ -28,7 +28,6 @@ class PurchaseService {
   /// LAZY INITIALIZE - Call this BEFORE any RevenueCat operation
   /// ═══════════════════════════════════════════════════════════════
   /// This is the ONLY way to initialize RevenueCat.
-  /// Do NOT call this in main() or initState().
   /// Call it when user taps "Go Premium" button.
   /// ═══════════════════════════════════════════════════════════════
   static Future<bool> ensureInitialized() async {
@@ -39,7 +38,6 @@ class PurchaseService {
 
     if (_isInitializing) {
       debugPrint("⏳ [PurchaseService] Initialization in progress, waiting...");
-      // Wait for ongoing initialization
       int attempts = 0;
       while (_isInitializing && attempts < 50) {
         await Future.delayed(const Duration(milliseconds: 100));
@@ -70,7 +68,6 @@ class PurchaseService {
 
       await Purchases.configure(configuration);
 
-      // Set debug logs in debug mode only
       if (kDebugMode) {
         await Purchases.setLogLevel(LogLevel.debug);
       }
@@ -150,14 +147,12 @@ class PurchaseService {
       final products = await getProducts();
       if (products.isEmpty) return null;
 
-      // Try to find the specific product ID first
       final specificProduct =
           products.where((p) => p.identifier == productId).firstOrNull;
       if (specificProduct != null) {
         return specificProduct;
       }
 
-      // Otherwise return the first product
       return products.first;
     } catch (e) {
       debugPrint("❌ [PurchaseService] Error getting premium product: $e");
@@ -182,7 +177,6 @@ class PurchaseService {
     try {
       _isPurchasing = true;
 
-      // Get offerings
       final offerings = await Purchases.getOfferings();
 
       if (offerings.current == null ||
@@ -191,15 +185,12 @@ class PurchaseService {
         return false;
       }
 
-      // Get the package (first available)
       final package = offerings.current!.availablePackages.first;
 
       debugPrint("🛒 [PurchaseService] Purchasing: ${package.storeProduct.identifier}");
 
-      // Make the purchase
       final customerInfo = await Purchases.purchasePackage(package);
 
-      // Check if purchase was successful
       final hasEntitlement =
           customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
               false;
@@ -207,13 +198,11 @@ class PurchaseService {
       if (hasEntitlement) {
         debugPrint("✅ [PurchaseService] Purchase successful!");
 
-        // Upgrade user in Firestore
         try {
           await FirestoreUser.upgradeToPremium();
           debugPrint("✅ [PurchaseService] Firestore premium upgrade complete");
         } catch (e) {
           debugPrint("⚠️ [PurchaseService] Firestore upgrade error: $e");
-          // Don't fail the purchase if Firestore fails
         }
 
         return true;
@@ -257,7 +246,6 @@ class PurchaseService {
       if (hasEntitlement) {
         debugPrint("✅ [PurchaseService] Purchases restored successfully");
 
-        // Update Firestore
         try {
           await FirestoreUser.upgradeToPremium();
           debugPrint("✅ [PurchaseService] Firestore updated after restore");

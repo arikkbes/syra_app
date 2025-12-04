@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
 import '../theme/syra_theme.dart';
@@ -11,7 +10,6 @@ import 'premium_screen.dart';
 /// PREMIUM MANAGEMENT SCREEN v1.0
 /// ═══════════════════════════════════════════════════════════════
 /// Shows premium status and allows purchase/restore.
-/// Clear CTA for non-premium users.
 /// ═══════════════════════════════════════════════════════════════
 
 class PremiumManagementScreen extends StatefulWidget {
@@ -123,7 +121,6 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
     try {
       setState(() => _actionLoading = true);
 
-      // Use the safe restore method from PurchaseService
       final success = await PurchaseService.restorePurchases();
 
       if (!mounted) return;
@@ -136,7 +133,6 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
           ),
         );
 
-        // Reload status after a short delay
         await Future.delayed(const Duration(seconds: 2));
         await _loadStatus();
       } else {
@@ -184,7 +180,6 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
       appBar: _buildAppBar(),
       body: Stack(
         children: [
-          // Background
           const SyraBackground(),
 
           SafeArea(
@@ -216,7 +211,6 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
             ),
           ),
 
-          // Loading overlay
           if (_actionLoading)
             Container(
               color: Colors.black.withValues(alpha: 0.5),
@@ -504,7 +498,6 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
     return Column(
       children: [
         // ═══════════════════════════════════════════════════════════════
-        // CLEAR CTA BUTTON - "Premium'a Yükselt" for non-premium users
         // ═══════════════════════════════════════════════════════════════
         if (!_isPremium)
           GestureDetector(

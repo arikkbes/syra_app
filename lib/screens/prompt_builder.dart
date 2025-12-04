@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class PromptBuilder {
-  // Ana beyin: cevap oluşturulmadan önce çağrılacak
   static Future<String> buildPrompt(String userMessage) async {
     final settings = await FirestoreUser.getSettings();
     final traits = await FirestoreUser.getAllTraits();
@@ -76,7 +75,6 @@ Ama cevabı kullanıcıyı korkutmadan, doğal bir şekilde ver.
 """;
   }
 
-  // Tüm traits'i JSON gibi düzgün formatlar
   static String _formatTraits(Map<String, dynamic> traits) {
     if (traits.isEmpty) return "Kayıtlı hafıza yok.";
 

@@ -3,11 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../services/firestore_user.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
-
 import 'chat_screen.dart';
 import 'premium_management_screen.dart';
 import 'premium_screen.dart';
@@ -36,7 +34,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _email = "";
   bool _loading = false;
 
-  // Daily limit info
   int _dailyLimit = 10;
   int _usedToday = 0;
 
@@ -62,7 +59,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // CLEAR CHAT HISTORY
   // ─────────────────────────────────────────────────────────────
   Future<void> _clearChatHistory() async {
     final confirm = await _showConfirmDialog(
@@ -111,7 +107,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // DELETE ACCOUNT
   // ─────────────────────────────────────────────────────────────
   Future<void> _deleteAccount() async {
     final confirm = await _showConfirmDialog(
@@ -278,7 +273,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // BUILD UI
   // ═══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -286,40 +280,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: SyraColors.background,
       body: Stack(
         children: [
-          // Background
           const SyraBackground(),
 
-          // Content
           SafeArea(
             child: Column(
               children: [
-                // App Bar
                 _buildAppBar(),
 
-                // Settings List
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // Profile Section
                         _buildProfileSection(),
 
                         const SizedBox(height: 24),
 
-                        // Premium Section
                         _buildPremiumSection(),
 
                         const SizedBox(height: 16),
 
-                        // Usage Section
                         _buildUsageSection(),
 
                         const SizedBox(height: 28),
 
                         // ─────────────────────────────────────────
-                        // APPEARANCE SECTION
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Görünüm"),
                         const SizedBox(height: 8),
@@ -352,7 +338,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
 
                         // ─────────────────────────────────────────
-                        // CHAT BEHAVIOR SECTION
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Sohbet Davranışı"),
                         const SizedBox(height: 8),
@@ -397,7 +382,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
 
                         // ─────────────────────────────────────────
-                        // NOTIFICATIONS SECTION
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Bildirimler"),
                         const SizedBox(height: 8),
@@ -430,7 +414,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
 
                         // ─────────────────────────────────────────
-                        // ACCOUNT SECTION
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Hesap"),
                         const SizedBox(height: 8),
@@ -463,7 +446,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
 
                         // ─────────────────────────────────────────
-                        // PRIVACY & DATA SECTION
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Gizlilik ve Veri"),
                         const SizedBox(height: 8),
@@ -520,7 +502,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 24),
 
                         // ─────────────────────────────────────────
-                        // DANGER ZONE
                         // ─────────────────────────────────────────
                         _buildSectionTitle("Tehlikeli Bölge"),
                         const SizedBox(height: 8),
@@ -536,12 +517,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         const SizedBox(height: 28),
 
-                        // Logout Button
                         _buildLogoutButton(),
 
                         const SizedBox(height: 32),
 
-                        // Version Info
                         _buildVersionInfo(),
                       ],
                     ),
@@ -551,7 +530,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // Loading overlay
           if (_loading)
             Container(
               color: Colors.black.withOpacity(0.6),
@@ -567,7 +545,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // APP BAR
   // ─────────────────────────────────────────────────────────────
   Widget _buildAppBar() {
     return Container(
@@ -583,7 +560,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Row(
         children: [
-          // Back button
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(
@@ -593,7 +569,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
 
-          // Title
           const Expanded(
             child: Center(
               child: Text(
@@ -614,7 +589,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PROFILE SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildProfileSection() {
     return Container(
@@ -626,7 +600,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
       child: Row(
         children: [
-          // Avatar
           Container(
             width: 52,
             height: 52,
@@ -649,7 +622,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
           const SizedBox(width: 14),
 
-          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -696,7 +668,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PREMIUM SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildPremiumSection() {
     return GestureDetector(
@@ -770,7 +741,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // USAGE SECTION
   // ─────────────────────────────────────────────────────────────
   Widget _buildUsageSection() {
     return Container(
@@ -847,7 +817,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SECTION TITLE
   // ─────────────────────────────────────────────────────────────
   Widget _buildSectionTitle(String title) {
     return Padding(
@@ -865,7 +834,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SETTINGS CARD
   // ─────────────────────────────────────────────────────────────
   Widget _buildSettingsCard(List<Widget> children) {
     return Container(
@@ -895,7 +863,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            // Icon
             Container(
               width: 36,
               height: 36,
@@ -912,7 +879,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
             const SizedBox(width: 12),
 
-            // Text
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -939,7 +905,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // Trailing
             trailing ??
                 Icon(
                   Icons.chevron_right_rounded,
@@ -961,7 +926,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LOGOUT BUTTON
   // ─────────────────────────────────────────────────────────────
   Widget _buildLogoutButton() {
     return GestureDetector(
@@ -1000,7 +964,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // VERSION INFO
   // ─────────────────────────────────────────────────────────────
   Widget _buildVersionInfo() {
     return Column(

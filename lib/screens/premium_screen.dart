@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../services/purchase_service.dart';
@@ -254,22 +253,18 @@ class _PremiumScreenState extends State<PremiumScreen> {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
               child: Column(
                 children: [
-                  // Header card
                   _headerCard(),
 
                   const SizedBox(height: 24),
 
-                  // Benefits
                   _benefitsCard(),
 
                   const SizedBox(height: 24),
 
-                  // Info text
                   _infoText(),
 
                   const SizedBox(height: 24),
 
-                  // CTA Buttons
                   _primaryButton(),
 
                   const SizedBox(height: 12),

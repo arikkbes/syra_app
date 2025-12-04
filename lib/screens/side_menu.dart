@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -60,7 +59,6 @@ class SideMenu extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ─────────────────────────────────────────────────────
-              // HEADER - SYRA Logo + User Info
               // ─────────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -75,7 +73,6 @@ class SideMenu extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Logo
                     Row(
                       children: [
                         Text(
@@ -133,7 +130,6 @@ class SideMenu extends StatelessWidget {
               const SizedBox(height: 12),
 
               // ─────────────────────────────────────────────────────
-              // PREMIUM BUTTON
               // ─────────────────────────────────────────────────────
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -185,7 +181,6 @@ class SideMenu extends StatelessWidget {
               const SizedBox(height: 20),
 
               // ─────────────────────────────────────────────────────
-              // MAIN MENU ITEMS
               // ─────────────────────────────────────────────────────
               _buildSectionTitle("Sohbet"),
               _SideMenuItem(
@@ -232,7 +227,6 @@ class SideMenu extends StatelessWidget {
               const Spacer(),
 
               // ─────────────────────────────────────────────────────
-              // BOTTOM - User & Logout
               // ─────────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
@@ -246,7 +240,6 @@ class SideMenu extends StatelessWidget {
                 ),
                 child: Column(
                   children: [
-                    // User info
                     Row(
                       children: [
                         Container(
@@ -294,7 +287,6 @@ class SideMenu extends StatelessWidget {
 
                     const SizedBox(height: 12),
 
-                    // Version
                     Text(
                       "SYRA v2.0",
                       style: TextStyle(

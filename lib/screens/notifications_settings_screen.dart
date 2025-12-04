@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -20,7 +19,6 @@ class NotificationsSettingsScreen extends StatefulWidget {
 
 class _NotificationsSettingsScreenState
     extends State<NotificationsSettingsScreen> {
-  // Notification switches
   bool _syraResponseNotification = true;
   bool _dailyTipNotification = true;
   bool _tacticalMovesReminder = false;

@@ -1,9 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
-// CHAT SESSION MODEL
 // ═══════════════════════════════════════════════════════════════
-// Multi-chat özelliği için sohbet oturumu modeli
 // ═══════════════════════════════════════════════════════════════
-
 class ChatSession {
   final String id;
   final String title;
@@ -21,7 +18,6 @@ class ChatSession {
     this.messageCount = 0,
   });
 
-  // Firestore'dan gelen Map'i ChatSession nesnesine çevir
   factory ChatSession.fromMap(Map<String, dynamic> map, String docId) {
     return ChatSession(
       id: docId,
@@ -33,7 +29,6 @@ class ChatSession {
     );
   }
 
-  // ChatSession nesnesini Firestore Map'e çevir
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -44,7 +39,6 @@ class ChatSession {
     };
   }
 
-  // Copy with method
   ChatSession copyWith({
     String? id,
     String? title,

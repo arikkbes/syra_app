@@ -1,7 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../theme/syra_theme.dart';
 import '../models/chat_session.dart';
 
@@ -19,7 +18,6 @@ class SideMenuNew extends StatelessWidget {
   final bool isPremium;
   final List<ChatSession> chatSessions;
 
-  // Callbacks
   final VoidCallback onNewChat;
   final VoidCallback onTarotMode;
   final Function(ChatSession) onSelectChat;
@@ -63,7 +61,6 @@ class SideMenuNew extends StatelessWidget {
           child: Column(
             children: [
               // ───────────────────────────────────────────────────
-              // STATIC SHORTCUTS SECTION
               // ───────────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.all(16),
@@ -96,7 +93,6 @@ class SideMenuNew extends StatelessWidget {
               const Divider(height: 1),
 
               // ───────────────────────────────────────────────────
-              // RECENT CHATS LIST SECTION
               // ───────────────────────────────────────────────────
               Expanded(
                 child: chatSessions.isEmpty
@@ -122,7 +118,6 @@ class SideMenuNew extends StatelessWidget {
               const Divider(height: 1),
 
               // ───────────────────────────────────────────────────
-              // USER PROFILE ROW (opens Settings)
               // ───────────────────────────────────────────────────
               Material(
                 color: Colors.transparent,
@@ -135,7 +130,6 @@ class SideMenuNew extends StatelessWidget {
                     padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        // Avatar
                         CircleAvatar(
                           radius: 20,
                           backgroundColor: SyraColors.accent,
@@ -149,7 +143,6 @@ class SideMenuNew extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 12),
-                        // Name
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +188,6 @@ class SideMenuNew extends StatelessWidget {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // HELPER METHODS
   // ═════════════════════════════════════════════════════════════════
 
   Widget _buildShortcutButton({

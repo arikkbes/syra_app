@@ -87,29 +87,24 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                   ? CrossAxisAlignment.end
                   : CrossAxisAlignment.start,
               children: [
-                // Reply indicator
                 if (widget.replyToText != null) _buildReplyIndicator(),
 
-                // Message content
                 Row(
                   mainAxisAlignment: widget.isUser
                       ? MainAxisAlignment.end
                       : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Bot avatar (only for bot messages)
                     if (!widget.isUser) ...[
                       _buildAvatar(),
                       const SizedBox(width: 12),
                     ],
 
-                    // Message text
                     Flexible(
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
                           _buildMessageContent(),
-                          // Flag indicator
                           if (widget.hasRedFlag || widget.hasGreenFlag)
                             Positioned(
                               top: -6,
@@ -121,12 +116,10 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                       ),
                     ),
 
-                    // User spacing
                     if (widget.isUser) const SizedBox(width: 4),
                   ],
                 ),
 
-                // Timestamp
                 if (widget.time != null) _buildTimestamp(),
               ],
             ),
@@ -163,7 +156,6 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 
   Widget _buildMessageContent() {
     if (widget.isUser) {
-      // User message - subtle background
       return Container(
         constraints: const BoxConstraints(maxWidth: 300),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -177,7 +169,6 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         ),
       );
     } else {
-      // Bot message - minimal, no background
       return Container(
         constraints: const BoxConstraints(maxWidth: 320),
         padding: const EdgeInsets.symmetric(vertical: 4),
@@ -275,7 +266,6 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TYPING INDICATOR
 // ═══════════════════════════════════════════════════════════════
 class TypingIndicatorBubble extends StatefulWidget {
   const TypingIndicatorBubble({super.key});
@@ -307,7 +297,6 @@ class _TypingIndicatorBubbleState extends State<TypingIndicatorBubble>
       );
     }).toList();
 
-    // Staggered start
     for (int i = 0; i < 3; i++) {
       Future.delayed(Duration(milliseconds: i * 180), () {
         if (mounted) _dotControllers[i].repeat(reverse: true);
@@ -327,7 +316,6 @@ class _TypingIndicatorBubbleState extends State<TypingIndicatorBubble>
   Widget build(BuildContext context) {
     return Row(
       children: [
-        // Avatar
         Container(
           width: 28,
           height: 28,
@@ -351,7 +339,6 @@ class _TypingIndicatorBubbleState extends State<TypingIndicatorBubble>
           ),
         ),
         const SizedBox(width: 12),
-        // Dots
         Row(
           mainAxisSize: MainAxisSize.min,
           children: List.generate(3, (i) {

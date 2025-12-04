@@ -38,7 +38,6 @@ class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
             ),
             const SizedBox(height: 16),
 
-            // TON SEÇİMİ
             _buildSectionTitle("Konuşma tonu"),
             const SizedBox(height: 8),
             _buildDropdownTile(
@@ -59,7 +58,6 @@ class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
 
             const SizedBox(height: 20),
 
-            // MESAJ UZUNLUĞU
             _buildSectionTitle("Mesaj uzunluğu"),
             const SizedBox(height: 8),
             _buildDropdownTile(
@@ -78,7 +76,6 @@ class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
 
             const SizedBox(height: 20),
 
-            // STREET MODE
             _buildSectionTitle("Sokak modu"),
             const SizedBox(height: 8),
             SwitchListTile(
@@ -99,7 +96,6 @@ class _ChatBehaviorScreenState extends State<ChatBehaviorScreen> {
 
             const SizedBox(height: 12),
 
-            // EMOTIONAL HINTS
             SwitchListTile(
               value: _emotionalHints,
               onChanged: (v) {

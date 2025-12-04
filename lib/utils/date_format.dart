@@ -1,14 +1,10 @@
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 import 'package:intl/intl.dart';
-
-// ═══════════════════════════════════════════════════════════════
-// DATE FORMAT UTILITIES
-// ═══════════════════════════════════════════════════════════════
-// Tarih formatlama yardımcı fonksiyonları
-// ═══════════════════════════════════════════════════════════════
 
 class DateFormatUtils {
   // ─────────────────────────────────────────────────────────────
-  // Chat session listesi için "Bugün", "Dün", "5 Şubat" formatı
   // ─────────────────────────────────────────────────────────────
   static String formatChatDate(DateTime date) {
     final now = DateTime.now();
@@ -21,19 +17,15 @@ class DateFormatUtils {
     } else if (dateOnly == yesterday) {
       return "Dün";
     } else if (now.difference(date).inDays < 7) {
-      // Son 7 gün için gün ismi
       return _getTurkishWeekday(date.weekday);
     } else if (date.year == now.year) {
-      // Bu yıl ise sadece gün + ay
       return "${date.day} ${_getTurkishMonth(date.month)}";
     } else {
-      // Eski tarih ise tam tarih
       return "${date.day} ${_getTurkishMonth(date.month)} ${date.year}";
     }
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Detaylı zaman formatı: "14:35" veya "Dün 14:35"
   // ─────────────────────────────────────────────────────────────
   static String formatMessageTime(DateTime date) {
     final now = DateTime.now();
@@ -53,7 +45,6 @@ class DateFormatUtils {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Relative time: "2 dakika önce", "5 saat önce"
   // ─────────────────────────────────────────────────────────────
   static String formatRelativeTime(DateTime date) {
     final now = DateTime.now();
@@ -73,7 +64,6 @@ class DateFormatUtils {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Türkçe ay isimleri
   // ─────────────────────────────────────────────────────────────
   static String _getTurkishMonth(int month) {
     const months = [
@@ -94,7 +84,6 @@ class DateFormatUtils {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Türkçe gün isimleri
   // ─────────────────────────────────────────────────────────────
   static String _getTurkishWeekday(int weekday) {
     const days = [

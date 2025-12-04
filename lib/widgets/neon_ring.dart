@@ -4,7 +4,6 @@ import '../theme/syra_theme.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// COMPACT AURA RING — Legacy Compatibility
 /// ═══════════════════════════════════════════════════════════════
-/// Minimal loading indicator for backward compatibility
 /// ═══════════════════════════════════════════════════════════════
 
 class CompactAuraRing extends StatelessWidget {

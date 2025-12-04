@@ -1,7 +1,6 @@
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -63,7 +62,6 @@ class _DailyTipScreenState extends State<DailyTipScreen> {
   @override
   void initState() {
     super.initState();
-    // Günün tarihine göre tavsiye seç
     final dayOfYear = DateTime.now().difference(DateTime(DateTime.now().year, 1, 1)).inDays;
     _currentTipIndex = dayOfYear % _tips.length;
   }

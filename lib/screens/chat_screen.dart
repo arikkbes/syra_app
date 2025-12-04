@@ -1,9 +1,7 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
@@ -26,7 +24,6 @@ import 'premium_management_screen.dart';
 const bool forcePremiumForTesting = false;
 
 // ═══════════════════════════════════════════════════════════════
-// CHAT SCREEN - ChatGPT 2025 Style
 // ═══════════════════════════════════════════════════════════════
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -49,23 +46,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Map<String, dynamic>? _replyingTo;
 
-  // Side menu
   bool _menuOpen = false;
   late AnimationController _menuController;
   late Animation<Offset> _menuOffset;
 
-  // Swipe reply
   double _swipeOffset = 0.0;
   String? _swipedMessageId;
 
   // Limit warning (show only once per session)
   bool _hasShownLimitWarning = false;
 
-  // Chat sessions for sidebar
   List<ChatSession> _chatSessions = [];
   String? _currentSessionId; // CRITICAL FIX - Bu eksikti!
 
-  // Tarot mode
   bool _isTarotMode = false;
 
   @override
@@ -90,7 +83,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
 
-    // No welcome message by default - show logo instead
   }
 
   Future<void> _initUser() async {
@@ -123,7 +115,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
     } catch (e) {
       debugPrint("_loadChatSessions error: $e");
-      // Fail silently, empty list is fine
     }
   }
 
@@ -149,7 +140,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Create initial chat session if none exists
   Future<void> _createInitialSession() async {
     if (_currentSessionId == null) {
       final sessionId = await ChatSessionService.createSession(
@@ -283,7 +273,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Start a new chat
   Future<void> _startNewChat() async {
-    // Yeni session oluştur
     final sessionId = await ChatSessionService.createSession(
       title: 'Yeni Sohbet',
     );
@@ -317,7 +306,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
-  /// Handle document upload (placeholder for future feature)
   void _handleDocumentUpload() {
     BlurToast.show(
       context,
@@ -450,7 +438,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (text.isEmpty) return;
 
     // ═══════════════════════════════════════════════════════════════
-    // AUTH CHECK - Don't crash if user is null
     // ═══════════════════════════════════════════════════════════════
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -460,7 +447,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final uid = user.uid;
 
     // ═══════════════════════════════════════════════════════════════
-    // MESSAGE LIMIT CHECK
     // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
@@ -496,7 +482,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // LIMIT REACHED - Block and show premium prompt
     // ═══════════════════════════════════════════════════════════════
     if (!_isPremium &&
         !forcePremiumForTesting &&
@@ -509,7 +494,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final now = DateTime.now();
     final String? replyBackup = _replyingTo?["text"];
 
-    // User message için map oluştur
     final userMessage = {
       "id": msgId,
       "sender": "user",
@@ -532,9 +516,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
 
     // ═══════════════════════════════════════════════════════════════
-    // SAVE USER MESSAGE TO FIRESTORE
     // ═══════════════════════════════════════════════════════════════
-    // İlk mesajsa yeni session oluştur
     if (_currentSessionId == null) {
       final sessionId = await ChatSessionService.createSession(
         title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
@@ -564,7 +546,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // INCREMENT MESSAGE COUNT
     // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
@@ -575,7 +556,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // SEND TO AI SERVICE
     // ═══════════════════════════════════════════════════════════════
     try {
       final botText = await ChatService.sendMessage(
@@ -584,7 +564,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         replyingTo: _replyingTo,
       );
 
-      // Detect manipulation patterns
       final flags = ChatService.detectManipulation(botText);
 
       final botMessage = {
@@ -606,7 +585,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
 
       // ═══════════════════════════════════════════════════════════════
-      // SAVE BOT MESSAGE TO FIRESTORE
       // ═══════════════════════════════════════════════════════════════
       if (_currentSessionId != null) {
         try {
@@ -661,7 +639,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Icon
                   Container(
                     width: 56,
                     height: 56,
@@ -676,7 +653,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  // Title
                   const Text(
                     "Günlük Limit Doldu",
                     style: TextStyle(
@@ -686,7 +662,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  // Message
                   Text(
                     "Bugünlük mesaj hakkın bitti kanka.\n"
                     "Premium ile sınırsız devam edebilirsin!",
@@ -698,10 +673,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  // Buttons
                   Row(
                     children: [
-                      // Cancel
                       Expanded(
                         child: GestureDetector(
                           onTap: () => Navigator.pop(ctx),
@@ -726,7 +699,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Premium
                       Expanded(
                         child: GestureDetector(
                           onTap: () {
@@ -778,17 +750,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       canPop: false,
       child: GestureDetector(
         onTap: () {
-          // Keyboard'u kapat when tapping empty space
           FocusScope.of(context).unfocus();
         },
         child: Scaffold(
           backgroundColor: SyraColors.background,
           body: Stack(
             children: [
-              // Solid Background
               const SyraBackground(),
 
-              // Main content
               SafeArea(
                 child: Column(
                   children: [
@@ -803,7 +772,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-              // Menu overlay
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !_menuOpen,
@@ -819,7 +787,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
               ),
 
-              // Side menu - NEW VERSION
               SideMenuNew(
                 slideAnimation: _menuOffset,
                 isPremium: _isPremium,
@@ -834,7 +801,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 },
                 onSelectChat: (chat) async {
                   _toggleMenu();
-                  // Chat'i yükle
                   await _loadSelectedChat(chat.id);
                 },
                 onDeleteChat: (chat) async {
@@ -876,7 +842,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          // Menu button
           GestureDetector(
             onTap: _toggleMenu,
             child: Container(
@@ -894,7 +859,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Logo with mod label - tıklanabilir
           Expanded(
             child: Center(
               child: GestureDetector(
@@ -904,7 +868,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
 
-          // Upload/Analysis button
           GestureDetector(
             onTap: _handleDocumentUpload,
             child: Container(
@@ -932,7 +895,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // SYRA Logo - large, centered
           Image.asset(
             'assets/icon/syra.png',
             width: 100,
@@ -940,7 +902,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             color: SyraColors.textPrimary.withOpacity(0.15),
             colorBlendMode: BlendMode.srcIn,
             errorBuilder: (context, error, stackTrace) {
-              // Fallback if image not found
               return Container(
                 width: 100,
                 height: 100,
@@ -985,7 +946,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       itemCount: _messages.length + (_isTyping ? 1 : 0),
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
-        // Show typing indicator
         if (_isTyping && index == _messages.length) {
           return _buildTypingIndicator();
         }
@@ -1105,10 +1065,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview
           if (_replyingTo != null) _buildReplyPreview(),
 
-          // Input field
           Container(
             decoration: BoxDecoration(
               color: SyraColors.surface,
@@ -1121,7 +1079,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                // Plus button
                 GestureDetector(
                   onTap: _handleAttachment,
                   child: Container(
@@ -1136,7 +1093,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Text input
                 Expanded(
                   child: TextField(
                     controller: _controller,
@@ -1165,7 +1121,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Mic button
                 GestureDetector(
                   onTap: _handleVoiceInput,
                   child: Container(
@@ -1180,7 +1135,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                // Send button
                 GestureDetector(
                   onTap: _sendMessage,
                   child: AnimatedContainer(

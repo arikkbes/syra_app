@@ -1,20 +1,16 @@
 import 'dart:convert';
 import 'dart:io'; // SocketException için
-
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../services/firestore_user.dart';
 
 /// CHAT SERVICE — Handles chat logic, message limits, premium checks.
 class ChatService {
-  // Cloud Function endpoint (YENİ)
   static const String _endpoint =
       "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
 
   // ═══════════════════════════════════════════════════════════════
-  // USER STATUS
   // ═══════════════════════════════════════════════════════════════
 
   static Future<Map<String, dynamic>> getUserStatus() async {
@@ -43,7 +39,6 @@ class ChatService {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SEND MESSAGE TO AI
   // ═══════════════════════════════════════════════════════════════
 
   static Future<String> sendMessage({
@@ -52,7 +47,6 @@ class ChatService {
     Map<String, dynamic>? replyingTo,
   }) async {
     try {
-      // 1) Auth kontrolü
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         return "Oturumun düşmüş gibi duruyor kanka. Çıkış yapıp tekrar giriş yapmayı dene.";
@@ -60,13 +54,11 @@ class ChatService {
 
       final idToken = await user.getIdToken();
 
-      // 2) Context hazırla
       final context = _buildConversationContext(
         conversationHistory,
         replyingTo,
       );
 
-      // 3) İstek hazırla
       final uri = Uri.parse(_endpoint);
 
       final response = await http.post(
@@ -92,20 +84,17 @@ class ChatService {
         }
       }
 
-      // 4) Başarılı cevap
       if (response.statusCode == 200) {
         final text =
             jsonBody?["response"] ?? jsonBody?["reply"] ?? "Bir hata oluştu.";
         return text.toString();
       }
 
-      // 5) Limit aşıldı
       if (response.statusCode == 429) {
         return (jsonBody?["message"] as String?) ??
             "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.";
       }
 
-      // 6) Diğer server hataları → backend mesajı varsa onu göster
       final backendMessage = jsonBody?["message"] as String?;
       if (backendMessage != null && backendMessage.isNotEmpty) {
         return backendMessage;
@@ -116,22 +105,18 @@ class ChatService {
       );
       return "Sunucu hatası: ${response.statusCode}. Birazdan tekrar dene kanka.";
     } on SocketException catch (e) {
-      // Gerçek internet / network hatası
       debugPrint("SocketException in sendMessage: $e");
       return "Bağlantı hatası. İnterneti kontrol et ve tekrar dene.";
     } on FirebaseAuthException catch (e) {
-      // Token / auth kırıldıysa
       debugPrint("FirebaseAuthException in sendMessage: $e");
       return "Oturumunla ilgili bir sorun var gibi. Çıkış yapıp tekrar giriş yapmayı dene.";
     } catch (e, st) {
-      // Diğer tüm beklenmedik hatalar
       debugPrint("sendMessage UNEXPECTED error: $e\n$st");
       return "Kanka beklenmedik bir hata oldu. Birazdan tekrar dene.";
     }
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // CONTEXT BUILDER
   // ═══════════════════════════════════════════════════════════════
 
   static List<Map<String, String>> _buildConversationContext(
@@ -161,7 +146,6 @@ class ChatService {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // MESSAGE LIMITS
   // ═══════════════════════════════════════════════════════════════
 
   static Future<bool> canSendMessage({
@@ -182,7 +166,6 @@ class ChatService {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // MANIPULATION DETECTOR
   // ═══════════════════════════════════════════════════════════════
 
   static Map<String, bool> detectManipulation(String text) {

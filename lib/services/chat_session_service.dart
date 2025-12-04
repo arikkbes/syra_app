@@ -1,19 +1,14 @@
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../models/chat_session.dart';
-
-// ═══════════════════════════════════════════════════════════════
-// CHAT SESSION SERVICE
-// ═══════════════════════════════════════════════════════════════
-// Multi-chat özelliği için Firestore işlemleri
-// ═══════════════════════════════════════════════════════════════
 
 class ChatSessionService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   // ─────────────────────────────────────────────────────────────
-  // Kullanıcının tüm sohbetlerini getir
   // ─────────────────────────────────────────────────────────────
   static Future<List<ChatSession>> getUserSessions() async {
     try {
@@ -37,7 +32,6 @@ class ChatSessionService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Yeni sohbet oluştur
   // ─────────────────────────────────────────────────────────────
   static Future<String?> createSession({String? title}) async {
     try {
@@ -67,7 +61,6 @@ class ChatSessionService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Sohbet güncelle (son mesaj, zaman damgası vs.)
   // ─────────────────────────────────────────────────────────────
   static Future<void> updateSession({
     required String sessionId,
@@ -99,7 +92,6 @@ class ChatSessionService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Sohbet sil
   // ─────────────────────────────────────────────────────────────
   static Future<void> deleteSession(String sessionId) async {
     try {
@@ -118,7 +110,6 @@ class ChatSessionService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Belirli bir sohbetin mesajlarını getir
   // ─────────────────────────────────────────────────────────────
   static Future<List<Map<String, dynamic>>> getSessionMessages(
     String sessionId,
@@ -144,7 +135,6 @@ class ChatSessionService {
   }
 
   // ─────────────────────────────────────────────────────────────
-  // Sohbete mesaj ekle
   // ─────────────────────────────────────────────────────────────
   static Future<void> addMessageToSession({
     required String sessionId,

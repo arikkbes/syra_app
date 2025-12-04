@@ -4,7 +4,6 @@ import '../theme/syra_theme.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA ORB — Legacy Compatibility (Minimal)
 /// ═══════════════════════════════════════════════════════════════
-/// This file is kept for backward compatibility.
 /// The new theme doesn't use orb visuals, but some screens
 /// may still reference these widgets.
 /// ═══════════════════════════════════════════════════════════════
@@ -23,7 +22,6 @@ class SyraOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Minimal loading indicator instead of orb
     final isThinking = state == OrbState.thinking;
     
     return SizedBox(
@@ -67,7 +65,6 @@ class SyraOrb extends StatelessWidget {
   }
 }
 
-/// Compact orb for small icons
 class SyraOrbCompact extends StatelessWidget {
   final double size;
   final bool isActive;

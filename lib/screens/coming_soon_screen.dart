@@ -36,7 +36,6 @@ class ComingSoonScreen extends StatelessWidget {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // Icon
                           Container(
                             width: 80,
                             height: 80,
@@ -53,7 +52,6 @@ class ComingSoonScreen extends StatelessWidget {
 
                           const SizedBox(height: 32),
 
-                          // Title
                           Text(
                             featureName ?? "Yakında",
                             style: const TextStyle(
@@ -66,7 +64,6 @@ class ComingSoonScreen extends StatelessWidget {
 
                           const SizedBox(height: 16),
 
-                          // Description
                           Text(
                             "Bu özellik gelecek bir güncellemede eklenecektir.",
                             style: TextStyle(
@@ -79,7 +76,6 @@ class ComingSoonScreen extends StatelessWidget {
 
                           const SizedBox(height: 32),
 
-                          // Back Button
                           GestureDetector(
                             onTap: () => Navigator.pop(context),
                             child: Container(

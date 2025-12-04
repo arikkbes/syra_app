@@ -1,19 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import 'firebase_options.dart';
-
-// Core
 import 'core/service_locator.dart';
-
-// Utils
 import 'utils/syra_prefs.dart';
-
-// Theme
 import 'theme/syra_theme.dart';
-
-// Screens
 import 'screens/login_screen.dart';
 import 'screens/signup_screen.dart';
 import 'screens/chat_screen.dart';
@@ -24,7 +15,6 @@ import 'screens/settings_screen.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
 /// ═══════════════════════════════════════════════════════════════
-/// ✅ Hive for local storage (NO shared_preferences)
 /// ✅ NO EXC_BAD_ACCESS crashes on iOS 17/18/19/20
 /// ✅ Plugins initialize safely on startup
 /// ═══════════════════════════════════════════════════════════════
@@ -32,7 +22,6 @@ import 'screens/settings_screen.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive FIRST (iOS crash-proof local storage)
   try {
     await SyraPrefs.initialize();
     debugPrint('✅ [SYRA] Hive initialized (syraBox)');
@@ -40,7 +29,6 @@ Future<void> main() async {
     debugPrint('⚠️ [SYRA] Hive error: $e (app will use defaults)');
   }
 
-  // Initialize Firebase
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
@@ -50,7 +38,6 @@ Future<void> main() async {
     debugPrint('⚠️ [SYRA] Firebase error: $e');
   }
 
-  // Initialize Service Locator
   try {
     await ServiceLocator.instance.initialize();
     debugPrint('✅ [SYRA] Service Locator initialized');
@@ -99,24 +86,20 @@ class _AuthGate extends StatelessWidget {
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
-        // Show loading while checking auth state
         if (snapshot.connectionState == ConnectionState.waiting) {
           return _buildLoadingScreen();
         }
 
-        // Show error screen if auth fails
         if (snapshot.hasError) {
           debugPrint('❌ [SYRA] Auth error: ${snapshot.error}');
           return _buildErrorScreen(context);
         }
 
-        // User is logged in → ChatScreen
         if (snapshot.hasData && snapshot.data != null) {
           debugPrint('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
           return const ChatScreen();
         }
 
-        // No user → LoginScreen
         debugPrint('ℹ️ [SYRA] No user, showing login');
         return const LoginScreen();
       },

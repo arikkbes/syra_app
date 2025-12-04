@@ -1,9 +1,7 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -60,7 +58,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SIGN UP
   // ─────────────────────────────────────────────────────────────
   Future<void> _signUp() async {
     final email = _email.text.trim();
@@ -139,7 +136,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // BUILD UI
   // ═══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -147,10 +143,8 @@ class _SignUpScreenState extends State<SignUpScreen>
       backgroundColor: SyraColors.background,
       body: Stack(
         children: [
-          // Background
           const SyraBackground(),
 
-          // Content
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -160,7 +154,6 @@ class _SignUpScreenState extends State<SignUpScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // SYRA Logo
                       Text(
                         "SYRA",
                         style: TextStyle(
@@ -184,12 +177,10 @@ class _SignUpScreenState extends State<SignUpScreen>
 
                       const SizedBox(height: 48),
 
-                      // Signup Card
                       _buildSignupCard(),
 
                       const SizedBox(height: 24),
 
-                      // Login link
                       _buildLoginLink(),
 
                       const SizedBox(height: 40),
@@ -200,7 +191,6 @@ class _SignUpScreenState extends State<SignUpScreen>
             ),
           ),
 
-          // Loading overlay
           if (_loading) _buildLoadingOverlay(),
         ],
       ),
@@ -208,7 +198,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SIGNUP CARD
   // ─────────────────────────────────────────────────────────────
   Widget _buildSignupCard() {
     return Container(
@@ -225,7 +214,6 @@ class _SignUpScreenState extends State<SignUpScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Welcome text
           Text(
             "Hesabını oluştur 🚀",
             style: TextStyle(
@@ -237,7 +225,6 @@ class _SignUpScreenState extends State<SignUpScreen>
 
           const SizedBox(height: 24),
 
-          // Email input
           _buildTextField(
             controller: _email,
             hint: "E-posta",
@@ -247,7 +234,6 @@ class _SignUpScreenState extends State<SignUpScreen>
 
           const SizedBox(height: 14),
 
-          // Password input
           _buildTextField(
             controller: _pass,
             hint: "Şifre",
@@ -267,7 +253,6 @@ class _SignUpScreenState extends State<SignUpScreen>
 
           const SizedBox(height: 14),
 
-          // Confirm password input
           _buildTextField(
             controller: _pass2,
             hint: "Şifre (tekrar)",
@@ -287,7 +272,6 @@ class _SignUpScreenState extends State<SignUpScreen>
 
           const SizedBox(height: 24),
 
-          // Sign up button
           _buildPrimaryButton(
             text: "Hesap Oluştur",
             onPressed: _signUp,
@@ -295,7 +279,6 @@ class _SignUpScreenState extends State<SignUpScreen>
 
           const SizedBox(height: 16),
 
-          // Terms text
           Text(
             "Kayıt olarak, Kullanım Şartları ve\nGizlilik Politikası'nı kabul etmiş olursun.",
             style: TextStyle(
@@ -311,7 +294,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // TEXT FIELD
   // ─────────────────────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
@@ -360,7 +342,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PRIMARY BUTTON
   // ─────────────────────────────────────────────────────────────
   Widget _buildPrimaryButton({
     required String text,
@@ -390,7 +371,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LOGIN LINK
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoginLink() {
     return Row(
@@ -419,7 +399,6 @@ class _SignUpScreenState extends State<SignUpScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LOADING OVERLAY
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoadingOverlay() {
     return Container(

@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -18,16 +17,12 @@ class AppearanceSettingsScreen extends StatefulWidget {
 }
 
 class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
-  // Theme mode
   String _themeMode = "dark"; // system, dark, light
 
-  // Orb brightness
   String _orbBrightness = "medium"; // low, medium, high
 
-  // Background pattern
   int _backgroundPattern = 0; // 0, 1, 2
 
-  // Animation speed
   String _animationSpeed = "normal"; // slow, normal, fast
 
   @override

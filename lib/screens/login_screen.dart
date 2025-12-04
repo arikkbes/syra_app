@@ -1,8 +1,6 @@
 import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
 import '../services/auth_providers.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
@@ -57,7 +55,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // EMAIL LOGIN
   // ─────────────────────────────────────────────────────────────
   Future<void> _signIn() async {
     if (_loading) return;
@@ -101,7 +98,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // GUEST LOGIN
   // ─────────────────────────────────────────────────────────────
   Future<void> _guest() async {
     setState(() => _loading = true);
@@ -133,7 +129,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // BUILD UI
   // ═══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
@@ -141,10 +136,8 @@ class _LoginScreenState extends State<LoginScreen>
       backgroundColor: SyraColors.background,
       body: Stack(
         children: [
-          // Background
           const SyraBackground(),
 
-          // Content
           SafeArea(
             child: FadeTransition(
               opacity: _fadeAnimation,
@@ -154,7 +147,6 @@ class _LoginScreenState extends State<LoginScreen>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // SYRA Logo
                       Text(
                         "SYRA",
                         style: TextStyle(
@@ -178,12 +170,10 @@ class _LoginScreenState extends State<LoginScreen>
 
                       const SizedBox(height: 48),
 
-                      // Login Card
                       _buildLoginCard(),
 
                       const SizedBox(height: 24),
 
-                      // Sign up link
                       _buildSignUpLink(),
 
                       const SizedBox(height: 40),
@@ -194,7 +184,6 @@ class _LoginScreenState extends State<LoginScreen>
             ),
           ),
 
-          // Loading overlay
           if (_loading) _buildLoadingOverlay(),
         ],
       ),
@@ -202,7 +191,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LOGIN CARD
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoginCard() {
     return Container(
@@ -219,7 +207,6 @@ class _LoginScreenState extends State<LoginScreen>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Welcome text
           Text(
             "Tekrar hoş geldin 👋",
             style: TextStyle(
@@ -231,7 +218,6 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 24),
 
-          // Email input
           _buildTextField(
             controller: _email,
             hint: "E-posta",
@@ -241,7 +227,6 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 14),
 
-          // Password input
           _buildTextField(
             controller: _pass,
             hint: "Şifre",
@@ -261,7 +246,6 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 24),
 
-          // Sign in button
           _buildPrimaryButton(
             text: "Giriş Yap",
             onPressed: _signIn,
@@ -273,12 +257,10 @@ class _LoginScreenState extends State<LoginScreen>
 
           const SizedBox(height: 16),
 
-          // Social buttons
           _buildSocialButtons(),
 
           const SizedBox(height: 16),
 
-          // Guest button
           _buildSecondaryButton(
             text: "Misafir Olarak Devam Et",
             onPressed: _guest,
@@ -289,7 +271,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // TEXT FIELD
   // ─────────────────────────────────────────────────────────────
   Widget _buildTextField({
     required TextEditingController controller,
@@ -338,7 +319,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // PRIMARY BUTTON
   // ─────────────────────────────────────────────────────────────
   Widget _buildPrimaryButton({
     required String text,
@@ -368,7 +348,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SECONDARY BUTTON
   // ─────────────────────────────────────────────────────────────
   Widget _buildSecondaryButton({
     required String text,
@@ -402,7 +381,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // DIVIDER
   // ─────────────────────────────────────────────────────────────
   Widget _buildDivider() {
     return Row(
@@ -434,7 +412,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SOCIAL BUTTONS
   // ─────────────────────────────────────────────────────────────
   Widget _buildSocialButtons() {
     return Row(
@@ -517,7 +494,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // SIGN UP LINK
   // ─────────────────────────────────────────────────────────────
   Widget _buildSignUpLink() {
     return Row(
@@ -546,7 +522,6 @@ class _LoginScreenState extends State<LoginScreen>
   }
 
   // ─────────────────────────────────────────────────────────────
-  // LOADING OVERLAY
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoadingOverlay() {
     return Container(

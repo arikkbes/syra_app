@@ -5,31 +5,24 @@ import 'package:hive_flutter/hive_flutter.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// This wrapper uses Hive instead of SharedPreferences to prevent
 /// EXC_BAD_ACCESS crashes on iOS 17/18/19/20.
-/// All methods return safe default values and never crash.
 class SyraPrefs {
   static Box? _box;
 
   /// Initialize Hive safely
-  /// Call this in main() AFTER WidgetsFlutterBinding.ensureInitialized()
   static Future<void> initialize() async {
     try {
       await Hive.initFlutter();
       _box = await Hive.openBox('syraBox');
     } catch (e) {
-      // If Hive fails, we continue without it
-      // The app will work with default values
       _box = null;
     }
   }
 
-  /// Get box instance (may be null if initialization failed)
   static Box? get instance => _box;
 
-  /// Check if initialized
   static bool get isInitialized => _box != null;
 
   // ═══════════════════════════════════════════════════════════════
-  // SAFE GETTERS - Always return default values, never crash
   // ═══════════════════════════════════════════════════════════════
 
   static String getString(String key, {String defaultValue = ''}) {
@@ -78,7 +71,6 @@ class SyraPrefs {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // SAFE SETTERS - Never crash, just log errors
   // ═══════════════════════════════════════════════════════════════
 
   static Future<bool> setString(String key, String value) async {
@@ -127,7 +119,6 @@ class SyraPrefs {
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // UTILITY METHODS
   // ═══════════════════════════════════════════════════════════════
 
   static Future<bool> remove(String key) async {
