@@ -35,9 +35,8 @@ function createDefaultProfile(uid) {
   return {
     uid,
     isPremium: false,
-    dailyMessageLimit: 10,
-    dailyMessageCount: 0,
     messageCount: 0,
+    backendMessageCount: 0,
     lastMessageDate: new Date().toISOString(),
     gender: "belirsiz",
     genderAttempts: 0,
@@ -74,7 +73,6 @@ export async function incrementMessageCount(uid, userProfile) {
     let newBackendCount = userProfile.backendMessageCount || 0;
     let newMessageCount = userProfile.messageCount || 0;
 
-    // Reset if new day
     if (lastDate !== today) {
       newBackendCount = 1;
     } else {
@@ -120,20 +118,4 @@ export async function updateUserGender(uid, gender) {
   } catch (e) {
     console.error(`[${uid}] Error updating gender:`, e);
   }
-}
-
-/**
- * Check if user has hit backend daily limit
- */
-export function hasHitBackendLimit(userProfile, isPremium) {
-  if (isPremium) return false;
-
-  const backendCount = userProfile.backendMessageCount || 0;
-  const today = new Date().toISOString().split("T")[0];
-  const lastDate = (userProfile.lastMessageDate || "").split("T")[0];
-
-  // Reset if new day
-  if (lastDate !== today) return false;
-
-  return backendCount >= 150; // DAILY_BACKEND_LIMIT
 }

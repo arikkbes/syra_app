@@ -7,7 +7,7 @@
  */
 
 import { openai } from "../config/openaiClient.js";
-import { PATTERN_DETECTION_MIN_MESSAGES } from "../utils/constants.js";
+import { PATTERN_DETECTION_MIN_MESSAGES, MODEL_GPT4O_MINI } from "../utils/constants.js";
 
 /**
  * Detect user behavioral patterns (Premium only)
@@ -15,11 +15,10 @@ import { PATTERN_DETECTION_MIN_MESSAGES } from "../utils/constants.js";
  * Analyzes conversation history to identify:
  * - Repeating mistakes
  * - Communication patterns
- * - Attachment style indicators
- * - Growth areas and strengths
+ * - Relationship type
+ * - Attachment indicators
  */
 export async function detectUserPatterns(history, userProfile, isPremium) {
-  // Only available for premium users with sufficient history
   if (!isPremium || !openai || history.length < PATTERN_DETECTION_MIN_MESSAGES) {
     return null;
   }
@@ -53,7 +52,7 @@ JSON formatında döndür:
 `;
 
     const patternRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: MODEL_GPT4O_MINI,
       messages: [
         {
           role: "system",

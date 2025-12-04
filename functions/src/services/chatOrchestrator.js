@@ -30,26 +30,18 @@ import {
  * @param {string} message - User message
  * @param {string} replyTo - Message being replied to (optional)
  * @param {boolean} isPremium - Premium status
- * 
- * @returns {Object} { reply, extractedTraits, outcomePrediction, patterns, meta }
  */
 export async function processChat(uid, message, replyTo, isPremium) {
   const startTime = Date.now();
 
-  // -----------------------------------------------------------------------
   // CRITICAL: Check OpenAI availability first
-  // -----------------------------------------------------------------------
   if (!openai) {
     console.error(`[${uid}] 🔥 CRITICAL: OpenAI client is null - API key missing!`);
     throw new Error("OpenAI not configured - API key missing");
   }
 
-  // Sanitize message
   const safeMessage = String(message).slice(0, 5000);
 
-  // -----------------------------------------------------------------------
-  // LOAD USER PROFILE & HISTORY
-  // -----------------------------------------------------------------------
   const [userProfile, historyData] = await Promise.all([
     getUserProfile(uid),
     getConversationHistory(uid),
@@ -62,9 +54,6 @@ export async function processChat(uid, message, replyTo, isPremium) {
     `[${uid}] Processing - Premium: ${isPremium}, History: ${history.length}, Summary: ${!!conversationSummary}`
   );
 
-  // -----------------------------------------------------------------------
-  // INTENT DETECTION
-  // -----------------------------------------------------------------------
   const intent = detectIntentType(safeMessage, history);
   const { model, temperature, maxTokens } = getChatConfig(
     intent,
@@ -76,9 +65,6 @@ export async function processChat(uid, message, replyTo, isPremium) {
     `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}`
   );
 
-  // -----------------------------------------------------------------------
-  // GENDER DETECTION (Hybrid)
-  // -----------------------------------------------------------------------
   let detectedGender = await detectGenderSmart(safeMessage, userProfile);
 
   if (detectedGender !== userProfile.gender && detectedGender !== "belirsiz") {
@@ -89,18 +75,12 @@ export async function processChat(uid, message, replyTo, isPremium) {
     await incrementGenderAttempts(uid);
   }
 
-  // -----------------------------------------------------------------------
-  // DEEP TRAIT EXTRACTION
-  // -----------------------------------------------------------------------
   const extractedTraits = await extractDeepTraits(safeMessage, replyTo, history);
 
   console.log(
     `[${uid}] Traits - Tone: ${extractedTraits.tone}, Urgency: ${extractedTraits.urgency}, Flags: R${extractedTraits.flags.red.length}/G${extractedTraits.flags.green.length}`
   );
 
-  // -----------------------------------------------------------------------
-  // PATTERN RECOGNITION (Premium only)
-  // -----------------------------------------------------------------------
   const patterns = await detectUserPatterns(history, userProfile, isPremium);
 
   if (patterns) {
@@ -109,9 +89,6 @@ export async function processChat(uid, message, replyTo, isPremium) {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // OUTCOME PREDICTION (Premium only)
-  // -----------------------------------------------------------------------
   const outcomePrediction = await predictOutcome(safeMessage, history, isPremium);
 
   if (outcomePrediction) {
@@ -120,9 +97,6 @@ export async function processChat(uid, message, replyTo, isPremium) {
     );
   }
 
-  // -----------------------------------------------------------------------
-  // UPDATE USER PROFILE WITH TRAITS
-  // -----------------------------------------------------------------------
   const newTone = normalizeTone(extractedTraits?.tone);
   userProfile.lastTone = newTone;
 
@@ -142,14 +116,10 @@ export async function processChat(uid, message, replyTo, isPremium) {
 
   userProfile.totalAdviceGiven = (userProfile.totalAdviceGiven || 0) + 1;
 
-  // Save profile updates (fire-and-forget)
   updateUserProfile(uid, userProfile).catch((e) => {
     console.error(`[${uid}] User profile save error:`, e);
   });
 
-  // -----------------------------------------------------------------------
-  // BUILD DYNAMIC PERSONA
-  // -----------------------------------------------------------------------
   const persona = buildUltimatePersona(
     isPremium,
     userProfile,
@@ -158,9 +128,6 @@ export async function processChat(uid, message, replyTo, isPremium) {
     conversationSummary
   );
 
-  // -----------------------------------------------------------------------
-  // REPLY CONTEXT (replyTo feature)
-  // -----------------------------------------------------------------------
   const replyContext = replyTo
     ? `
 🎯 ÖZEL YANIT MODU:
@@ -171,9 +138,6 @@ Kullanıcı şu mesaja yanıt veriyor: "${String(replyTo).slice(0, 400)}"
 `
     : "Kullanıcı özel bir mesaja yanıt vermiyor. Normal sohbet.";
 
-  // -----------------------------------------------------------------------
-  // RICH CONTEXT (Premium extra context)
-  // -----------------------------------------------------------------------
   const enrichedContext =
     isPremium && (history.length > 5 || conversationSummary)
       ? `
@@ -219,9 +183,6 @@ PATTERN:
 `
       : "";
 
-  // -----------------------------------------------------------------------
-  // BUILD MESSAGES FOR OPENAI
-  // -----------------------------------------------------------------------
   const systemMessages = [
     { role: "system", content: persona },
     { role: "system", content: replyContext },
@@ -261,9 +222,6 @@ PATTERN:
     { role: "user", content: safeMessage },
   ];
 
-  // -----------------------------------------------------------------------
-  // MAIN OPENAI COMPLETION - IMPROVED ERROR HANDLING
-  // -----------------------------------------------------------------------
   let replyText = null;
   let openaiError = null;
 
@@ -281,7 +239,6 @@ PATTERN:
 
     console.log(`[${uid}] OpenAI response received`);
 
-    // Extract reply with detailed validation
     if (!completion) {
       console.error(`[${uid}] 🔥 OpenAI returned null completion`);
       openaiError = "NULL_COMPLETION";
@@ -305,7 +262,6 @@ PATTERN:
       }
     }
 
-    // Check for unusually short premium responses
     if (
       replyText &&
       isPremium &&
@@ -334,13 +290,9 @@ PATTERN:
     openaiError = e.message || "UNKNOWN_ERROR";
   }
 
-  // -----------------------------------------------------------------------
-  // FALLBACK HANDLING - User-friendly messages
-  // -----------------------------------------------------------------------
   if (!replyText) {
     console.error(`[${uid}] 🔥 No reply text - using fallback. Error: ${openaiError}`);
     
-    // Provide different messages based on error type
     if (openaiError && openaiError.includes("rate_limit")) {
       replyText = "Kanka şu an çok yoğunuz, 30 saniye sonra tekrar dener misin?";
     } else if (openaiError && openaiError.includes("timeout")) {
@@ -351,30 +303,20 @@ PATTERN:
       replyText = "Sistem şu an cevap üretemedi kanka. Lütfen tekrar dene, bu sefer olacak! 💪";
     }
     
-    // This is now a real error - should be logged as such
     console.error(`[${uid}] 🚨 FALLBACK MESSAGE SENT: ${replyText}`);
   }
 
-  // -----------------------------------------------------------------------
-  // SAVE CONVERSATION HISTORY (async, fire-and-forget)
-  // -----------------------------------------------------------------------
   saveConversationHistory(uid, safeMessage, replyText, historyData).catch(
     (e) => {
       console.error(`[${uid}] History save error:`, e);
     }
   );
 
-  // -----------------------------------------------------------------------
-  // PERFORMANCE LOG
-  // -----------------------------------------------------------------------
   const processingTime = Date.now() - startTime;
   console.log(
     `[${uid}] ✅ Processing complete: ${processingTime}ms, Intent: ${intent}, Model: ${model}, Success: ${!openaiError}`
   );
 
-  // -----------------------------------------------------------------------
-  // RETURN STRUCTURED RESULT
-  // -----------------------------------------------------------------------
   return {
     reply: replyText,
     extractedTraits,

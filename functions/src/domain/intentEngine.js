@@ -5,16 +5,18 @@
  * Detects user intent from message content and conversation history
  */
 
+import { MODEL_GPT4O, MODEL_GPT4O_MINI } from "../utils/constants.js";
+
 /**
  * Detect intent type from user message
  * 
  * Intent types:
  * - technical: Programming/tech questions
  * - emergency: Urgent emotional crisis
- * - deep_analysis: Needs detailed analysis
- * - deep: Complex relationship topic
- * - short: Simple quick question
- * - normal: Regular conversation
+ * - deep_analysis: Long detailed analysis requests
+ * - deep: Relationship deep-dive
+ * - short: Quick questions
+ * - normal: Standard conversation
  */
 export function detectIntentType(text, history = []) {
   const msg = text.toLowerCase();
@@ -71,7 +73,7 @@ export function detectIntentType(text, history = []) {
  * Returns: { model, temperature, maxTokens }
  */
 export function getChatConfig(intent, isPremium, userProfile) {
-  let model = "gpt-4o-mini";
+  let model = MODEL_GPT4O_MINI;
   let temperature = 0.75;
   let maxTokens = isPremium ? 1000 : 400;
 
@@ -80,37 +82,37 @@ export function getChatConfig(intent, isPremium, userProfile) {
 
   switch (intent) {
     case "technical":
-      model = "gpt-4o";
+      model = MODEL_GPT4O;
       temperature = 0.45;
       maxTokens = isPremium ? 1200 : 500;
       break;
 
     case "emergency":
-      model = vipUser ? "gpt-4o" : "gpt-4o-mini";
+      model = vipUser ? MODEL_GPT4O : MODEL_GPT4O_MINI;
       temperature = 0.7;
       maxTokens = isPremium ? 1200 : 450;
       break;
 
     case "deep_analysis":
-      model = isPremium ? "gpt-4o" : "gpt-4o-mini";
+      model = isPremium ? MODEL_GPT4O : MODEL_GPT4O_MINI;
       temperature = 0.8;
       maxTokens = isPremium ? 2000 : 500;
       break;
 
     case "deep":
-      model = premiumBoost ? "gpt-4o" : "gpt-4o-mini";
+      model = premiumBoost ? MODEL_GPT4O : MODEL_GPT4O_MINI;
       temperature = isPremium ? 0.85 : 0.7;
       maxTokens = isPremium ? 1500 : 450;
       break;
 
     case "short":
-      model = "gpt-4o-mini";
+      model = MODEL_GPT4O_MINI;
       temperature = 0.65;
       maxTokens = isPremium ? 600 : 250;
       break;
 
     default:
-      model = premiumBoost ? "gpt-4o" : "gpt-4o-mini";
+      model = premiumBoost ? MODEL_GPT4O : MODEL_GPT4O_MINI;
       temperature = 0.75;
       maxTokens = isPremium ? 1000 : 400;
   }

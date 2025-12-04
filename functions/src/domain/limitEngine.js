@@ -18,7 +18,6 @@ export function hasHitBackendLimit(userProfile, isPremium) {
   const today = new Date().toISOString().split("T")[0];
   const lastDate = (userProfile.lastMessageDate || "").split("T")[0];
 
-  // Reset if new day
   if (lastDate !== today) return false;
 
   return backendCount >= DAILY_BACKEND_LIMIT;
@@ -34,7 +33,6 @@ export function getRemainingMessages(userProfile, isPremium) {
   const today = new Date().toISOString().split("T")[0];
   const lastDate = (userProfile.lastMessageDate || "").split("T")[0];
 
-  // Reset if new day
   if (lastDate !== today) return DAILY_BACKEND_LIMIT;
 
   return Math.max(0, DAILY_BACKEND_LIMIT - backendCount);

@@ -7,6 +7,7 @@
  */
 
 import { openai } from "../config/openaiClient.js";
+import { MODEL_GPT4O_MINI } from "../utils/constants.js";
 
 /**
  * Predict relationship outcome (Premium only)
@@ -15,10 +16,9 @@ import { openai } from "../config/openaiClient.js";
  * - Interest level
  * - Date probability
  * - Relationship prospects
- * - Risks and opportunities
+ * - Timeline and risks
  */
 export async function predictOutcome(message, history, isPremium) {
-  // Only available for premium users with sufficient history
   if (!isPremium || !openai || history.length < 6) {
     return null;
   }
@@ -49,7 +49,7 @@ Aşağıdaki JSON formatında outcome prediction yap:
 `;
 
     const raw = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: MODEL_GPT4O_MINI,
       messages: [
         { role: "system", content: "Sadece JSON döndür." },
         { role: "user", content: prompt },

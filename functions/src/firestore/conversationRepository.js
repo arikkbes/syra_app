@@ -7,7 +7,7 @@
 
 import { db, FieldValue } from "../config/firebaseAdmin.js";
 import { openai } from "../config/openaiClient.js";
-import { SUMMARY_THRESHOLD, MAX_HISTORY_MESSAGES } from "../utils/constants.js";
+import { SUMMARY_THRESHOLD, MAX_HISTORY_MESSAGES, MODEL_GPT4O_MINI } from "../utils/constants.js";
 
 /**
  * Get conversation history for a user
@@ -63,7 +63,6 @@ export async function saveConversationHistory(
       newAssistantMsg,
     ].slice(-MAX_HISTORY_MESSAGES);
 
-    // Check if we need to create a summary
     const needsSummary =
       updatedMessages.length >= SUMMARY_THRESHOLD &&
       (!historyData.lastSummaryAt ||
@@ -120,7 +119,7 @@ async function createConversationSummary(messages, existingSummary) {
       : `Bu konuşmanın özetini çıkar (max 500 karakter):\n${conversationText}`;
 
     const summaryRes = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: MODEL_GPT4O_MINI,
       messages: [
         {
           role: "system",

@@ -12,9 +12,6 @@ dotenv.config();
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 
-// -----------------------------------------------------------------------
-// VALIDATE API KEY
-// -----------------------------------------------------------------------
 if (!openaiApiKey) {
   console.error("❌❌❌ CRITICAL ERROR: OPENAI_API_KEY not found in environment!");
   console.error("Please check:");
@@ -30,9 +27,6 @@ if (!openaiApiKey) {
   console.log("Key prefix:", openaiApiKey.slice(0, 10) + "...");
 }
 
-// -----------------------------------------------------------------------
-// CREATE OPENAI CLIENT
-// -----------------------------------------------------------------------
 export const openai = openaiApiKey 
   ? new OpenAI({ 
       apiKey: openaiApiKey,
@@ -41,9 +35,6 @@ export const openai = openaiApiKey
     }) 
   : null;
 
-// -----------------------------------------------------------------------
-// UTILITY FUNCTIONS
-// -----------------------------------------------------------------------
 
 /**
  * Check if OpenAI client is available

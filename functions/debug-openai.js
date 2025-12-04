@@ -15,7 +15,6 @@ console.log("══════════════════════�
 console.log("🔍 SYRA AI - OpenAI Connection Debugger");
 console.log("═══════════════════════════════════════════════════════════\n");
 
-// Check environment
 console.log("1️⃣ Checking environment variables...");
 const apiKey = process.env.OPENAI_API_KEY;
 
@@ -36,7 +35,6 @@ if (!apiKey.startsWith("sk-")) {
   console.warn("⚠️  Warning: Key doesn't start with 'sk-' - might be invalid\n");
 }
 
-// Test OpenAI connection
 console.log("2️⃣ Testing OpenAI connection...");
 
 const client = new OpenAI({ 
@@ -71,7 +69,6 @@ async function testConnection() {
     console.log(`   Usage: ${completion.usage.total_tokens} tokens`);
     console.log(`   Response: "${completion.choices[0].message.content}"\n`);
 
-    // Test with gpt-4o
     console.log("4️⃣ Testing premium model (gpt-4o)...");
     
     try {

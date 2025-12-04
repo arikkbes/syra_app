@@ -6,7 +6,7 @@
  */
 
 import { openai } from "../config/openaiClient.js";
-import { GENDER_DETECTION_ATTEMPTS } from "../utils/constants.js";
+import { GENDER_DETECTION_ATTEMPTS, MODEL_GPT4O_MINI } from "../utils/constants.js";
 
 /**
  * Detect gender from text patterns
@@ -42,30 +42,26 @@ export function detectGenderFromPattern(text) {
  * Strategy:
  * 1. Return if already detected
  * 2. Try pattern matching first
- * 3. Use AI if patterns fail and attempts remain
+ * 3. Use AI as fallback (limited attempts)
  */
 export async function detectGenderSmart(message, userProfile) {
-  // Already detected and confident
   if (userProfile.gender && userProfile.gender !== "belirsiz") {
     return userProfile.gender;
   }
 
-  // Max attempts reached
   if (userProfile.genderAttempts >= GENDER_DETECTION_ATTEMPTS) {
     return userProfile.gender || "belirsiz";
   }
 
-  // Try pattern matching first (fast and free)
   const patternGender = detectGenderFromPattern(message);
   if (patternGender !== "belirsiz") {
     return patternGender;
   }
 
-  // Use AI for detection if attempts remain
   if (openai && userProfile.genderAttempts < GENDER_DETECTION_ATTEMPTS) {
     try {
       const genderRes = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model: MODEL_GPT4O_MINI,
         messages: [
           {
             role: "system",

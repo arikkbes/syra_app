@@ -3,9 +3,6 @@ import admin from "firebase-admin";
 import OpenAI from "openai";
 import * as dotenv from "dotenv";
 
-// =============================================================================
-// 🔥 SYRA AI - ULTIMATE VIRAL EDITION v12.0 FINAL (FIXED)
-// =============================================================================
 
 dotenv.config();
 
@@ -22,16 +19,12 @@ if (!openaiApiKey) {
 
 const openai = openaiApiKey ? new OpenAI({ apiKey: openaiApiKey }) : null;
 
-// Constants
 const DAILY_BACKEND_LIMIT = 150;
 const MAX_HISTORY_MESSAGES = 30;
 const GENDER_DETECTION_ATTEMPTS = 3;
 const SUMMARY_THRESHOLD = 20;
 const PATTERN_DETECTION_MIN_MESSAGES = 10;
 
-// =============================================================================
-// 🧠 ADVANCED INTENT DETECTION ENGINE
-// =============================================================================
 function detectIntentType(text, history = []) {
   const msg = text.toLowerCase();
   const len = msg.length;
@@ -81,9 +74,6 @@ function detectIntentType(text, history = []) {
   return "normal";
 }
 
-// =============================================================================
-// 🎯 ULTRA SMART MODEL SELECTION
-// =============================================================================
 function getChatConfig(intent, isPremium, userProfile) {
   let model = "gpt-4o-mini";
   let temperature = 0.75;
@@ -132,9 +122,6 @@ function getChatConfig(intent, isPremium, userProfile) {
   return { model, temperature, maxTokens };
 }
 
-// =============================================================================
-// 🎭 ADVANCED TONE & EMOTION SYSTEM
-// =============================================================================
 function normalizeTone(t) {
   if (!t) return "neutral";
   const s = t.toLowerCase();
@@ -159,9 +146,6 @@ function normalizeTone(t) {
   return "neutral";
 }
 
-// =============================================================================
-// 🧬 HYBRID GENDER DETECTION
-// =============================================================================
 function detectGenderFromPattern(text) {
   const msg = text.toLowerCase();
 
@@ -225,9 +209,6 @@ async function detectGenderSmart(message, userProfile) {
   return "belirsiz";
 }
 
-// =============================================================================
-// 📚 CONVERSATION MEMORY SYSTEM
-// =============================================================================
 async function getConversationHistory(uid) {
   try {
     const historyRef = db.collection("conversation_history").doc(uid);
@@ -248,9 +229,6 @@ async function getConversationHistory(uid) {
     return { messages: [], summary: null };
   }
 }
-// =============================================================================
-// 📚 SAVE CONVERSATION HISTORY (Transaction + Summary)
-// =============================================================================
 async function saveConversationHistory(uid, userMsg, botMsg, oldHistory) {
   const historyRef = db.collection("conversation_history").doc(uid);
 
@@ -262,13 +240,11 @@ async function saveConversationHistory(uid, userMsg, botMsg, oldHistory) {
       let summary = data.summary;
       const now = Date.now();
 
-      // Yeni mesajları ekle
       messages.push(
         { role: "user", content: userMsg, timestamp: now },
         { role: "assistant", content: botMsg, timestamp: now }
       );
 
-      // SUMMARY MODE
       if (
         messages.length > SUMMARY_THRESHOLD &&
         (!data.lastSummaryAt ||
@@ -298,7 +274,6 @@ async function saveConversationHistory(uid, userMsg, botMsg, oldHistory) {
   } catch (e) {
     console.error("Transaction failed, retrying:", e);
 
-    // Retry fallback
     try {
       await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(historyRef);
@@ -327,9 +302,6 @@ async function saveConversationHistory(uid, userMsg, botMsg, oldHistory) {
   }
 }
 
-// =============================================================================
-// 📚 CREATE SUMMARY (Long-term memory booster)
-// =============================================================================
 async function createConversationSummary(messages, existingSummary) {
   try {
     const conversationText = messages
@@ -378,9 +350,6 @@ Bu konuşmayı ÖZETLE.
   }
 }
 
-// =============================================================================
-// 🧪 PATTERN RECOGNITION ENGINE
-// =============================================================================
 async function detectUserPatterns(history, userProfile, isPremium) {
   if (!isPremium || history.length < PATTERN_DETECTION_MIN_MESSAGES) {
     return null;
@@ -436,15 +405,9 @@ JSON formatında döndür:
     return null;
   }
 }
-// =============================================================================
-// 🎨 ULTIMATE DYNAMIC PERSONA ENGINE (FIXED – NO DUPLICATE)
-// =============================================================================
 function buildUltimatePersona(isPremium, userProfile, extractedTraits, patterns, conversationSummary) {
   const { gender, lastTone, relationshipStage, messageCount } = userProfile;
 
-  // --------------------------------------------------------------------------
-  // CORE PERSONA
-  // --------------------------------------------------------------------------
   const corePersona = `
 Sen SYRA'sın – dünyanın en zeki, en realist, en sokak-zekalı ilişki koçu AI'ısın.
 
@@ -459,9 +422,6 @@ KİŞİLİK:
 • ASLA robotik değil
 `;
 
-  // --------------------------------------------------------------------------
-  // GENDER PERSONALIZATION
-  // --------------------------------------------------------------------------
   const genderContext =
     gender === "erkek"
       ? `
@@ -482,9 +442,6 @@ TAKTİK: self-worth, sınır koyma, içgörü
 DİL: nötr + kanka vibe
 `;
 
-  // --------------------------------------------------------------------------
-  // EMOTIONAL TONE CONTEXT
-  // --------------------------------------------------------------------------
   const emotionalTone =
     lastTone && lastTone !== "neutral"
       ? `
@@ -498,9 +455,6 @@ ${lastTone === "happy" ? "Mutlu → enerjiyi devam ettir" : ""}
 `
       : "";
 
-  // --------------------------------------------------------------------------
-  // RELATIONSHIP STAGE CONTEXT
-  // --------------------------------------------------------------------------
   const stageContext =
     relationshipStage && relationshipStage !== "none"
       ? `
@@ -513,9 +467,6 @@ ${relationshipStage === "over" ? "Bitti → closure + recovery + growth" : ""}
 `
       : "";
 
-  // --------------------------------------------------------------------------
-  // EXPERIENCE CONTEXT BASED ON MESSAGE COUNT
-  // --------------------------------------------------------------------------
   const experienceContext =
     messageCount > 100
       ? `
@@ -540,9 +491,6 @@ ${relationshipStage === "over" ? "Bitti → closure + recovery + growth" : ""}
 → Değer ver, hızlı güven kur.
 `;
 
-  // --------------------------------------------------------------------------
-  // PATTERN CONTEXT
-  // --------------------------------------------------------------------------
   const patternContext = patterns
     ? `
 PATTERN ANALİZİ:
@@ -556,9 +504,6 @@ ${patterns.repeatingMistakes?.length > 0 ?
 `
     : "";
 
-  // --------------------------------------------------------------------------
-  // LONG-TERM MEMORY CONTEXT
-  // --------------------------------------------------------------------------
   const summaryContext = conversationSummary
     ? `
 📚 UZUN VADELİ HAFIZA:
@@ -568,9 +513,6 @@ ${conversationSummary}
 `
     : "";
 
-  // --------------------------------------------------------------------------
-  // PREMIUM MODE
-  // --------------------------------------------------------------------------
   const tierContext = isPremium
     ? `
 ✨ PREMIUM KULLANICI:
@@ -599,9 +541,6 @@ ${conversationSummary}
   );
 }
 
-// =============================================================================
-// 🧪 ULTRA DEEP TRAIT EXTRACTION ENGINE
-// =============================================================================
 async function extractDeepTraits(message, replyTo, history) {
   try {
     const hint =
@@ -664,9 +603,6 @@ Aşağıdaki JSON formatında analiz üret:
   }
 }
 
-// =============================================================================
-// 🎯 OUTCOME PREDICTION ENGINE (Premium only)
-// =============================================================================
 async function predictOutcome(message, history, isPremium) {
   if (!isPremium || history.length < 6) return null;
 
@@ -714,15 +650,9 @@ Aşağıdaki JSON formatında outcome prediction yap:
     return null;
   }
 }
-// =============================================================================
-// 🚀 MAIN ULTRA CHAT HANDLER
-// =============================================================================
 export const flortIQChat = onRequest(
   { cors: true, timeoutSeconds: 120 }, // Uzun processing için timeout artırıldı
   async (req, res) => {
-    // -------------------------------------------------------------------------
-    // CORS & METHOD CHECK
-    // -------------------------------------------------------------------------
     if (req.method === "OPTIONS") {
       res.set("Access-Control-Allow-Origin", "*");
       res.set("Access-Control-Allow-Headers", "Content-Type");
@@ -745,9 +675,6 @@ export const flortIQChat = onRequest(
     try {
       const { message, uid, replyTo } = req.body || {};
 
-      // -----------------------------------------------------------------------
-      // 🛡️ VALIDATION & BASIC FILTER
-      // -----------------------------------------------------------------------
       if (!uid) {
         return res.status(400).json({ error: "UID eksik." });
       }
@@ -787,9 +714,6 @@ export const flortIQChat = onRequest(
         safeMessage = safeMessage.slice(0, 3000);
       }
 
-      // -----------------------------------------------------------------------
-      // 👤 USER PROFILE LOAD & DAILY LIMIT
-      // -----------------------------------------------------------------------
       const userRef = db.collection("users").doc(uid);
       const snap = await userRef.get();
 
@@ -813,7 +737,6 @@ export const flortIQChat = onRequest(
         totalAdviceGiven: 0,
       };
 
-      // günlük reset
       if (!userProfile.lastReset || userProfile.lastReset < todayTS) {
         userProfile.dailyCount = 0;
         userProfile.lastReset = todayTS;
@@ -821,7 +744,6 @@ export const flortIQChat = onRequest(
 
       const isPremium = !!userProfile.premium;
 
-      // backend rate limit (günlük)
       if (userProfile.dailyCount >= DAILY_BACKEND_LIMIT) {
         return res.status(429).json({
           error: "Backend limit aşıldı.",
@@ -833,9 +755,6 @@ export const flortIQChat = onRequest(
       userProfile.messageCount = (userProfile.messageCount || 0) + 1;
       userProfile.lastActive = now;
 
-      // -----------------------------------------------------------------------
-      // 👤 SMART GENDER DETECTION
-      // -----------------------------------------------------------------------
       const detectedGender = await detectGenderSmart(safeMessage, userProfile);
 
       if (detectedGender !== userProfile.gender) {
@@ -849,16 +768,10 @@ export const flortIQChat = onRequest(
         userProfile.genderAttempts = (userProfile.genderAttempts || 0) + 1;
       }
 
-      // -----------------------------------------------------------------------
-      // 📚 CONVERSATION HISTORY LOAD
-      // -----------------------------------------------------------------------
       const historyData = await getConversationHistory(uid);
       const history = historyData.messages || [];
       const conversationSummary = historyData.summary || null;
 
-      // -----------------------------------------------------------------------
-      // 🎯 INTENT DETECTION & MODEL SELECTION
-      // -----------------------------------------------------------------------
       const intent = detectIntentType(safeMessage, history);
       const { model, temperature, maxTokens } = getChatConfig(
         intent,
@@ -870,36 +783,24 @@ export const flortIQChat = onRequest(
         `[${uid}] Intent: ${intent}, Model: ${model}, Tokens: ${maxTokens}, Premium: ${isPremium}, MsgCount: ${userProfile.messageCount}`
       );
 
-      // -----------------------------------------------------------------------
-      // 🧪 DEEP TRAIT EXTRACTION
-      // -----------------------------------------------------------------------
       const extractedTraits = await extractDeepTraits(
         safeMessage,
         replyTo,
         history
       );
 
-      // -----------------------------------------------------------------------
-      // 🔍 PATTERN RECOGNITION (Premium only)
-      // -----------------------------------------------------------------------
       const patterns = await detectUserPatterns(
         history,
         userProfile,
         isPremium
       );
 
-      // -----------------------------------------------------------------------
-      // 🎯 OUTCOME PREDICTION (Premium only)
-      // -----------------------------------------------------------------------
       const outcomePrediction = await predictOutcome(
         safeMessage,
         history,
         isPremium
       );
 
-      // -----------------------------------------------------------------------
-      // 💾 UPDATE USER PROFILE WITH TRAITS
-      // -----------------------------------------------------------------------
       const newTone = normalizeTone(extractedTraits?.tone);
       userProfile.lastTone = newTone;
 
@@ -923,9 +824,6 @@ export const flortIQChat = onRequest(
         console.error("User profile save error:", e);
       });
 
-      // -----------------------------------------------------------------------
-      // 🎨 BUILD DYNAMIC PERSONA
-      // -----------------------------------------------------------------------
       const persona = buildUltimatePersona(
         isPremium,
         userProfile,
@@ -934,9 +832,6 @@ export const flortIQChat = onRequest(
         conversationSummary
       );
 
-      // -----------------------------------------------------------------------
-      // 🔗 REPLY CONTEXT (replyTo özelliği)
-      // -----------------------------------------------------------------------
       const replyContext = replyTo
         ? `
 🎯 ÖZEL YANIT MODU:
@@ -947,9 +842,6 @@ Kullanıcı şu mesaja yanıt veriyor: "${String(replyTo).slice(0, 400)}"
 `
         : "Kullanıcı özel bir mesaja yanıt vermiyor. Normal sohbet.";
 
-      // -----------------------------------------------------------------------
-      // 📊 RICH CONTEXT (Premium extra context)
-      // -----------------------------------------------------------------------
       const enrichedContext =
         isPremium && (history.length > 5 || conversationSummary)
           ? `
@@ -997,9 +889,6 @@ PATTERN:
 `
           : "";
 
-      // -----------------------------------------------------------------------
-      // 💬 BUILD MESSAGES FOR OPENAI
-      // -----------------------------------------------------------------------
       const systemMessages = [
         { role: "system", content: persona },
         { role: "system", content: replyContext },
@@ -1039,9 +928,6 @@ PATTERN:
         { role: "user", content: safeMessage },
       ];
 
-      // -----------------------------------------------------------------------
-      // 🤖 MAIN OPENAI COMPLETION
-      // -----------------------------------------------------------------------
       let replyText = "Kanka beynim dondu, tekrar dene.";
 
       try {
@@ -1074,26 +960,17 @@ PATTERN:
             : "Kanka sistem biraz yavaşladı, bir daha dener misin?";
       }
 
-      // -----------------------------------------------------------------------
-      // 📚 SAVE CONVERSATION HISTORY (async, fire-and-forget)
-      // -----------------------------------------------------------------------
       saveConversationHistory(uid, safeMessage, replyText, historyData).catch(
         (e) => {
           console.error("History save error:", e);
         }
       );
 
-      // -----------------------------------------------------------------------
-      // 📊 PERFORMANCE LOG
-      // -----------------------------------------------------------------------
       const processingTime = Date.now() - startTime;
       console.log(
         `[${uid}] Processing time: ${processingTime}ms, Intent: ${intent}, Model: ${model}`
       );
 
-      // -----------------------------------------------------------------------
-      // ✅ FINAL RESPONSE
-      // -----------------------------------------------------------------------
       return res.status(200).json({
         reply: replyText,
         extractedTraits,
