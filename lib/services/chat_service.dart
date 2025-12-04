@@ -84,9 +84,13 @@ class ChatService {
         }
       }
 
+      // ✅ 200 durumunda artık "message" alanını da okuyor
       if (response.statusCode == 200) {
-        final text =
-            jsonBody?["response"] ?? jsonBody?["reply"] ?? "Bir hata oluştu.";
+        final text = jsonBody?["message"] ??
+            jsonBody?["response"] ??
+            jsonBody?["reply"] ??
+            jsonBody?["text"] ??
+            "Bir hata oluştu.";
         return text.toString();
       }
 

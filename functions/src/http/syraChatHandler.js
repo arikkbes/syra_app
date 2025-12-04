@@ -1,8 +1,13 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * SYRA CHAT HTTP HANDLER
+ * SYRA CHAT HTTP HANDLER (FINAL STABLE VERSION)
  * ═══════════════════════════════════════════════════════════════
- * Pure HTTP handler for SYRA chat endpoint
+ * Compatible with Flutter client. Always returns proper JSON:
+ * {
+ *   success: true/false,
+ *   message: "...",
+ *   meta: { ... }
+ * }
  */
 
 import { auth } from "../config/firebaseAdmin.js";
@@ -13,11 +18,8 @@ import {
 } from "../firestore/userProfileRepository.js";
 import { hasHitBackendLimit } from "../domain/limitEngine.js";
 
-/**
- * Main SYRA chat handler
- * Compatible with Flutter lib/services/chat_service.dart
- */
 export async function syraChatHandler(req, res) {
+  // Basic CORS
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
@@ -28,6 +30,7 @@ export async function syraChatHandler(req, res) {
 
   if (req.method !== "POST") {
     return res.status(405).json({
+      success: false,
       message: "Sadece POST metodu kabul edilir.",
       code: "METHOD_NOT_ALLOWED",
     });
@@ -36,77 +39,86 @@ export async function syraChatHandler(req, res) {
   const startTime = Date.now();
 
   try {
+    // Authorization header
     const authHeader = req.headers.authorization;
-
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
+        success: false,
         message: "Yetkilendirme hatası. Lütfen tekrar giriş yap.",
         code: "UNAUTHORIZED",
       });
     }
 
+    // Decode Firebase token
     const idToken = authHeader.split("Bearer ")[1];
     let uid;
 
     try {
-      const decodedToken = await auth.verifyIdToken(idToken);
-      uid = decodedToken.uid;
+      const decoded = await auth.verifyIdToken(idToken);
+      uid = decoded.uid;
       console.log(`[${uid}] Authenticated request`);
-    } catch (e) {
-      console.error("Token verification failed:", e);
+    } catch (err) {
+      console.error("Token verification failed:", err);
       return res.status(401).json({
+        success: false,
         message: "Geçersiz oturum. Lütfen tekrar giriş yap.",
         code: "INVALID_TOKEN",
       });
     }
 
+    // Body
     const { message, context } = req.body || {};
-
-    if (!message || typeof message !== "string" || message.trim().length === 0) {
+    if (!message || typeof message !== "string" || !message.trim()) {
       return res.status(400).json({
+        success: false,
         message: "Mesaj boş olamaz.",
         code: "EMPTY_MESSAGE",
       });
     }
 
+    // User profile
     const userProfile = await getUserProfile(uid);
     const isPremium = userProfile.isPremium === true;
 
+    // Daily backend limit
     if (hasHitBackendLimit(userProfile, isPremium)) {
-      console.log(`[${uid}] Backend limit hit - ${userProfile.backendMessageCount}`);
+      console.log(`[${uid}] Daily backend limit hit`);
       return res.status(429).json({
+        success: false,
         message: "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.",
         code: "DAILY_LIMIT_REACHED",
       });
     }
 
+    // Reply context (optional)
     let replyTo = null;
-    if (context && Array.isArray(context) && context.length > 0) {
+    if (context && Array.isArray(context)) {
       const replyContext = context.find(
-        (msg) => msg.content && msg.content.startsWith("[Replying to:")
+        (x) => x.content && x.content.startsWith("[Replying to:")
       );
       if (replyContext) {
         const match = replyContext.content.match(/\[Replying to: (.+)\]/);
-        if (match) {
-          replyTo = match[1];
-        }
+        if (match) replyTo = match[1];
       }
     }
 
+    // MAIN CHAT PROCESSOR
     const result = await processChat(uid, message, replyTo, isPremium);
 
+    // Increase user's message count
     incrementMessageCount(uid, userProfile).catch((e) => {
-      console.error(`[${uid}] Error incrementing count:`, e);
+      console.error(`[${uid}] Message count increment error:`, e);
     });
 
-    // Flutter client expects 'message' field (not 'reply' or 'response')
+    // Final response payload (Flutter reads `message`)
     const responsePayload = {
-      message: result.reply,
+      success: true,
+      message: result.reply, // Flutter reads this field
       meta: {
         ...result.meta,
-        extractedTraits: result.extractedTraits,
-        outcomePrediction: result.outcomePrediction,
-        patterns: result.patterns,
+        extractedTraits: result.extractedTraits || null,
+        outcomePrediction: result.outcomePrediction || null,
+        patterns: result.patterns || null,
         totalProcessingTime: Date.now() - startTime,
       },
     };
@@ -116,16 +128,14 @@ export async function syraChatHandler(req, res) {
     );
 
     return res.status(200).json(responsePayload);
-  } catch (e) {
-    console.error("🔥 CRITICAL ERROR:", e);
+  } catch (err) {
+    console.error("🔥 CRITICAL ERROR:", err);
 
     return res.status(500).json({
+      success: false,
       message: "Kanka bir sorun oluştu. Tekrar dener misin?",
       code: "INTERNAL_ERROR",
-      details:
-        process.env.NODE_ENV === "development"
-          ? String(e).slice(0, 300)
-          : undefined,
     });
   }
 }
+  

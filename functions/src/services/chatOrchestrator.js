@@ -1,8 +1,9 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- * CHAT ORCHESTRATOR - FIXED VERSION
+ * CHAT ORCHESTRATOR - FIXED + STABLE VERSION (FINAL)
  * ═══════════════════════════════════════════════════════════════
- * Orchestrates all chat logic with improved error handling
+ * Handles all chat logic, trait extraction, persona building,
+ * OpenAI calls and Firestore-safe conversation history saving.
  */
 
 import { openai } from "../config/openaiClient.js";
@@ -12,48 +13,52 @@ import { extractDeepTraits } from "../domain/traitEngine.js";
 import { predictOutcome } from "../domain/outcomePredictionEngine.js";
 import { detectUserPatterns } from "../domain/patternEngine.js";
 import { detectGenderSmart } from "../domain/genderEngine.js";
+
 import {
   getUserProfile,
   updateUserProfile,
   incrementGenderAttempts,
   updateUserGender,
 } from "../firestore/userProfileRepository.js";
+
 import {
   getConversationHistory,
   saveConversationHistory,
 } from "../firestore/conversationRepository.js";
 
 /**
- * Process chat request and generate AI response
- * 
- * @param {string} uid - User ID
- * @param {string} message - User message
- * @param {string} replyTo - Message being replied to (optional)
- * @param {boolean} isPremium - Premium status
+ * MAIN CHAT PROCESSOR
+ * @param {string} uid
+ * @param {string} message
+ * @param {string} replyTo
+ * @param {boolean} isPremium
  */
 export async function processChat(uid, message, replyTo, isPremium) {
   const startTime = Date.now();
 
-  // CRITICAL: Check OpenAI availability first
+  // SAFETY: Make sure OpenAI client exists
   if (!openai) {
-    console.error(`[${uid}] 🔥 CRITICAL: OpenAI client is null - API key missing!`);
-    throw new Error("OpenAI not configured - API key missing");
+    console.error(`[${uid}] 🔥 CRITICAL: OpenAI client missing (API key invalid).`);
+    throw new Error("OpenAI not configured - missing API key");
   }
 
+  // Safe message
   const safeMessage = String(message).slice(0, 5000);
 
-  const [userProfile, historyData] = await Promise.all([
+  // Load user + history
+  const [userProfile, rawHistory] = await Promise.all([
     getUserProfile(uid),
     getConversationHistory(uid),
   ]);
 
-  const history = historyData.messages || [];
-  const conversationSummary = historyData.summary;
+  const history = rawHistory?.messages || [];
+  const conversationSummary = rawHistory?.summary || null;
 
   console.log(
     `[${uid}] Processing - Premium: ${isPremium}, History: ${history.length}, Summary: ${!!conversationSummary}`
   );
 
+  // Intent detection
   const intent = detectIntentType(safeMessage, history);
   const { model, temperature, maxTokens } = getChatConfig(
     intent,
@@ -65,40 +70,52 @@ export async function processChat(uid, message, replyTo, isPremium) {
     `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}`
   );
 
+  // Gender detection
   let detectedGender = await detectGenderSmart(safeMessage, userProfile);
 
   if (detectedGender !== userProfile.gender && detectedGender !== "belirsiz") {
     await updateUserGender(uid, detectedGender);
     userProfile.gender = detectedGender;
-    console.log(`[${uid}] Gender detected: ${detectedGender}`);
+    console.log(`[${uid}] Gender updated → ${detectedGender}`);
   } else if (detectedGender === "belirsiz" && userProfile.genderAttempts < 3) {
     await incrementGenderAttempts(uid);
   }
 
-  const extractedTraits = await extractDeepTraits(safeMessage, replyTo, history);
-
-  console.log(
-    `[${uid}] Traits - Tone: ${extractedTraits.tone}, Urgency: ${extractedTraits.urgency}, Flags: R${extractedTraits.flags.red.length}/G${extractedTraits.flags.green.length}`
+  // Trait extraction
+  const extractedTraits = await extractDeepTraits(
+    safeMessage,
+    replyTo,
+    history
   );
 
+  console.log(
+    `[${uid}] Traits → Tone: ${extractedTraits.tone}, Urgency: ${extractedTraits.urgency}, Flags: R${extractedTraits.flags.red.length}/G${extractedTraits.flags.green.length}`
+  );
+
+  // Pattern detection
   const patterns = await detectUserPatterns(history, userProfile, isPremium);
 
   if (patterns) {
     console.log(
-      `[${uid}] Patterns detected - Mistakes: ${patterns.repeatingMistakes?.length || 0}, Type: ${patterns.relationshipType}`
+      `[${uid}] Patterns → Mistakes: ${patterns.repeatingMistakes?.length || 0}, Type: ${patterns.relationshipType}`
     );
   }
 
-  const outcomePrediction = await predictOutcome(safeMessage, history, isPremium);
+  // Outcome prediction
+  const outcomePrediction = await predictOutcome(
+    safeMessage,
+    history,
+    isPremium
+  );
 
   if (outcomePrediction) {
     console.log(
-      `[${uid}] Outcome - Interest: ${outcomePrediction.interestLevel}%, Date: ${outcomePrediction.dateProbability}%`
+      `[${uid}] Outcome → Interest: ${outcomePrediction.interestLevel}% / Date: ${outcomePrediction.dateProbability}%`
     );
   }
 
-  const newTone = normalizeTone(extractedTraits?.tone);
-  userProfile.lastTone = newTone;
+  // Update user profile
+  userProfile.lastTone = normalizeTone(extractedTraits.tone);
 
   if (
     extractedTraits.relationshipStage &&
@@ -116,10 +133,11 @@ export async function processChat(uid, message, replyTo, isPremium) {
 
   userProfile.totalAdviceGiven = (userProfile.totalAdviceGiven || 0) + 1;
 
-  updateUserProfile(uid, userProfile).catch((e) => {
-    console.error(`[${uid}] User profile save error:`, e);
-  });
+  updateUserProfile(uid, userProfile).catch((e) =>
+    console.error(`[${uid}] UserProfile update error →`, e)
+  );
 
+  // Persona
   const persona = buildUltimatePersona(
     isPremium,
     userProfile,
@@ -128,81 +146,45 @@ export async function processChat(uid, message, replyTo, isPremium) {
     conversationSummary
   );
 
+  // Reply context
   const replyContext = replyTo
     ? `
 🎯 ÖZEL YANIT MODU:
 Kullanıcı şu mesaja yanıt veriyor: "${String(replyTo).slice(0, 400)}"
-
-• Cevabını özellikle bu mesaja göre kurgula.
-• Kullanıcının yanıtladığı mesaj ana odak olsun.
+Cevabını buna göre kurgula.
 `
-    : "Kullanıcı özel bir mesaja yanıt vermiyor. Normal sohbet.";
+    : "Normal sohbet modu.";
 
+  // Enriched long context (Premium only)
   const enrichedContext =
     isPremium && (history.length > 5 || conversationSummary)
       ? `
-📊 KAPSAMLI CONTEXT:
-
-${
-  conversationSummary
-    ? `UZUN VADELİ ÖZET:
-${conversationSummary}`
-    : ""
-}
-
-İSTATİSTİK:
-• Toplam mesaj: ${userProfile.messageCount}
-• Aktif history: ${history.length}
-• İlişki aşaması: ${userProfile.relationshipStage}
+📊 CONTEXT:
+• Summary: ${conversationSummary || "yok"}
+• Mesaj sayısı: ${userProfile.messageCount}
+• Stage: ${userProfile.relationshipStage}
 • Attachment: ${userProfile.attachmentStyle}
-• Son ton: ${userProfile.lastTone}
-
-${
-  outcomePrediction
-    ? `
-OUTCOME (içsel – direkt söyleme, ima et):
-• İlgi: %${outcomePrediction.interestLevel}
-• Buluşma: %${outcomePrediction.dateProbability}
-• Prospect: ${outcomePrediction.relationshipProspect}
-• Riskler: ${outcomePrediction.risks?.join(", ") || "yok"}
-• Fırsatlar: ${outcomePrediction.opportunities?.join(", ") || "var"}
-`
-    : ""
-}
-
-${
-  patterns
-    ? `
-PATTERN:
-• Tekrarlayan hata sayısı: ${patterns.repeatingMistakes?.length || 0}
-• İlişki tipi: ${patterns.relationshipType}
-• Attachment: ${patterns.attachmentIndicators}
-`
-    : ""
-}
 `
       : "";
 
+  // System messages
   const systemMessages = [
     { role: "system", content: persona },
     { role: "system", content: replyContext },
   ];
 
   if (enrichedContext) {
-    systemMessages.push({
-      role: "system",
-      content: enrichedContext,
-    });
+    systemMessages.push({ role: "system", content: enrichedContext });
   }
 
+  // Tone and emotional adjustments
   if (
     extractedTraits.urgency === "high" ||
     extractedTraits.urgency === "critical"
   ) {
     systemMessages.push({
       role: "system",
-      content:
-        "⚠️ ACİL DURUM: Daha empatik, daha net ve hızlı çözüm odaklı yanıt ver.",
+      content: "⚠️ ACİL: Daha net ve hızlı çözüm odaklı cevap ver.",
     });
   }
 
@@ -210,7 +192,7 @@ PATTERN:
     systemMessages.push({
       role: "system",
       content:
-        "💙 Kullanıcı duygusal destek istiyor. Destekleyici, yargılamayan ve sakin bir tonda ol.",
+        "💙 Kullanıcı duygusal destek istiyor. Yumuşak ve empatik ol.",
     });
   }
 
@@ -225,9 +207,10 @@ PATTERN:
   let replyText = null;
   let openaiError = null;
 
+  // OPENAI CALL
   try {
-    console.log(`[${uid}] Calling OpenAI API with model: ${model}`);
-    
+    console.log(`[${uid}] Calling OpenAI → ${model}`);
+
     const completion = await openai.chat.completions.create({
       model,
       messages: contextMessages,
@@ -237,84 +220,53 @@ PATTERN:
       frequency_penalty: 0.3,
     });
 
-    console.log(`[${uid}] OpenAI response received`);
-
-    if (!completion) {
-      console.error(`[${uid}] 🔥 OpenAI returned null completion`);
-      openaiError = "NULL_COMPLETION";
-    } else if (!completion.choices || completion.choices.length === 0) {
-      console.error(`[${uid}] 🔥 OpenAI returned empty choices array`);
-      openaiError = "EMPTY_CHOICES";
-    } else if (!completion.choices[0].message) {
-      console.error(`[${uid}] 🔥 OpenAI choice has no message`);
-      openaiError = "NO_MESSAGE";
-    } else if (!completion.choices[0].message.content) {
-      console.error(`[${uid}] 🔥 OpenAI message has no content`);
-      openaiError = "NO_CONTENT";
-    } else {
-      replyText = completion.choices[0].message.content.trim();
-      
-      if (!replyText || replyText.length === 0) {
-        console.error(`[${uid}] 🔥 OpenAI returned empty content after trim`);
-        openaiError = "EMPTY_CONTENT";
-      } else {
-        console.log(`[${uid}] ✅ OpenAI success - Reply length: ${replyText.length} chars`);
-      }
-    }
-
     if (
-      replyText &&
-      isPremium &&
-      (intent === "deep" || intent === "deep_analysis") &&
-      replyText.length < 150
+      completion &&
+      completion.choices &&
+      completion.choices[0]?.message?.content
     ) {
-      console.warn(
-        `[${uid}] ⚠️ Premium deep response unusually short: ${replyText.length} chars`
+      replyText = completion.choices[0].message.content.trim();
+      console.log(
+        `[${uid}] OpenAI success → Reply length: ${replyText.length}`
       );
-    }
-
-  } catch (e) {
-    console.error(`[${uid}] 🔥 OpenAI API Error:`, e);
-    console.error(`[${uid}] Error type: ${e.constructor.name}`);
-    console.error(`[${uid}] Error message: ${e.message}`);
-    
-    if (e.code) {
-      console.error(`[${uid}] Error code: ${e.code}`);
-    }
-    
-    if (e.response) {
-      console.error(`[${uid}] Error response status: ${e.response.status}`);
-      console.error(`[${uid}] Error response data:`, JSON.stringify(e.response.data).slice(0, 500));
-    }
-
-    openaiError = e.message || "UNKNOWN_ERROR";
-  }
-
-  if (!replyText) {
-    console.error(`[${uid}] 🔥 No reply text - using fallback. Error: ${openaiError}`);
-    
-    if (openaiError && openaiError.includes("rate_limit")) {
-      replyText = "Kanka şu an çok yoğunuz, 30 saniye sonra tekrar dener misin?";
-    } else if (openaiError && openaiError.includes("timeout")) {
-      replyText = "Bağlantı zaman aşımına uğradı kanka. Bir daha dene lütfen.";
-    } else if (intent === "emergency") {
-      replyText = "Kanka şu an sistem yoğun ama ben buradayım. Derin nefes al, biraz sonra tekrar dene.";
     } else {
-      replyText = "Sistem şu an cevap üretemedi kanka. Lütfen tekrar dene, bu sefer olacak! 💪";
+      openaiError = "EMPTY_COMPLETION";
     }
-    
-    console.error(`[${uid}] 🚨 FALLBACK MESSAGE SENT: ${replyText}`);
+  } catch (e) {
+    console.error(`[${uid}] 🔥 OpenAI API ERROR:`, e);
+    openaiError = e?.message || "UNKNOWN_OPENAI_ERROR";
   }
 
-  saveConversationHistory(uid, safeMessage, replyText, historyData).catch(
-    (e) => {
-      console.error(`[${uid}] History save error:`, e);
-    }
+  // FALLBACK REPLY
+  if (!replyText) {
+    replyText =
+      "Sistem şu an cevap üretemedi kanka. Bir daha dene, bu sefer olacak. 💪";
+    console.warn(`[${uid}] Fallback reply used → ${openaiError}`);
+  }
+
+  /**
+   * ════════════════════════════════════════════════
+   * FIRESTORE-SAFE HISTORY SAVE FIX
+   * ════════════════════════════════════════════════
+   * lastSummaryAt, summary, messages… hiçbir alan artık undefined kalamaz.
+   */
+
+  const safeHistoryObject = {
+    messages: Array.isArray(rawHistory?.messages)
+      ? rawHistory.messages
+      : [],
+    summary: rawHistory?.summary ?? null,
+    lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
+  };
+
+  await saveConversationHistory(uid, safeMessage, replyText, safeHistoryObject).catch(
+    (e) => console.error(`[${uid}] History save error →`, e)
   );
 
   const processingTime = Date.now() - startTime;
+
   console.log(
-    `[${uid}] ✅ Processing complete: ${processingTime}ms, Intent: ${intent}, Model: ${model}, Success: ${!openaiError}`
+    `[${uid}] ✅ DONE (${processingTime}ms) → Success: ${!openaiError}`
   );
 
   return {
@@ -328,10 +280,8 @@ PATTERN:
       premium: isPremium,
       messageCount: userProfile.messageCount,
       processingTime,
-      hasLongTermMemory: !!conversationSummary,
-      hasPatterns: !!patterns,
       hadError: !!openaiError,
-      errorType: openaiError || null,
+      errorType: openaiError,
     },
   };
 }
