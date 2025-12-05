@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.3+71
+version: 1.0.3+77
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -32,7 +32,7 @@ dependencies:
   purchases_flutter: ^8.3.0
 
   # 🔗 URL launcher
-  url_launcher: ^6.3.0
+  url_launcher: ^6.3.2
 
   # 📅 intl
   intl: ^0.20.1
@@ -42,11 +42,17 @@ dependencies:
 
   # 🎤 Speech to text — FIXED 7.3.0
   speech_to_text: ^7.3.0
+  dtd: ^4.0.0
+  flutter_lints: ^6.0.0
+  google_fonts: ^6.3.3
+  json_rpc_2: ^4.0.0
+  path: ^1.9.1
+  stack_trace: ^1.12.1
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^3.0.2
 
   # 🖼️ Icon generator
   flutter_launcher_icons: ^0.13.1

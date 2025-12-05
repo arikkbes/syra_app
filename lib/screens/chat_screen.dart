@@ -41,6 +41,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   bool _isLoading = false;
   bool _isTyping = false;
+  bool _isSending = false; // Anti-spam flag
+  bool _userScrolledUp = false; // Track if user manually scrolled
 
   Map<String, dynamic>? _replyingTo;
 
@@ -66,6 +68,25 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _initUser();
     _loadChatSessions();
     _createInitialSession(); // İlk oturumu oluştur
+
+    // Scroll listener - Kullanıcı manuel scroll yapıyor mu?
+    _scrollController.addListener(() {
+      if (_scrollController.hasClients) {
+        final maxScroll = _scrollController.position.maxScrollExtent;
+        final currentScroll = _scrollController.offset;
+        
+        // Eğer kullanıcı en altta değilse, manuel scroll yapmış demektir
+        if (maxScroll - currentScroll > 100) {
+          if (!_userScrolledUp) {
+            setState(() => _userScrolledUp = true);
+          }
+        } else {
+          if (_userScrolledUp) {
+            setState(() => _userScrolledUp = false);
+          }
+        }
+      }
+    });
 
     _menuController = AnimationController(
       vsync: this,
@@ -170,7 +191,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _scrollToBottom() {
-    if (_scrollController.hasClients) {
+    // Sadece kullanıcı manuel scroll yapmamışsa otomatik scroll yap
+    if (!_userScrolledUp && _scrollController.hasClients) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
@@ -433,7 +455,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
+    
+    // Boş mesaj kontrolü
     if (text.isEmpty) return;
+    
+    // Anti-spam: Eğer zaten mesaj gönderiliyorsa, çık
+    if (_isSending) return;
 
     // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
@@ -508,10 +535,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _replyingTo = null;
       _isTyping = true;
       _isLoading = true;
+      _isSending = true; // Gönderme başladı
       _messageCount++;
     });
 
+    // Scroll to bottom after user message
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+
+    // 1 saniye sonra buton tekrar aktif olacak (anti-spam timeout)
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    });
 
     // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
@@ -590,6 +626,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
         _isTyping = false;
         _isLoading = false;
+        _isSending = false; // Gönderim tamamlandı
       });
 
       // ═══════════════════════════════════════════════════════════════
@@ -614,12 +651,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
 
+      // Bot mesajı geldiğinde de scroll yap (delay ile)
       Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
     } catch (e) {
       debugPrint("Network error: $e");
       setState(() {
         _isTyping = false;
         _isLoading = false;
+        _isSending = false; // Hata durumunda da gönderimi serbest bırak
       });
       if (mounted) {
         BlurToast.show(context, "Bağlantı kurulamadı kanka");
@@ -1038,6 +1077,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                Text(
+                  "SYRA düşünüyor",
+                  style: TextStyle(
+                    color: SyraColors.textMuted,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 _buildDot(0),
                 const SizedBox(width: 4),
                 _buildDot(1),
@@ -1071,6 +1119,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// ChatGPT-style input bar
   Widget _buildInputBar() {
+    // Text field içeriğini dinle
+    final bool hasText = _controller.text.trim().isNotEmpty;
+    final bool canSend = hasText && !_isSending && !_isLoading;
+    
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
@@ -1121,9 +1173,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    enabled: !_isLoading,
+                    enabled: !_isSending,
                     maxLines: 5,
                     minLines: 1,
+                    onChanged: (_) => setState(() {}), // TextField değiştiğinde rebuild
                     style: const TextStyle(
                       color: SyraColors.textPrimary,
                       fontSize: 15,
@@ -1142,7 +1195,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         fontSize: 15,
                       ),
                     ),
-                    onSubmitted: (_) => _sendMessage(),
+                    onSubmitted: (_) => canSend ? _sendMessage() : null,
                   ),
                 ),
 
@@ -1160,15 +1213,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
+                // Send button with smooth animation
                 GestureDetector(
-                  onTap: _sendMessage,
+                  onTap: canSend ? _sendMessage : null,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
                     width: 40,
                     height: 40,
                     margin: const EdgeInsets.only(right: 6, bottom: 6),
                     decoration: BoxDecoration(
-                      color: _controller.text.trim().isNotEmpty && !_isLoading
+                      color: canSend
                           ? SyraColors.textPrimary
                           : SyraColors.textMuted.withOpacity(0.3),
                       shape: BoxShape.circle,
@@ -1183,9 +1238,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               ),
                             ),
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.arrow_upward_rounded,
-                            color: SyraColors.background,
+                            color: canSend 
+                                ? SyraColors.background 
+                                : SyraColors.background.withOpacity(0.5),
                             size: 20,
                           ),
                   ),

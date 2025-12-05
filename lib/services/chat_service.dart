@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io'; // SocketException için
+import 'dart:async'; // TimeoutException için
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
@@ -71,6 +72,11 @@ class ChatService {
           "message": userMessage,
           "context": context,
         }),
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          throw Exception("Timeout");
+        },
       );
 
       final rawBody = response.body;
@@ -84,7 +90,7 @@ class ChatService {
         }
       }
 
-      // ✅ 200 durumunda artık "message" alanını da okuyor
+      // ✅ 200 OK - Başarılı yanıt
       if (response.statusCode == 200) {
         final text = jsonBody?["message"] ??
             jsonBody?["response"] ??
@@ -94,11 +100,37 @@ class ChatService {
         return text.toString();
       }
 
+      // ❌ 401 Unauthorized - API key veya token hatası
+      if (response.statusCode == 401) {
+        debugPrint("401 Unauthorized: Invalid API key or token");
+        return "Yetki hatası. Çıkış yapıp tekrar giriş yapmayı dene.";
+      }
+
+      // ⏱️ 408 Request Timeout
+      if (response.statusCode == 408) {
+        debugPrint("408 Request Timeout");
+        return "İstek zaman aşımına uğradı. Tekrar dene kanka.";
+      }
+
+      // 🚫 429 Rate Limit
       if (response.statusCode == 429) {
         return (jsonBody?["message"] as String?) ??
             "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.";
       }
 
+      // 🔥 500 Server Error
+      if (response.statusCode == 500) {
+        debugPrint("500 Server Error");
+        return "Sunucu hatası oluştu. Birkaç dakika sonra tekrar dene.";
+      }
+
+      // 🔧 503 Service Unavailable
+      if (response.statusCode == 503) {
+        debugPrint("503 Service Unavailable");
+        return "Servis şu an bakımda. Birazdan tekrar dene kanka.";
+      }
+
+      // Diğer backend hatalarında message varsa onu göster
       final backendMessage = jsonBody?["message"] as String?;
       if (backendMessage != null && backendMessage.isNotEmpty) {
         return backendMessage;
@@ -111,9 +143,18 @@ class ChatService {
     } on SocketException catch (e) {
       debugPrint("SocketException in sendMessage: $e");
       return "Bağlantı hatası. İnterneti kontrol et ve tekrar dene.";
+    } on TimeoutException catch (e) {
+      debugPrint("TimeoutException in sendMessage: $e");
+      return "İstek zaman aşımına uğradı. Tekrar dene kanka.";
     } on FirebaseAuthException catch (e) {
       debugPrint("FirebaseAuthException in sendMessage: $e");
       return "Oturumunla ilgili bir sorun var gibi. Çıkış yapıp tekrar giriş yapmayı dene.";
+    } on Exception catch (e) {
+      if (e.toString().contains("Timeout")) {
+        return "Bağlantı zaman aşımına uğradı. Tekrar dene kanka.";
+      }
+      debugPrint("sendMessage Exception: $e");
+      return "Beklenmedik bir hata oluştu. Birazdan tekrar dene.";
     } catch (e, st) {
       debugPrint("sendMessage UNEXPECTED error: $e\n$st");
       return "Kanka beklenmedik bir hata oldu. Birazdan tekrar dene.";
