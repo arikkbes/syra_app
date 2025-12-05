@@ -526,6 +526,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _currentSessionId = sessionId;
         });
       }
+    } else {
+      // Eğer session zaten varsa ama messageCount = 1 ise (ilk mesaj)
+      // başlığı güncelle
+      final userMessageCount = _messages.where((m) => m['sender'] == 'user').length;
+      if (userMessageCount == 1) {
+        await ChatSessionService.updateSession(
+          sessionId: _currentSessionId!,
+          title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
+        );
+      }
     }
 
     if (_currentSessionId != null) {
@@ -812,6 +822,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     }
                   } catch (e) {
                     debugPrint("Delete chat error: $e");
+                  }
+                },
+                onRenameChat: (chat, newTitle) async {
+                  try {
+                    await ChatSessionService.renameSession(
+                      sessionId: chat.id,
+                      newTitle: newTitle,
+                    );
+                    await _loadChatSessions();
+                    if (mounted) {
+                      BlurToast.show(context, "Chat adı güncellendi");
+                    }
+                  } catch (e) {
+                    debugPrint("Rename chat error: $e");
                   }
                 },
                 onOpenSettings: () {

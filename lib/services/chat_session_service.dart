@@ -93,6 +93,30 @@ class ChatSessionService {
 
   // ─────────────────────────────────────────────────────────────
   // ─────────────────────────────────────────────────────────────
+  static Future<void> renameSession({
+    required String sessionId,
+    required String newTitle,
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+
+      await _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(sessionId)
+          .update({
+        'title': newTitle,
+        'lastUpdatedAt': DateTime.now(),
+      });
+    } catch (e) {
+      print('renameSession error: $e');
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
   static Future<void> deleteSession(String sessionId) async {
     try {
       final user = FirebaseAuth.instance.currentUser;

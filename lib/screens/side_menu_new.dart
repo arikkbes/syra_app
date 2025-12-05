@@ -22,6 +22,7 @@ class SideMenuNew extends StatelessWidget {
   final VoidCallback onTarotMode;
   final Function(ChatSession) onSelectChat;
   final Function(ChatSession) onDeleteChat;
+  final Function(ChatSession, String) onRenameChat;
   final VoidCallback onOpenSettings;
   final VoidCallback onClose;
 
@@ -34,6 +35,7 @@ class SideMenuNew extends StatelessWidget {
     required this.onTarotMode,
     required this.onSelectChat,
     required this.onDeleteChat,
+    required this.onRenameChat,
     required this.onOpenSettings,
     required this.onClose,
   });
@@ -260,6 +262,7 @@ class SideMenuNew extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          onLongPress: () => _showChatContextMenu(context, chat),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
@@ -300,6 +303,207 @@ class SideMenuNew extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showChatContextMenu(BuildContext context, ChatSession chat) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: SyraColors.surface.withValues(alpha: 0.95),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              border: const Border(
+                top: BorderSide(color: SyraColors.border),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildContextMenuItem(
+                  context: context,
+                  icon: Icons.edit_outlined,
+                  label: 'Rename chat',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showRenameDialog(context, chat);
+                  },
+                ),
+                const SizedBox(height: 8),
+                _buildContextMenuItem(
+                  context: context,
+                  icon: Icons.delete_outline,
+                  label: 'Delete chat',
+                  isDestructive: true,
+                  onTap: () {
+                    Navigator.pop(context);
+                    onDeleteChat(chat);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContextMenuItem({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    bool isDestructive = false,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: isDestructive ? Colors.red : SyraColors.iconStroke,
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isDestructive ? Colors.red : SyraColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showRenameDialog(BuildContext context, ChatSession chat) {
+    final controller = TextEditingController(text: chat.title);
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: SyraColors.surface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: SyraColors.border),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Rename Chat',
+                    style: TextStyle(
+                      color: SyraColors.textPrimary,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: controller,
+                    autofocus: true,
+                    style: const TextStyle(
+                      color: SyraColors.textPrimary,
+                      fontSize: 15,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Enter new title',
+                      hintStyle: TextStyle(
+                        color: SyraColors.textMuted,
+                      ),
+                      filled: true,
+                      fillColor: SyraColors.background,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: SyraColors.border),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: SyraColors.border),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(color: SyraColors.accent),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: Text(
+                          'Cancel',
+                          style: TextStyle(
+                            color: SyraColors.textMuted,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          final newTitle = controller.text.trim();
+                          if (newTitle.isNotEmpty) {
+                            onRenameChat(chat, newTitle);
+                          }
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: SyraColors.accent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                        ),
+                        child: const Text(
+                          'Rename',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
