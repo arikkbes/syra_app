@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:math'; // max fonksiyonu için
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -1123,7 +1124,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         16,
         8,
         16,
-        MediaQuery.of(context).padding.bottom + 4,
+        max(
+            8.0,
+            MediaQuery.of(context).padding.bottom -
+                8), // Safe area'dan 8 çıkar, min 8
       ),
       decoration: BoxDecoration(
         color: SyraColors.background,
