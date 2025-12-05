@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
@@ -11,14 +12,11 @@ import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_message_bubble.dart';
 import 'premium_screen.dart';
-import 'settings_screen.dart';
+import 'settings/settings_screen.dart';
 import 'side_menu_new.dart';
-import 'settings_sheet.dart';
 import 'relationship_analysis_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'tactical_moves_screen.dart';
-import 'daily_tip_screen.dart';
-import 'chat_archive_screen.dart';
 import 'premium_management_screen.dart';
 
 const bool forcePremiumForTesting = false;
@@ -840,7 +838,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 },
                 onOpenSettings: () {
                   _toggleMenu();
-                  SettingsSheet.show(context);
+                  Navigator.push(
+                    context,
+                    CupertinoPageRoute(builder: (_) => const SettingsScreen()),
+                  );
                 },
                 onClose: _toggleMenu,
               ),

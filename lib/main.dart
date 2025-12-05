@@ -10,7 +10,7 @@ import 'screens/signup_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/premium_screen.dart';
 import 'screens/premium_management_screen.dart';
-import 'screens/settings_screen.dart';
+import 'screens/settings/settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
