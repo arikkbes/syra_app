@@ -74,7 +74,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       if (_scrollController.hasClients) {
         final maxScroll = _scrollController.position.maxScrollExtent;
         final currentScroll = _scrollController.offset;
-        
+
         // Eğer kullanıcı en altta değilse, manuel scroll yapmış demektir
         if (maxScroll - currentScroll > 100) {
           if (!_userScrolledUp) {
@@ -101,7 +101,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         curve: Curves.easeOutCubic,
       ),
     );
-
   }
 
   Future<void> _initUser() async {
@@ -455,10 +454,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
-    
+
     // Boş mesaj kontrolü
     if (text.isEmpty) return;
-    
+
     // Anti-spam: Eğer zaten mesaj gönderiliyorsa, çık
     if (_isSending) return;
 
@@ -563,7 +562,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     } else {
       // Eğer session zaten varsa ama messageCount = 1 ise (ilk mesaj)
       // başlığı güncelle
-      final userMessageCount = _messages.where((m) => m['sender'] == 'user').length;
+      final userMessageCount =
+          _messages.where((m) => m['sender'] == 'user').length;
       if (userMessageCount == 1) {
         await ChatSessionService.updateSession(
           sessionId: _currentSessionId!,
@@ -804,7 +804,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           body: Stack(
             children: [
               const SyraBackground(),
-
               SafeArea(
                 child: Column(
                   children: [
@@ -818,7 +817,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ],
                 ),
               ),
-
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !_menuOpen,
@@ -833,7 +831,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-
               SideMenuNew(
                 slideAnimation: _menuOffset,
                 isPremium: _isPremium,
@@ -922,7 +919,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           Expanded(
             child: Center(
               child: GestureDetector(
@@ -931,7 +927,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-
           GestureDetector(
             onTap: _handleDocumentUpload,
             child: Container(
@@ -1122,13 +1117,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Text field içeriğini dinle
     final bool hasText = _controller.text.trim().isNotEmpty;
     final bool canSend = hasText && !_isSending && !_isLoading;
-    
+
     return Container(
       padding: EdgeInsets.fromLTRB(
         16,
         8,
         16,
-        MediaQuery.of(context).padding.bottom + 12,
+        MediaQuery.of(context).padding.bottom + 4,
       ),
       decoration: BoxDecoration(
         color: SyraColors.background,
@@ -1143,7 +1138,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_replyingTo != null) _buildReplyPreview(),
-
           Container(
             decoration: BoxDecoration(
               color: SyraColors.surface,
@@ -1176,7 +1170,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     enabled: !_isSending,
                     maxLines: 5,
                     minLines: 1,
-                    onChanged: (_) => setState(() {}), // TextField değiştiğinde rebuild
+                    onChanged: (_) =>
+                        setState(() {}), // TextField değiştiğinde rebuild
                     style: const TextStyle(
                       color: SyraColors.textPrimary,
                       fontSize: 15,
@@ -1240,8 +1235,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           )
                         : Icon(
                             Icons.arrow_upward_rounded,
-                            color: canSend 
-                                ? SyraColors.background 
+                            color: canSend
+                                ? SyraColors.background
                                 : SyraColors.background.withOpacity(0.5),
                             size: 20,
                           ),

@@ -1,15 +1,15 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// ═══════════════════════════════════════════════════════════════
 /// SERVICE LOCATOR - Dependency Injection
 /// ═══════════════════════════════════════════════════════════════
-
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Global Service Locator
 /// Tüm servisler buradan erişilebilir
 class ServiceLocator {
   ServiceLocator._();
-  
+
   static final ServiceLocator _instance = ServiceLocator._();
   static ServiceLocator get instance => _instance;
 
@@ -20,8 +20,7 @@ class ServiceLocator {
 
   Future<void> initialize() async {
     if (_isInitialized) return;
-    
-    
+
     _isInitialized = true;
   }
 
