@@ -1127,7 +1127,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         max(
             8.0,
             MediaQuery.of(context).padding.bottom -
-                8), // Safe area'dan 8 çıkar, min 8
+                16), // Safe area'dan 8 çıkar, min 8
       ),
       decoration: BoxDecoration(
         color: SyraColors.background,
