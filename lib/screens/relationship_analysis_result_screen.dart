@@ -117,7 +117,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
   }
 
   Widget _buildStatsCard() {
-    final dateFormatter = DateFormat('dd MMM yyyy', 'tr_TR');
+    final dateFormatter = DateFormat('dd MMM yyyy');
     String dateRange = 'Tarih bilgisi yok';
     
     if (analysisResult.startDate != null && analysisResult.endDate != null) {
@@ -464,7 +464,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  DateFormat('dd MMMM yyyy', 'tr_TR').format(moment.date!),
+                  DateFormat('dd MMMM yyyy').format(moment.date!),
                   style: const TextStyle(
                     color: SyraColors.textMuted,
                     fontSize: 11,

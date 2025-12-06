@@ -53,7 +53,7 @@ export async function analyzeRelationshipChatHandler(req, res) {
     }
 
     // Parse multipart form data
-    const fileData = await parseMultipartForm(req);
+    const { fileData, fields } = await parseMultipartForm(req);
 
     if (!fileData || !fileData.buffer) {
       return res.status(400).json({
@@ -142,11 +142,21 @@ export async function analyzeRelationshipChatHandler(req, res) {
  */
 function parseMultipartForm(req) {
   return new Promise((resolve, reject) => {
-    const busboy = Busboy({ headers: req.headers });
+    const busboy = Busboy({ 
+      headers: req.headers,
+      limits: {
+        fileSize: 10 * 1024 * 1024, // 10MB limit
+      }
+    });
     let fileData = null;
+    let fields = {};
+
+    busboy.on("field", (fieldname, value) => {
+      fields[fieldname] = value;
+    });
 
     busboy.on("file", (fieldname, file, info) => {
-      const { filename } = info;
+      const { filename, encoding, mimeType } = info;
       const chunks = [];
 
       file.on("data", (chunk) => {
@@ -157,19 +167,31 @@ function parseMultipartForm(req) {
         fileData = {
           filename,
           buffer: Buffer.concat(chunks),
+          encoding,
+          mimeType,
         };
+      });
+
+      file.on("error", (err) => {
+        reject(err);
       });
     });
 
     busboy.on("finish", () => {
-      resolve(fileData);
+      resolve({ fileData, fields });
     });
 
     busboy.on("error", (err) => {
       reject(err);
     });
 
-    req.pipe(busboy);
+    // Important: pipe the request to busboy
+    if (req.rawBody) {
+      // For Cloud Functions v2
+      busboy.end(req.rawBody);
+    } else {
+      req.pipe(busboy);
+    }
   });
 }
 
