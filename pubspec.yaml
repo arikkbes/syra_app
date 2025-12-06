@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.3+82
+version: 1.0.3+84
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -40,6 +40,9 @@ dependencies:
 
   # 📸 Image picker
   image_picker: ^1.0.8
+
+  # 📁 File picker
+  file_picker: ^8.1.4
 
   # 🎤 Speech to text — FIXED 7.3.0
   speech_to_text: ^7.3.0

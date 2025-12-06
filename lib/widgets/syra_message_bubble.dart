@@ -162,48 +162,51 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       return Column(
         crossAxisAlignment: widget.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
         children: [
-          // Resim
-          Container(
-            constraints: const BoxConstraints(
-              maxWidth: 280,
-              maxHeight: 350,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.network(
-                widget.imageUrl!,
-                fit: BoxFit.cover,
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return Container(
-                    width: 280,
-                    height: 200,
-                    color: SyraColors.surface,
-                    child: Center(
-                      child: CircularProgressIndicator(
-                        value: loadingProgress.expectedTotalBytes != null
-                            ? loadingProgress.cumulativeBytesLoaded /
-                                loadingProgress.expectedTotalBytes!
-                            : null,
-                        color: SyraColors.accent,
+          // Resim (tıklanabilir)
+          GestureDetector(
+            onTap: () => _showImagePreview(widget.imageUrl!),
+            child: Container(
+              constraints: const BoxConstraints(
+                maxWidth: 280,
+                maxHeight: 350,
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  widget.imageUrl!,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Container(
+                      width: 280,
+                      height: 200,
+                      color: SyraColors.surface,
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                              : null,
+                          color: SyraColors.accent,
+                        ),
                       ),
-                    ),
-                  );
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: 280,
-                    height: 200,
-                    color: SyraColors.surface,
-                    child: const Center(
-                      child: Icon(
-                        Icons.broken_image_rounded,
-                        size: 48,
-                        color: SyraColors.textMuted,
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      width: 280,
+                      height: 200,
+                      color: SyraColors.surface,
+                      child: const Center(
+                        child: Icon(
+                          Icons.broken_image_rounded,
+                          size: 48,
+                          color: SyraColors.textMuted,
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ),
@@ -229,49 +232,52 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       );
     }
     
-    // Sadece resim varsa
+    // Sadece resim varsa (tıklanabilir)
     if (widget.imageUrl != null) {
-      return Container(
-        constraints: const BoxConstraints(
-          maxWidth: 280,
-          maxHeight: 350,
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            widget.imageUrl!,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                width: 280,
-                height: 200,
-                color: SyraColors.surface,
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-                    color: SyraColors.accent,
+      return GestureDetector(
+        onTap: () => _showImagePreview(widget.imageUrl!),
+        child: Container(
+          constraints: const BoxConstraints(
+            maxWidth: 280,
+            maxHeight: 350,
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              widget.imageUrl!,
+              fit: BoxFit.cover,
+              loadingBuilder: (context, child, loadingProgress) {
+                if (loadingProgress == null) return child;
+                return Container(
+                  width: 280,
+                  height: 200,
+                  color: SyraColors.surface,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
+                      color: SyraColors.accent,
+                    ),
                   ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 280,
-                height: 200,
-                color: SyraColors.surface,
-                child: const Center(
-                  child: Icon(
-                    Icons.broken_image_rounded,
-                    size: 48,
-                    color: SyraColors.textMuted,
+                );
+              },
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 280,
+                  height: 200,
+                  color: SyraColors.surface,
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image_rounded,
+                      size: 48,
+                      color: SyraColors.textMuted,
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       );
@@ -383,6 +389,65 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       child: Text(
         timeStr,
         style: SyraTypography.timeText,
+      ),
+    );
+  }
+
+  /// Tam ekran resim önizlemesi
+  void _showImagePreview(String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            // Tam ekran resim
+            Center(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: SyraColors.accent,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Kapat butonu
+            Positioned(
+              top: 40,
+              right: 20,
+              child: GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.close_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

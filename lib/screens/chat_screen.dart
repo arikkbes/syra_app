@@ -7,11 +7,14 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
+import '../services/relationship_analysis_service.dart';
 import '../models/chat_session.dart';
+import '../models/relationship_analysis_result.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
@@ -21,6 +24,7 @@ import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
 import 'side_menu_new.dart';
 import 'relationship_analysis_screen.dart';
+import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'tactical_moves_screen.dart';
 import 'premium_management_screen.dart';
@@ -79,6 +83,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // Pending image (resim seçilmiş ama henüz gönderilmemiş)
   File? _pendingImage;
   String? _pendingImageUrl; // Upload edilmiş URL (gönderilmeyi bekliyor)
+
+  // Relationship upload
+  bool _isUploadingRelationshipFile = false;
+
 
   @override
   void initState() {
@@ -350,11 +358,191 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
   }
 
+  /// Handle document upload - Relationship Upload (Beta)
   void _handleDocumentUpload() {
-    BlurToast.show(
-      context,
-      "📄 Doküman analizi özelliği çok yakında gelecek!",
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: SyraColors.surface.withOpacity(0.95),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+              border: const Border(
+                top: BorderSide(color: SyraColors.border),
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Title
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            SyraColors.accent.withOpacity(0.2),
+                            SyraColors.accent.withOpacity(0.2),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.upload_file_outlined,
+                        color: SyraColors.accent,
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Relationship Upload (Beta)',
+                            style: TextStyle(
+                              color: SyraColors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                
+                // Description
+                Text(
+                  'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
+                  style: TextStyle(
+                    color: SyraColors.textSecondary.withOpacity(0.9),
+                    fontSize: 14,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                
+                // Upload Button
+                GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickAndUploadRelationshipFile();
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [SyraColors.accent, SyraColors.accent],
+                      ),
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: [
+                        BoxShadow(
+                          color: SyraColors.accent.withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.upload_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'WhatsApp Chat Yükle (.txt / .zip)',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
+  }
+
+  /// Pick and upload relationship file
+  Future<void> _pickAndUploadRelationshipFile() async {
+    try {
+      // Pick file
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt', 'zip'],
+      );
+
+      if (result == null || result.files.isEmpty) {
+        // User cancelled
+        return;
+      }
+
+      final file = File(result.files.single.path!);
+      
+      if (!mounted) return;
+
+      // Show loading state
+      setState(() {
+        _isUploadingRelationshipFile = true;
+      });
+
+      // Upload and analyze
+      final analysisResult = await RelationshipAnalysisService.analyzeChat(file);
+
+      if (!mounted) return;
+
+      setState(() {
+        _isUploadingRelationshipFile = false;
+      });
+
+      // Show confirmation
+      BlurToast.show(context, "✅ Sohbetin alındı, analiz hazır!");
+
+      // Navigate to analysis screen
+      Navigator.push(
+        context,
+        CupertinoPageRoute(
+          builder: (_) => RelationshipAnalysisResultScreen(
+            analysisResult: analysisResult,
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint('_pickAndUploadRelationshipFile error: $e');
+      
+      if (!mounted) return;
+
+      setState(() {
+        _isUploadingRelationshipFile = false;
+      });
+
+      BlurToast.show(
+        context,
+        "❌ Analiz sırasında bir hata oluştu: ${e.toString()}",
+      );
+    }
   }
 
   /// Handle attachment menu - resim gönderme özelliği
@@ -1211,8 +1399,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget _buildInputBar() {
     // Text field içeriğini dinle
     final bool hasText = _controller.text.trim().isNotEmpty;
-    final bool hasPendingImage = _pendingImage != null && _pendingImageUrl != null;
-    final bool canSend = (hasText || hasPendingImage) && !_isSending && !_isLoading;
+    final bool isUploadingImage = _pendingImage != null && _pendingImageUrl == null; // Resim yükleniyor
+    final bool hasPendingImage = _pendingImage != null && _pendingImageUrl != null; // Resim hazır
+    final bool canSend = (hasText || hasPendingImage) && !_isSending && !_isLoading && !isUploadingImage;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
