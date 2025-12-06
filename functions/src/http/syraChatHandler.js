@@ -67,13 +67,18 @@ export async function syraChatHandler(req, res) {
     }
 
     // Body
-    const { message, context } = req.body || {};
+    const { message, context, imageUrl } = req.body || {};
     if (!message || typeof message !== "string" || !message.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: "Mesaj boş olamaz.",
-        code: "EMPTY_MESSAGE",
-      });
+      // Eğer sadece resim gönderilmişse ve text yoksa, default mesaj
+      if (imageUrl) {
+        // İzin ver, default mesajla devam
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: "Mesaj boş olamaz.",
+          code: "EMPTY_MESSAGE",
+        });
+      }
     }
 
     // User profile
@@ -103,7 +108,7 @@ export async function syraChatHandler(req, res) {
     }
 
     // MAIN CHAT PROCESSOR
-    const result = await processChat(uid, message, replyTo, isPremium);
+    const result = await processChat(uid, message, replyTo, isPremium, imageUrl);
 
     // Increase user's message count
     incrementMessageCount(uid, userProfile).catch((e) => {

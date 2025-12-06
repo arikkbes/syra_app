@@ -1,4 +1,5 @@
 import 'dart:ui';
+import 'dart:io';
 import 'dart:math'; // max fonksiyonu için
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
@@ -9,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
+import '../services/image_upload_service.dart';
 import '../models/chat_session.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
@@ -73,6 +75,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   // Image picker
   final ImagePicker _imagePicker = ImagePicker();
+  
+  // Pending image (resim seçilmiş ama henüz gönderilmemiş)
+  File? _pendingImage;
+  String? _pendingImageUrl; // Upload edilmiş URL (gönderilmeyi bekliyor)
 
   @override
   void initState() {
@@ -219,6 +225,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void _showMessageMenu(BuildContext ctx, Map<String, dynamic> msg) async {
     HapticFeedback.selectionClick();
 
+    final isImageMessage = msg["imageUrl"] != null;
+
     await showDialog(
       context: ctx,
       builder: (_) {
@@ -246,14 +254,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       Navigator.pop(ctx);
                       setState(() => _replyingTo = msg);
                     }),
-                    _menuButton("Kopyala", Icons.copy_rounded, () {
-                      final text = msg["text"];
-                      if (text != null) {
-                        Clipboard.setData(ClipboardData(text: text));
-                      }
-                      Navigator.pop(ctx);
-                      BlurToast.show(ctx, "Metin kopyalandı");
-                    }),
+                    if (!isImageMessage) // Sadece text mesajlar için kopyala
+                      _menuButton("Kopyala", Icons.copy_rounded, () {
+                        final text = msg["text"];
+                        if (text != null) {
+                          Clipboard.setData(ClipboardData(text: text));
+                        }
+                        Navigator.pop(ctx);
+                        BlurToast.show(ctx, "Metin kopyalandı");
+                      }),
                     _menuButton("Paylaş", Icons.share_rounded, () {
                       Navigator.pop(ctx);
                     }),
@@ -377,12 +386,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       style: TextStyle(color: SyraColors.textPrimary)),
                   onTap: () async {
                     Navigator.pop(context);
-                    final XFile? image = await _imagePicker.pickImage(
-                      source: ImageSource.gallery,
-                    );
-                    if (image != null && mounted) {
-                      BlurToast.show(context, "📸 Fotoğraf seçildi: ${image.name}");
-                    }
+                    await _pickImageForPreview(ImageSource.gallery);
                   },
                 ),
                 ListTile(
@@ -392,12 +396,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       style: TextStyle(color: SyraColors.textPrimary)),
                   onTap: () async {
                     Navigator.pop(context);
-                    final XFile? image = await _imagePicker.pickImage(
-                      source: ImageSource.camera,
-                    );
-                    if (image != null && mounted) {
-                      BlurToast.show(context, "📷 Fotoğraf çekildi: ${image.name}");
-                    }
+                    await _pickImageForPreview(ImageSource.camera);
                   },
                 ),
               ],
@@ -406,6 +405,69 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+  }
+
+  /// Resim seç ve preview göster (henüz gönderme)
+  Future<void> _pickImageForPreview(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 85,
+      );
+
+      if (pickedFile == null) return;
+      if (!mounted) return;
+
+      // Önce dosyayı state'e kaydet (preview için)
+      setState(() {
+        _pendingImage = File(pickedFile.path);
+        _pendingImageUrl = null; // Henüz upload edilmedi
+      });
+
+      // Arka planda Firebase'e upload et
+      _uploadPendingImage();
+      
+    } catch (e) {
+      debugPrint("_pickImageForPreview error: $e");
+      if (mounted) {
+        BlurToast.show(context, "Resim seçilirken hata oluştu.");
+      }
+    }
+  }
+
+  /// Pending image'ı Firebase Storage'a yükle
+  Future<void> _uploadPendingImage() async {
+    if (_pendingImage == null) return;
+
+    try {
+      final imageUrl = await ImageUploadService.uploadImage(_pendingImage!);
+      
+      if (imageUrl != null && mounted) {
+        setState(() {
+          _pendingImageUrl = imageUrl;
+        });
+        debugPrint("Pending image uploaded: $imageUrl");
+      }
+    } catch (e) {
+      debugPrint("_uploadPendingImage error: $e");
+      if (mounted) {
+        BlurToast.show(context, "Resim yüklenirken hata oluştu.");
+        setState(() {
+          _pendingImage = null;
+          _pendingImageUrl = null;
+        });
+      }
+    }
+  }
+
+  /// Pending image'ı temizle
+  void _clearPendingImage() {
+    setState(() {
+      _pendingImage = null;
+      _pendingImageUrl = null;
+    });
   }
 
   /// Handle voice input - ses ile mesaj gönderme
@@ -535,13 +597,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final now = DateTime.now();
     final String? replyBackup = _replyingTo?["text"];
 
+    // Pending image'ı backup'la ve temizle
+    final String? imageUrlToSend = _pendingImageUrl;
+    
     final userMessage = {
       "id": msgId,
       "sender": "user",
-      "text": text,
+      "text": text, // Text'i her zaman kaydet (boş bile olsa)
       "replyTo": replyBackup,
       "time": now,
       "timestamp": now,
+      "imageUrl": imageUrlToSend, // Resim varsa ekle
+      "type": imageUrlToSend != null ? "image" : null,
     };
 
     setState(() {
@@ -553,6 +620,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _isLoading = true;
       _isSending = true; // Gönderme başladı
       _messageCount++;
+      
+      // Pending image'ı temizle
+      _pendingImage = null;
+      _pendingImageUrl = null;
     });
 
     // Scroll to bottom after user message
@@ -620,10 +691,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // ═══════════════════════════════════════════════════════════════
     try {
       final botText = await ChatService.sendMessage(
-        userMessage: text,
+        userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
         conversationHistory: _messages,
         replyingTo: _replyingTo,
         mode: _selectedMode,
+        imageUrl: imageUrlToSend, // Resim URL'ini backend'e gönder
       );
 
       final flags = ChatService.detectManipulation(botText);
@@ -1065,13 +1137,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             duration: const Duration(milliseconds: 90),
             transform: Matrix4.translationValues(effectiveOffset, 0, 0),
             child: SyraMessageBubble(
-              text: msg["text"] ?? '',
+              text: msg["text"],
               isUser: isUser,
               time: msg["time"] is DateTime ? msg["time"] : null,
               replyToText: msg["replyTo"],
               hasRedFlag: !isUser && (msg['hasRed'] == true),
               hasGreenFlag: !isUser && (msg['hasGreen'] == true),
               onLongPress: () => _showMessageMenu(context, msg),
+              imageUrl: msg["imageUrl"], // Yeni: resim URL'i
             ),
           ),
         );
@@ -1138,7 +1211,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget _buildInputBar() {
     // Text field içeriğini dinle
     final bool hasText = _controller.text.trim().isNotEmpty;
-    final bool canSend = hasText && !_isSending && !_isLoading;
+    final bool hasPendingImage = _pendingImage != null && _pendingImageUrl != null;
+    final bool canSend = (hasText || hasPendingImage) && !_isSending && !_isLoading;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1163,6 +1237,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_replyingTo != null) _buildReplyPreview(),
+          if (_pendingImage != null) _buildImagePreview(), // Yeni: resim preview
           Container(
             decoration: BoxDecoration(
               color: SyraColors.surface,
@@ -1335,6 +1410,113 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               child: Icon(
                 Icons.close_rounded,
                 size: 18,
+                color: SyraColors.textMuted,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Pending image preview (ChatGPT/Claude style)
+  Widget _buildImagePreview() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: SyraColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: SyraColors.border,
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          // Resim thumbnail
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              _pendingImage!,
+              width: 60,
+              height: 60,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          
+          // Upload durumu
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  "Fotoğraf",
+                  style: TextStyle(
+                    color: SyraColors.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                if (_pendingImageUrl == null)
+                  Row(
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: SyraColors.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Yükleniyor...",
+                        style: TextStyle(
+                          color: SyraColors.textMuted,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle_rounded,
+                        size: 14,
+                        color: Colors.green,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Hazır",
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+              ],
+            ),
+          ),
+          
+          // Kapat butonu
+          GestureDetector(
+            onTap: _clearPendingImage,
+            child: Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: SyraColors.background,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.close_rounded,
+                size: 16,
                 color: SyraColors.textMuted,
               ),
             ),

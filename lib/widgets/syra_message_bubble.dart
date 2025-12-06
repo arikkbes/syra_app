@@ -10,7 +10,7 @@ import '../theme/syra_theme.dart';
 /// ═══════════════════════════════════════════════════════════════
 
 class SyraMessageBubble extends StatefulWidget {
-  final String text;
+  final String? text; // Artık optional - image mesajlarında text olmayabilir
   final bool isUser;
   final DateTime? time;
   final String? replyToText;
@@ -18,10 +18,11 @@ class SyraMessageBubble extends StatefulWidget {
   final bool hasGreenFlag;
   final VoidCallback? onLongPress;
   final VoidCallback? onSwipeReply;
+  final String? imageUrl; // Yeni: resim URL'i
 
   const SyraMessageBubble({
     super.key,
-    required this.text,
+    this.text,
     required this.isUser,
     this.time,
     this.replyToText,
@@ -29,6 +30,7 @@ class SyraMessageBubble extends StatefulWidget {
     this.hasGreenFlag = false,
     this.onLongPress,
     this.onSwipeReply,
+    this.imageUrl,
   });
 
   @override
@@ -155,6 +157,127 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   Widget _buildMessageContent() {
+    // Eğer resim VE text varsa, ikisini de göster (ChatGPT/Claude style)
+    if (widget.imageUrl != null && widget.text != null && widget.text!.isNotEmpty) {
+      return Column(
+        crossAxisAlignment: widget.isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          // Resim
+          Container(
+            constraints: const BoxConstraints(
+              maxWidth: 280,
+              maxHeight: 350,
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                widget.imageUrl!,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Container(
+                    width: 280,
+                    height: 200,
+                    color: SyraColors.surface,
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                        color: SyraColors.accent,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: 280,
+                    height: 200,
+                    color: SyraColors.surface,
+                    child: const Center(
+                      child: Icon(
+                        Icons.broken_image_rounded,
+                        size: 48,
+                        color: SyraColors.textMuted,
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Text
+          Container(
+            constraints: const BoxConstraints(maxWidth: 280),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: widget.isUser ? SyraColors.userBubbleBg : SyraColors.surface,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              widget.text!,
+              style: SyraTypography.messageText.copyWith(
+                color: widget.isUser 
+                    ? SyraColors.textPrimary 
+                    : SyraColors.textPrimary.withOpacity(0.95),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    
+    // Sadece resim varsa
+    if (widget.imageUrl != null) {
+      return Container(
+        constraints: const BoxConstraints(
+          maxWidth: 280,
+          maxHeight: 350,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            widget.imageUrl!,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: 280,
+                height: 200,
+                color: SyraColors.surface,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                    color: SyraColors.accent,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: 280,
+                height: 200,
+                color: SyraColors.surface,
+                child: const Center(
+                  child: Icon(
+                    Icons.broken_image_rounded,
+                    size: 48,
+                    color: SyraColors.textMuted,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      );
+    }
+
+    // Sadece text varsa (normal mesaj)
     if (widget.isUser) {
       return Container(
         constraints: const BoxConstraints(maxWidth: 300),
@@ -164,7 +287,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
           borderRadius: BorderRadius.circular(18),
         ),
         child: Text(
-          widget.text,
+          widget.text ?? '',
           style: SyraTypography.messageText,
         ),
       );
@@ -173,7 +296,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         constraints: const BoxConstraints(maxWidth: 320),
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Text(
-          widget.text,
+          widget.text ?? '',
           style: SyraTypography.messageText.copyWith(
             color: SyraColors.textPrimary.withOpacity(0.95),
           ),

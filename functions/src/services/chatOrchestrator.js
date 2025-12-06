@@ -32,8 +32,9 @@ import {
  * @param {string} message
  * @param {string} replyTo
  * @param {boolean} isPremium
+ * @param {string} imageUrl - Optional image URL for vision analysis
  */
-export async function processChat(uid, message, replyTo, isPremium) {
+export async function processChat(uid, message, replyTo, isPremium, imageUrl = null) {
   const startTime = Date.now();
 
   // SAFETY: Make sure OpenAI client exists
@@ -60,14 +61,25 @@ export async function processChat(uid, message, replyTo, isPremium) {
 
   // Intent detection
   const intent = detectIntentType(safeMessage, history);
-  const { model, temperature, maxTokens } = getChatConfig(
+  let { model, temperature, maxTokens } = getChatConfig(
     intent,
     isPremium,
     userProfile
   );
 
+  // ═══════════════════════════════════════════════════════════════
+  // VISION MODEL OVERRIDE: Eğer resim varsa, vision destekli model kullan
+  // ═══════════════════════════════════════════════════════════════
+  if (imageUrl) {
+    // gpt-4o veya gpt-4-turbo vision destekliyor
+    if (model === "gpt-4o-mini" || model === "gpt-3.5-turbo") {
+      model = isPremium ? "gpt-4o" : "gpt-4o-mini";
+      console.log(`[${uid}] Model upgraded for vision → ${model}`);
+    }
+  }
+
   console.log(
-    `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}`
+    `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}, Image: ${!!imageUrl}`
   );
 
   // Gender detection
@@ -198,10 +210,36 @@ Cevabını buna göre kurgula.
 
   const recentHistory = history.slice(-10);
 
+  // ═══════════════════════════════════════════════════════════════
+  // VISION SUPPORT: Eğer imageUrl varsa, user message'ı vision formatında gönder
+  // ═══════════════════════════════════════════════════════════════
+  let userMessageContent;
+  
+  if (imageUrl) {
+    // Vision API formatı: content array ile
+    userMessageContent = [
+      {
+        type: "text",
+        text: safeMessage || "Bu resimle ilgili ne düşünüyorsun?",
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: imageUrl,
+          detail: "auto", // "low", "high", "auto"
+        },
+      },
+    ];
+    console.log(`[${uid}] 📸 Image attached to message → Vision mode enabled`);
+  } else {
+    // Normal text message
+    userMessageContent = safeMessage;
+  }
+
   const contextMessages = [
     ...systemMessages,
     ...recentHistory,
-    { role: "user", content: safeMessage },
+    { role: "user", content: userMessageContent },
   ];
 
   let replyText = null;

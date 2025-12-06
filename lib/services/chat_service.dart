@@ -47,6 +47,7 @@ class ChatService {
     required List<Map<String, dynamic>> conversationHistory,
     Map<String, dynamic>? replyingTo,
     required String mode,
+    String? imageUrl, // Yeni: resim URL'i
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -63,17 +64,25 @@ class ChatService {
 
       final uri = Uri.parse(_endpoint);
 
+      // Request body
+      final requestBody = {
+        "message": userMessage,
+        "context": context,
+        "mode": mode,
+      };
+      
+      // Eğer resim varsa ekle
+      if (imageUrl != null && imageUrl.isNotEmpty) {
+        requestBody["imageUrl"] = imageUrl;
+      }
+
       final response = await http.post(
         uri,
         headers: {
           "Content-Type": "application/json",
           "Authorization": "Bearer $idToken",
         },
-        body: jsonEncode({
-          "message": userMessage,
-          "context": context,
-          "mode": mode,
-        }),
+        body: jsonEncode(requestBody),
       ).timeout(
         const Duration(seconds: 30),
         onTimeout: () {

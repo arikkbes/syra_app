@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.3+81
+version: 1.0.3+82
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -27,6 +27,7 @@ dependencies:
   firebase_core: ^3.7.0
   firebase_auth: ^5.7.0
   cloud_firestore: ^5.6.3
+  firebase_storage: ^12.3.6
 
   # 🛒 RevenueCat - En stabil sürüm
   purchases_flutter: ^8.3.0
