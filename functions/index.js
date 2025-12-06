@@ -7,6 +7,7 @@
 
 import { onRequest } from "firebase-functions/v2/https";
 import { syraChatHandler } from "./src/http/syraChatHandler.js";
+import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisHandler.js";
 
 /**
  * Main SYRA chat endpoint
@@ -21,4 +22,17 @@ export const flortIQChat = onRequest(
     memory: "256MiB",
   },
   syraChatHandler
+);
+
+/**
+ * Relationship analysis endpoint
+ * Analyzes uploaded WhatsApp chat files
+ */
+export const analyzeRelationshipChat = onRequest(
+  {
+    cors: true,
+    timeoutSeconds: 300, // 5 minutes for processing
+    memory: "512MiB",
+  },
+  analyzeRelationshipChatHandler
 );
