@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:image_picker/image_picker.dart';
 import '../services/chat_service.dart';
 import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
@@ -12,6 +14,7 @@ import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_message_bubble.dart';
+import '../widgets/mode_switch_sheet.dart';
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
 import 'side_menu_new.dart';
@@ -62,6 +65,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   bool _isTarotMode = false;
 
+  String _selectedMode = "standard";
+
+  // Speech-to-text
+  late stt.SpeechToText _speech;
+  bool _isListening = false;
+
+  // Image picker
+  final ImagePicker _imagePicker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +81,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _initUser();
     _loadChatSessions();
     _createInitialSession(); // İlk oturumu oluştur
+
+    // Speech-to-text başlat
+    _speech = stt.SpeechToText();
 
     // Scroll listener - Kullanıcı manuel scroll yapıyor mu?
     _scrollController.addListener(() {
@@ -360,10 +375,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       const Icon(Icons.image, color: SyraColors.textPrimary),
                   title: const Text('Fotoğraf Seç',
                       style: TextStyle(color: SyraColors.textPrimary)),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
-                    BlurToast.show(
-                        context, "📸 Fotoğraf gönderme özelliği çok yakında!");
+                    final XFile? image = await _imagePicker.pickImage(
+                      source: ImageSource.gallery,
+                    );
+                    if (image != null && mounted) {
+                      BlurToast.show(context, "📸 Fotoğraf seçildi: ${image.name}");
+                    }
                   },
                 ),
                 ListTile(
@@ -371,9 +390,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       color: SyraColors.textPrimary),
                   title: const Text('Kamera',
                       style: TextStyle(color: SyraColors.textPrimary)),
-                  onTap: () {
+                  onTap: () async {
                     Navigator.pop(context);
-                    BlurToast.show(context, "📷 Kamera özelliği çok yakında!");
+                    final XFile? image = await _imagePicker.pickImage(
+                      source: ImageSource.camera,
+                    );
+                    if (image != null && mounted) {
+                      BlurToast.show(context, "📷 Fotoğraf çekildi: ${image.name}");
+                    }
                   },
                 ),
               ],
@@ -385,71 +409,63 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// Handle voice input - ses ile mesaj gönderme
-  void _handleVoiceInput() {
-    BlurToast.show(context, "🎤 Sesli mesaj özelliği çok yakında!");
+  Future<void> _handleVoiceInput() async {
+    if (_isListening) {
+      // Dinleme aktifse durdur
+      await _speech.stop();
+      setState(() => _isListening = false);
+      return;
+    }
+
+    // Speech-to-text izni al ve başlat
+    bool available = await _speech.initialize(
+      onStatus: (status) {
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+      onError: (error) {
+        debugPrint('Speech error: $error');
+        setState(() => _isListening = false);
+        if (mounted) {
+          BlurToast.show(context, "🎤 Ses tanıma hatası: ${error.errorMsg}");
+        }
+      },
+    );
+
+    if (!available) {
+      if (mounted) {
+        BlurToast.show(context, "🎤 Ses tanıma özelliği kullanılamıyor");
+      }
+      return;
+    }
+
+    setState(() => _isListening = true);
+
+    await _speech.listen(
+      onResult: (result) {
+        setState(() {
+          _controller.text = result.recognizedWords;
+        });
+      },
+      localeId: 'tr_TR', // Türkçe dil desteği
+      listenMode: stt.ListenMode.confirmation,
+    );
   }
 
   /// Handle mode selection - mod değiştirme overlay
   void _handleModeSelection() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SyraColors.border),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Mod Seç',
-                    style: TextStyle(
-                      color: SyraColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildModeOption('💬 Standart', 'Genel sohbet modu'),
-                  _buildModeOption('❤️ İlişki', 'İlişki danışmanlığı'),
-                  _buildModeOption('🧠 Psikolojik', 'Derin analiz'),
-                  _buildModeOption('🔮 Tarot', 'Tarot rehberliği'),
-                  const SizedBox(height: 16),
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text(
-                      'İptal',
-                      style: TextStyle(color: SyraColors.textSecondary),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+      backgroundColor: Colors.transparent,
+      builder: (context) => ModeSwitchSheet(
+        selectedMode: _selectedMode,
+        onModeSelected: (String mode) {
+          setState(() {
+            _selectedMode = mode;
+          });
+        },
       ),
-    );
-  }
-
-  Widget _buildModeOption(String title, String subtitle) {
-    return ListTile(
-      title: Text(title, style: const TextStyle(color: SyraColors.textPrimary)),
-      subtitle: Text(subtitle,
-          style:
-              const TextStyle(color: SyraColors.textSecondary, fontSize: 12)),
-      onTap: () {
-        Navigator.pop(context);
-        BlurToast.show(context, "$title modu yakında aktif olacak!");
-      },
     );
   }
 
@@ -607,6 +623,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         userMessage: text,
         conversationHistory: _messages,
         replyingTo: _replyingTo,
+        mode: _selectedMode,
       );
 
       final flags = ChatService.detectManipulation(botText);
@@ -924,7 +941,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Center(
               child: GestureDetector(
                 onTap: _handleModeSelection,
-                child: const SyraLogo(fontSize: 18, showModLabel: true),
+                child: SyraLogo(
+                  fontSize: 18,
+                  showModLabel: true,
+                  selectedMode: _selectedMode,
+                ),
               ),
             ),
           ),
@@ -1127,7 +1148,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         max(
             8.0,
             MediaQuery.of(context).padding.bottom -
-                16), // Safe area'dan 8 çıkar, min 8
+                20), // Safe area'dan 8 çıkar, min 8
       ),
       decoration: BoxDecoration(
         color: SyraColors.background,
@@ -1204,10 +1225,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     width: 44,
                     height: 44,
                     margin: const EdgeInsets.only(bottom: 4),
-                    child: const Icon(
-                      Icons.mic_none_rounded,
-                      color: SyraColors.textMuted,
-                      size: 24,
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      child: Icon(
+                        _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        key: ValueKey(_isListening),
+                        color: _isListening ? SyraColors.accent : SyraColors.textMuted,
+                        size: 24,
+                      ),
                     ),
                   ),
                 ),

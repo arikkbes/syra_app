@@ -38,13 +38,28 @@ class SyraLogo extends StatelessWidget {
   final double fontSize;
   final bool withGlow;
   final bool showModLabel;
+  final String? selectedMode;
 
   const SyraLogo({
     super.key,
     this.fontSize = 22,
     this.withGlow = false, // No glow by default
     this.showModLabel = false,
+    this.selectedMode,
   });
+
+  String _getModeDisplayName(String mode) {
+    switch (mode) {
+      case 'standard':
+        return 'Normal';
+      case 'deep':
+        return 'Derin Analiz';
+      case 'mentor':
+        return 'Dost Acı Söyler';
+      default:
+        return 'Normal';
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -62,7 +77,7 @@ class SyraLogo extends StatelessWidget {
             color: SyraColors.textPrimary,
           ),
         ),
-        if (showModLabel) ...[
+        if (showModLabel && selectedMode != null) ...[
           const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -71,13 +86,24 @@ class SyraLogo extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: SyraColors.border, width: 0.5),
             ),
-            child: Text(
-              "mod",
-              style: TextStyle(
-                fontSize: fontSize * 0.45,
-                fontWeight: FontWeight.w500,
-                color: SyraColors.textMuted,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _getModeDisplayName(selectedMode!),
+                  style: TextStyle(
+                    fontSize: fontSize * 0.45,
+                    fontWeight: FontWeight.w500,
+                    color: SyraColors.textMuted,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: fontSize * 0.55,
+                  color: SyraColors.textMuted,
+                ),
+              ],
             ),
           ),
         ],

@@ -46,6 +46,7 @@ class ChatService {
     required String userMessage,
     required List<Map<String, dynamic>> conversationHistory,
     Map<String, dynamic>? replyingTo,
+    required String mode,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -71,6 +72,7 @@ class ChatService {
         body: jsonEncode({
           "message": userMessage,
           "context": context,
+          "mode": mode,
         }),
       ).timeout(
         const Duration(seconds: 30),
