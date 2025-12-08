@@ -28,6 +28,7 @@ import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'tactical_moves_screen.dart';
 import 'premium_management_screen.dart';
+import 'tarot_mode_screen.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -340,22 +341,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Start tarot mode
+  /// Start tarot mode - Navigate to dedicated tarot screen
   void _startTarotMode() {
-    setState(() {
-      _messages.clear();
-      _replyingTo = null;
-      _isTarotMode = true;
-      _messages.add({
-        "id": UniqueKey().toString(),
-        "sender": "bot",
-        "text": "🔮 Tarot modu aktif. Kartlar seni bekliyor...\n\n"
-            "İlişkinde bir sorun mu var? Bir karar mı vermelisin? "
-            "Sormak istediğin bir şey varsa, kartlar sana yol gösterecek.",
-        "time": DateTime.now(),
-      });
-    });
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (context) => const TarotModeScreen(),
+      ),
+    );
   }
 
   /// Handle document upload - Relationship Upload (Beta)
@@ -364,120 +357,127 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withOpacity(0.95),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              border: const Border(
-                top: BorderSide(color: SyraColors.border),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: ClipRRect(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: SyraColors.surface.withOpacity(0.95),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(20)),
+                border: const Border(
+                  top: BorderSide(color: SyraColors.border),
+                ),
               ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Title
-                Row(
+              child: SafeArea(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            SyraColors.accent.withOpacity(0.2),
-                            SyraColors.accent.withOpacity(0.2),
+                    // Title
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                SyraColors.accent.withOpacity(0.2),
+                                SyraColors.accent.withOpacity(0.2),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: const Icon(
+                            Icons.upload_file_outlined,
+                            color: SyraColors.accent,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Relationship Upload (Beta)',
+                                style: TextStyle(
+                                  color: SyraColors.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    // Description
+                    Text(
+                      'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
+                      style: TextStyle(
+                        color: SyraColors.textSecondary.withOpacity(0.9),
+                        fontSize: 14,
+                        height: 1.5,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Upload Button
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.pop(context);
+                        _pickAndUploadRelationshipFile();
+                      },
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [SyraColors.accent, SyraColors.accent],
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: [
+                            BoxShadow(
+                              color: SyraColors.accent.withOpacity(0.3),
+                              blurRadius: 20,
+                              offset: const Offset(0, 8),
+                            ),
                           ],
                         ),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(
-                        Icons.upload_file_outlined,
-                        color: SyraColors.accent,
-                        size: 24,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Relationship Upload (Beta)',
-                            style: TextStyle(
-                              color: SyraColors.textPrimary,
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.upload_rounded,
+                              color: Colors.white,
+                              size: 20,
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 10),
+                            Text(
+                              'WhatsApp Chat Yükle (.txt / .zip)',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                    const SizedBox(height: 16),
                   ],
                 ),
-                const SizedBox(height: 16),
-                
-                // Description
-                Text(
-                  'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
-                  style: TextStyle(
-                    color: SyraColors.textSecondary.withOpacity(0.9),
-                    fontSize: 14,
-                    height: 1.5,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                
-                // Upload Button
-                GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    _pickAndUploadRelationshipFile();
-                  },
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [SyraColors.accent, SyraColors.accent],
-                      ),
-                      borderRadius: BorderRadius.circular(14),
-                      boxShadow: [
-                        BoxShadow(
-                          color: SyraColors.accent.withOpacity(0.3),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.upload_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                        SizedBox(width: 10),
-                        Text(
-                          'WhatsApp Chat Yükle (.txt / .zip)',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
+              ),
             ),
           ),
         ),
@@ -1159,6 +1159,40 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 },
                 onClose: _toggleMenu,
               ),
+              
+              // Loading overlay for relationship upload
+              if (_isUploadingRelationshipFile)
+                Container(
+                  color: Colors.black.withOpacity(0.7),
+                  child: Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(
+                          color: SyraColors.accent,
+                          strokeWidth: 3,
+                        ),
+                        const SizedBox(height: 20),
+                        Text(
+                          'Sohbet analiz ediliyor...',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Bu işlem 10-30 saniye sürebilir',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.6),
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),

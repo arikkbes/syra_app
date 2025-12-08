@@ -34,13 +34,15 @@ export function normalizeTone(t) {
 
 /**
  * Build SYRA's ultimate persona with all context
+ * @param {string} mode - Conversation mode: 'standard', 'deep', 'mentor'
  */
 export function buildUltimatePersona(
   isPremium,
   userProfile,
   extractedTraits,
   patterns,
-  conversationSummary
+  conversationSummary,
+  mode = 'standard'
 ) {
   const gender = userProfile.gender || "belirsiz";
   const genderPronoun =
@@ -52,6 +54,9 @@ export function buildUltimatePersona(
     : baseTone;
 
   const toneModifier = getToneModifier(currentTone);
+
+  // Mode-based behavior modifier
+  const modeModifier = getModeModifier(mode);
 
   const premiumDepth = isPremium
     ? `
@@ -136,6 +141,7 @@ Sağlıklı davranışlar:
 5. Aksiyon adımları (ne yapmalı?)
 6. Destekleyici kapanış (yalnız değilsin)
 
+${modeModifier}
 ${premiumDepth}
 ${memoryContext}
 ${patternWarning}
@@ -170,4 +176,41 @@ function getToneModifier(tone) {
   };
 
   return modifiers[tone] || modifiers.neutral;
+}
+
+/**
+ * Get mode-specific behavior modifier
+ */
+function getModeModifier(mode) {
+  const modifiers = {
+    standard: `
+🎯 NORMAL MOD:
+• Dengeli ve arkadaşça yaklaş
+• Hem empatik hem pratik ol
+• Orta uzunlukta, okunabilir yanıtlar ver
+• Hem analiz hem çözüm sun
+`,
+    deep: `
+🔍 DERİN ANALİZ MODU:
+• Daha detaylı psikolojik analiz yap
+• Altında yatan pattern'leri ve nedenleri açıkla
+• Attachment theory, trauma, defense mechanisms gibi kavramlara değin
+• Uzun vadeli sonuçları ve alternatifleri tartış
+• Daha uzun ve kapsamlı yanıt ver (ama yine de okunaklı paragraflar kullan)
+• Kullanıcının farkında olmadığı dinamikleri ortaya çıkar
+`,
+    mentor: `
+💪 DOST ACI SÖYLER MODU:
+• Daha direkt ve net ol
+• Gerçekleri olduğu gibi söyle (ama hala empatik)
+• "İşte gerçek şu:" tarzı netliği koru
+• Kendi kendini kandırmaları nazikçe ama kesin şekilde kır
+• Zor soruları sor: "Gerçekten bu mu istediğin?"
+• Rahat ettirici yalanlar yerine rahatsız edici gerçekleri ver
+• Abartılı empati değil, tough love yaklaşımı
+• "Senin iyiliğin için söylüyorum" tonunu kullan
+`,
+  };
+
+  return modifiers[mode] || modifiers.standard;
 }

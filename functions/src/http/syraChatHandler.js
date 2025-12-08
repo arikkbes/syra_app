@@ -67,7 +67,7 @@ export async function syraChatHandler(req, res) {
     }
 
     // Body
-    const { message, context, imageUrl } = req.body || {};
+    const { message, context, imageUrl, mode, tarotContext } = req.body || {};
     if (!message || typeof message !== "string" || !message.trim()) {
       // Eğer sadece resim gönderilmişse ve text yoksa, default mesaj
       if (imageUrl) {
@@ -79,6 +79,15 @@ export async function syraChatHandler(req, res) {
           code: "EMPTY_MESSAGE",
         });
       }
+    }
+
+    // Validate mode
+    const validMode = ['standard', 'deep', 'mentor'].includes(mode) ? mode : 'standard';
+    
+    // Tarot context (if this is a follow-up question about a tarot reading)
+    const hasTarotContext = tarotContext && typeof tarotContext === 'string' && tarotContext.trim();
+    if (hasTarotContext) {
+      console.log(`[${uid}] Tarot follow-up question detected`);
     }
 
     // User profile
@@ -108,7 +117,15 @@ export async function syraChatHandler(req, res) {
     }
 
     // MAIN CHAT PROCESSOR
-    const result = await processChat(uid, message, replyTo, isPremium, imageUrl);
+    const result = await processChat(
+      uid, 
+      message, 
+      replyTo, 
+      isPremium, 
+      imageUrl, 
+      validMode,
+      hasTarotContext ? tarotContext : null
+    );
 
     // Increase user's message count
     incrementMessageCount(uid, userProfile).catch((e) => {

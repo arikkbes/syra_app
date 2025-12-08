@@ -33,8 +33,10 @@ import {
  * @param {string} replyTo
  * @param {boolean} isPremium
  * @param {string} imageUrl - Optional image URL for vision analysis
+ * @param {string} mode - Conversation mode: 'standard', 'deep', 'mentor'
+ * @param {string} tarotContext - Optional tarot reading context for follow-up questions
  */
-export async function processChat(uid, message, replyTo, isPremium, imageUrl = null) {
+export async function processChat(uid, message, replyTo, isPremium, imageUrl = null, mode = 'standard', tarotContext = null) {
   const startTime = Date.now();
 
   // SAFETY: Make sure OpenAI client exists
@@ -45,6 +47,11 @@ export async function processChat(uid, message, replyTo, isPremium, imageUrl = n
 
   // Safe message
   const safeMessage = String(message).slice(0, 5000);
+  
+  // Log tarot context if present
+  if (tarotContext) {
+    console.log(`[${uid}] Processing tarot follow-up question`);
+  }
 
   // Load user + history
   const [userProfile, rawHistory] = await Promise.all([
@@ -56,7 +63,7 @@ export async function processChat(uid, message, replyTo, isPremium, imageUrl = n
   const conversationSummary = rawHistory?.summary || null;
 
   console.log(
-    `[${uid}] Processing - Premium: ${isPremium}, History: ${history.length}, Summary: ${!!conversationSummary}`
+    `[${uid}] Processing - Premium: ${isPremium}, Mode: ${mode}, History: ${history.length}, Summary: ${!!conversationSummary}`
   );
 
   // Intent detection
@@ -155,7 +162,8 @@ export async function processChat(uid, message, replyTo, isPremium, imageUrl = n
     userProfile,
     extractedTraits,
     patterns,
-    conversationSummary
+    conversationSummary,
+    mode
   );
 
   // Reply context
@@ -209,6 +217,16 @@ Cevabını buna göre kurgula.
   }
 
   const recentHistory = history.slice(-10);
+
+  // ═══════════════════════════════════════════════════════════════
+  // TAROT CONTEXT: If this is a follow-up about a tarot reading
+  // ═══════════════════════════════════════════════════════════════
+  if (tarotContext) {
+    systemMessages.push({
+      role: "system",
+      content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, pattern-based, dürüst.`,
+    });
+  }
 
   // ═══════════════════════════════════════════════════════════════
   // VISION SUPPORT: Eğer imageUrl varsa, user message'ı vision formatında gönder
