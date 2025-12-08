@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
 import '../models/chat_session.dart';
+import 'kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA SIDE MENU v3.0 – 2025 AI App Style
@@ -87,6 +88,21 @@ class SideMenuNew extends StatelessWidget {
                         onTarotMode();
                       },
                       isSpecial: true,
+                    ),
+                    const SizedBox(height: 8),
+                    _buildShortcutButton(
+                      context: context,
+                      icon: Icons.analytics_outlined,
+                      label: 'Kim Daha Çok?',
+                      onTap: () {
+                        onClose();
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const KimDahaCokScreen(),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

@@ -26,6 +26,8 @@ import {
   saveConversationHistory,
 } from "../firestore/conversationRepository.js";
 
+import { db as firestore } from "../config/firebaseAdmin.js";
+
 /**
  * MAIN CHAT PROCESSOR
  * @param {string} uid
@@ -226,6 +228,63 @@ Cevabını buna göre kurgula.
       role: "system",
       content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, pattern-based, dürüst.`,
     });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RELATIONSHIP MEMORY: Load uploaded WhatsApp chat context
+  // ═══════════════════════════════════════════════════════════════
+  try {
+    const memorySnap = await firestore.collection("relationship_memory").doc(uid).get();
+    
+    if (memorySnap.exists) {
+      const mem = memorySnap.data() || {};
+      
+      // Check if relationship memory is active
+      if (mem.isActive === false) {
+        console.log(`[${uid}] 📱 Relationship memory exists but isActive=false, skipping context`);
+      } else {
+        // Build compact relationship context
+        let relationshipContext = "📱 RELATIONSHIP MEMORY (WhatsApp Upload)\n\n";
+        relationshipContext += "This user previously uploaded a WhatsApp relationship chat. Summary:\n\n";
+        
+        if (mem.totalMessages) {
+          relationshipContext += `• Total messages: ${mem.totalMessages}\n`;
+        }
+        
+        if (mem.startDate && mem.endDate) {
+          relationshipContext += `• Date range: ${mem.startDate} — ${mem.endDate}\n`;
+        }
+        
+        if (mem.shortSummary) {
+          relationshipContext += `• Short summary: ${mem.shortSummary}\n`;
+        }
+        
+        if (mem.keyMoments && Array.isArray(mem.keyMoments) && mem.keyMoments.length > 0) {
+          relationshipContext += "\n• Key moments:\n";
+          mem.keyMoments.slice(0, 5).forEach((moment) => {
+            relationshipContext += `  • ${moment}\n`;
+          });
+        }
+        
+        relationshipContext += "\nIMPORTANT INSTRUCTIONS:\n";
+        relationshipContext += "• Use this as background context when the user is clearly talking about THIS relationship\n";
+        relationshipContext += "  (e.g., 'my ex', 'that girl from WhatsApp', 'our relationship', etc.).\n";
+        relationshipContext += "• If the user is talking about a completely new person or different situation,\n";
+        relationshipContext += "  use this only as background understanding of their past behavior.\n";
+        relationshipContext += "• DO NOT assume that every new person is the same as this stored relationship.\n";
+        relationshipContext += "• If unsure whether the user is talking about this stored relationship or a new one,\n";
+        relationshipContext += "  politely ask a short clarifying question instead of assuming.\n";
+        
+        systemMessages.push({
+          role: "system",
+          content: relationshipContext,
+        });
+        
+        console.log(`[${uid}] 📱 Relationship memory loaded and added to context (isActive: true)`);
+      }
+    }
+  } catch (memErr) {
+    console.error(`[${uid}] Failed to load relationship memory (non-critical):`, memErr);
   }
 
   // ═══════════════════════════════════════════════════════════════

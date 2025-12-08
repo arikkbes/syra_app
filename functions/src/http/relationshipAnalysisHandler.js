@@ -103,6 +103,7 @@ export async function analyzeRelationshipChatHandler(req, res) {
     console.log(`[${uid}] Analysis completed`);
 
     // Save to Firestore (optional)
+    let analysisDocId = null;
     try {
       const analysisRef = firestore
         .collection("relationship_analyses")
@@ -116,9 +117,30 @@ export async function analyzeRelationshipChatHandler(req, res) {
         userId: uid,
       });
 
+      analysisDocId = analysisRef.id;
       console.log(`[${uid}] Analysis saved to Firestore: ${analysisRef.id}`);
     } catch (firestoreErr) {
       console.error(`[${uid}] Firestore save failed (non-critical):`, firestoreErr);
+    }
+
+    // Save/update relationship memory (per-user summary document)
+    try {
+      const memoryRef = firestore.collection("relationship_memory").doc(uid);
+
+      await memoryRef.set(
+        {
+          ...analysis,
+          lastUploadAt: new Date().toISOString(),
+          source: "whatsapp_upload",
+          lastAnalysisId: analysisDocId,
+          isActive: true, // Reactivate on every upload
+        },
+        { merge: true }
+      );
+
+      console.log(`[${uid}] Relationship memory updated (isActive: true)`);
+    } catch (memoryErr) {
+      console.error(`[${uid}] Relationship memory save failed (non-critical):`, memoryErr);
     }
 
     // Return success response

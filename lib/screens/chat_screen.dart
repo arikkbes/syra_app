@@ -13,8 +13,10 @@ import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
 import '../services/relationship_analysis_service.dart';
+import '../services/relationship_memory_service.dart';
 import '../models/chat_session.dart';
 import '../models/relationship_analysis_result.dart';
+import '../models/relationship_memory.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
@@ -352,7 +354,28 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// Handle document upload - Relationship Upload (Beta)
-  void _handleDocumentUpload() {
+  /// Shows either empty state (upload) or filled state (panel with controls)
+  void _handleDocumentUpload() async {
+    // Close keyboard before starting relationship upload
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+    
+    // Load relationship memory to determine which state to show
+    final memory = await RelationshipMemoryService.getMemory();
+    
+    if (!mounted) return;
+    
+    if (memory == null) {
+      // EMPTY STATE: Show upload dialog
+      _showUploadDialog();
+    } else {
+      // FILLED STATE: Show relationship panel
+      _showRelationshipPanel(memory);
+    }
+  }
+  
+  /// Show empty state upload dialog
+  void _showUploadDialog() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -484,9 +507,64 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
+  
+  /// Show filled state relationship panel
+  void _showRelationshipPanel(RelationshipMemory memory) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => _RelationshipPanelSheet(
+        memory: memory,
+        onUpdate: () {
+          // Refresh panel
+          Navigator.pop(context);
+          _handleDocumentUpload();
+        },
+        onUpload: () {
+          Navigator.pop(context);
+          _pickAndUploadRelationshipFile();
+        },
+        onViewAnalysis: () {
+          Navigator.pop(context);
+          _openAnalysisFromMemory(memory);
+        },
+      ),
+    );
+  }
+  
+  /// Open analysis screen with stored memory data
+  void _openAnalysisFromMemory(RelationshipMemory memory) {
+    // Convert memory to analysis result format
+    final analysisResult = RelationshipAnalysisResult(
+      totalMessages: memory.totalMessages ?? 0,
+      startDate: memory.startDate != null ? DateTime.tryParse(memory.startDate!) : null,
+      endDate: memory.endDate != null ? DateTime.tryParse(memory.endDate!) : null,
+      shortSummary: memory.shortSummary ?? '',
+      energyTimeline: (memory.energyTimeline ?? [])
+          .map((e) => EnergyPoint.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      keyMoments: (memory.keyMoments ?? [])
+          .map((e) => KeyMoment.fromJson(e as Map<String, dynamic>))
+          .toList(),
+    );
+    
+    Navigator.push(
+      context,
+      CupertinoPageRoute(
+        builder: (_) => RelationshipAnalysisResultScreen(
+          analysisResult: analysisResult,
+        ),
+      ),
+    );
+  }
 
   /// Pick and upload relationship file
   Future<void> _pickAndUploadRelationshipFile() async {
+    // Close keyboard before file picker (additional safeguard)
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+    
     try {
       // Pick file
       final result = await FilePicker.platform.pickFiles(
@@ -1747,5 +1825,361 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ],
       ),
     );
+  }
+}
+
+// RELATIONSHIP PANEL SHEET (Filled State)  
+// ═══════════════════════════════════════════════════════════════
+class _RelationshipPanelSheet extends StatefulWidget {
+  final RelationshipMemory memory;
+  final VoidCallback onUpdate;
+  final VoidCallback onUpload;
+  final VoidCallback onViewAnalysis;
+
+  const _RelationshipPanelSheet({
+    required this.memory,
+    required this.onUpdate,
+    required this.onUpload,
+    required this.onViewAnalysis,
+  });
+
+  @override
+  State<_RelationshipPanelSheet> createState() => _RelationshipPanelSheetState();
+}
+
+class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
+  bool _isActive = true;
+  bool _isUpdating = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _isActive = widget.memory.isActive;
+  }
+
+  Future<void> _handleToggle(bool value) async {
+    setState(() {
+      _isUpdating = true;
+    });
+
+    final success = await RelationshipMemoryService.updateIsActive(value);
+
+    if (!mounted) return;
+
+    if (success) {
+      setState(() {
+        _isActive = value;
+        _isUpdating = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            value
+                ? 'İlişki chat\'te kullanılacak'
+                : 'İlişki chat\'te kullanılmayacak',
+          ),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } else {
+      setState(() {
+        _isUpdating = false;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Bir hata oluştu, lütfen tekrar deneyin'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  Future<void> _handleDelete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: SyraColors.surface,
+        title: const Text(
+          'Bu ilişkiyi silmek istiyor musun?',
+          style: TextStyle(color: SyraColors.textPrimary),
+        ),
+        content: const Text(
+          'İlişkiye ait özet ve istatistikler silinecek. SYRA bu ilişkiyi chat\'te artık referans almayacak.',
+          style: TextStyle(color: SyraColors.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('İptal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Colors.red,
+            ),
+            child: const Text('Sil'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    setState(() {
+      _isUpdating = true;
+    });
+
+    final success = await RelationshipMemoryService.deleteMemory();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isUpdating = false;
+    });
+
+    if (success) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('İlişki bilgileri silindi'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Silme işlemi başarısız oldu'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mem = widget.memory;
+    
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: ClipRRect(
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: SyraColors.surface.withOpacity(0.95),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              border: const Border(
+                top: BorderSide(color: SyraColors.border),
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              SyraColors.accent.withOpacity(0.2),
+                              SyraColors.accent.withOpacity(0.2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.favorite_border,
+                          color: SyraColors.accent,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      const Expanded(
+                        child: Text(
+                          'Kayıtlı İlişki',
+                          style: TextStyle(
+                            color: SyraColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Summary
+                  Text(
+                    mem.shortSummary ?? 'Özet mevcut değil',
+                    style: TextStyle(
+                      color: SyraColors.textSecondary.withOpacity(0.9),
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Date range
+                  if (mem.startDate != null && mem.endDate != null)
+                    Text(
+                      '${_formatDate(mem.startDate!)} — ${_formatDate(mem.endDate!)}',
+                      style: TextStyle(
+                        color: SyraColors.textSecondary.withOpacity(0.7),
+                        fontSize: 12,
+                      ),
+                    ),
+                  
+                  const SizedBox(height: 20),
+                  const Divider(color: SyraColors.border, height: 1),
+                  const SizedBox(height: 16),
+                  
+                  // Toggle switch
+                  Container(
+                    decoration: BoxDecoration(
+                      color: SyraColors.background.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SyraColors.border.withOpacity(0.3)),
+                    ),
+                    child: SwitchListTile(
+                      title: const Text(
+                        'Chat\'te kullan',
+                        style: TextStyle(
+                          color: SyraColors.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      subtitle: Text(
+                        _isActive
+                            ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
+                            : 'Veri saklanır ama chat\'te referans alınmaz',
+                        style: TextStyle(
+                          color: SyraColors.textSecondary.withOpacity(0.8),
+                          fontSize: 12,
+                        ),
+                      ),
+                      value: _isActive,
+                      onChanged: _isUpdating ? null : _handleToggle,
+                      activeColor: SyraColors.accent,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onViewAnalysis,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [SyraColors.accent, SyraColors.accent],
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.analytics_outlined, color: Colors.white, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Detaylı Analiz',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: widget.onUpload,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            decoration: BoxDecoration(
+                              color: SyraColors.background.withOpacity(0.5),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: SyraColors.border),
+                            ),
+                            child: const Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.refresh, color: SyraColors.textSecondary, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Sohbeti Güncelle',
+                                  style: TextStyle(
+                                    color: SyraColors.textSecondary,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Delete button
+                  Center(
+                    child: TextButton(
+                      onPressed: _isUpdating ? null : _handleDelete,
+                      child: Text(
+                        'Bu ilişkiyi unut',
+                        style: TextStyle(
+                          color: Colors.red.withOpacity(0.8),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  String _formatDate(String isoDate) {
+    try {
+      final date = DateTime.parse(isoDate);
+      return '${date.day}.${date.month}.${date.year}';
+    } catch (e) {
+      return isoDate;
+    }
   }
 }

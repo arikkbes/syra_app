@@ -17,7 +17,7 @@ service cloud.firestore {
       // kendi profilini oku / oluştur / güncelle
       allow read, create, update: if isOwner(userId);
 
-      // hesabı silmeyi client’a vermiyoruz (ileride istersen açarız)
+      // hesabı silmeyi client'a vermiyoruz (ileride istersen açarız)
       allow delete: if false;
 
       // /users/{uid}/chat_sessions/{sessionId}
@@ -44,6 +44,40 @@ service cloud.firestore {
       match /profile_memory/{traitId} {
         allow read, create, update, delete: if isOwner(userId);
       }
+    }
+
+    // ───────────── RELATIONSHIP ANALYSES (MODÜL 2 & 3) ─────────────
+    // /relationship_analyses/{uid}/analyses/{analysisId}
+    match /relationship_analyses/{userId} {
+      // Ana dokümanı sadece backend yazabilir (Cloud Functions)
+      allow read: if isOwner(userId);
+      allow write: if false; // Client'tan yazma yok
+      
+      // Subcollection: analyses
+      match /analyses/{analysisId} {
+        // Kullanıcı kendi analizlerini okuyabilir
+        allow read: if isOwner(userId);
+        // Sadece backend (Cloud Functions) yazabilir
+        allow write: if false;
+      }
+    }
+
+    // ───────────── RELATIONSHIP MEMORY (MODÜL 2 & 4B) ─────────────
+    // /relationship_memory/{uid}
+    match /relationship_memory/{userId} {
+      // Kullanıcı kendi memory dokümanını okuyabilir
+      allow read: if isOwner(userId);
+      
+      // UPDATE: Module 4B için toggle switch çalışması için
+      // Sadece isActive field'ını güncellemeye izin ver
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']);
+      
+      // DELETE: Module 4B için "ilişkiyi unut" butonu çalışması için
+      allow delete: if isOwner(userId);
+      
+      // CREATE: Sadece backend (Cloud Functions) yazabilir
+      allow create: if false;
     }
 
     // Her ihtimale karşı geri kalan her şeyi kapat

@@ -33,8 +33,16 @@ export async function analyzeWhatsAppChat(chatText) {
       "date": "<tarih varsa ISO format, yoksa null>"
     }
     // 3-5 nokta
-  ]
+  ],
+  "stats": {
+    "whoSentMoreMessages": "<'user', 'partner' veya 'balanced'>",
+    "whoSaidILoveYouMore": "<'user', 'partner', 'balanced' veya 'none'>",
+    "whoApologizedMore": "<'user', 'partner', 'balanced' veya 'none'>",
+    "whoUsedMoreEmojis": "<'user', 'partner', 'balanced' veya 'none'>"
+  }
 }
+
+NOT: 'user' sohbeti yükleyen kişidir (genellikle ilk isim), 'partner' ise karşı taraftır.
 
 Sohbet:
 ---
@@ -79,6 +87,12 @@ ${chatText}
       keyMoments: Array.isArray(analysis.keyMoments)
         ? analysis.keyMoments
         : [],
+      stats: {
+        whoSentMoreMessages: analysis.stats?.whoSentMoreMessages || "balanced",
+        whoSaidILoveYouMore: analysis.stats?.whoSaidILoveYouMore || "none",
+        whoApologizedMore: analysis.stats?.whoApologizedMore || "none",
+        whoUsedMoreEmojis: analysis.stats?.whoUsedMoreEmojis || "none",
+      },
     };
   } catch (error) {
     console.error("analyzeWhatsAppChat error:", error);
@@ -91,6 +105,12 @@ ${chatText}
       shortSummary: "Analiz tamamlandı ancak detaylı sonuç alınamadı.",
       energyTimeline: [],
       keyMoments: [],
+      stats: {
+        whoSentMoreMessages: "balanced",
+        whoSaidILoveYouMore: "none",
+        whoApologizedMore: "none",
+        whoUsedMoreEmojis: "none",
+      },
     };
   }
 }
