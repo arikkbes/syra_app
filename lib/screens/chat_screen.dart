@@ -49,6 +49,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final List<Map<String, dynamic>> _messages = [];
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final FocusNode _inputFocusNode = FocusNode();
 
   bool _isPremium = false;
   int _dailyLimit = 10;
@@ -84,7 +85,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   // Image picker
   final ImagePicker _imagePicker = ImagePicker();
-  
+
   // Pending image (resim seçilmiş ama henüz gönderilmemiş)
   File? _pendingImage;
   String? _pendingImageUrl; // Upload edilmiş URL (gönderilmeyi bekliyor)
@@ -92,6 +93,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // Relationship upload
   bool _isUploadingRelationshipFile = false;
 
+  // LayerLink for anchored mode selector popover
+  // This anchors the mode selector popover to the mode label in the app bar
+  final LayerLink _modeAnchorLink = LayerLink();
 
   @override
   void initState() {
@@ -212,6 +216,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _menuController.dispose();
     _controller.dispose();
     _scrollController.dispose();
+    _inputFocusNode.dispose();
     super.dispose();
   }
 
@@ -239,7 +244,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     HapticFeedback.selectionClick();
 
     final isImageMessage = msg["imageUrl"] != null;
-    
+
     final actions = <SyraContextAction>[
       SyraContextAction(
         icon: Icons.reply_rounded,
@@ -249,7 +254,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         },
       ),
     ];
-    
+
     // Sadece text mesajlar için kopyala
     if (!isImageMessage) {
       actions.add(
@@ -266,7 +271,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
       );
     }
-    
+
     actions.addAll([
       SyraContextAction(
         icon: Icons.share_rounded,
@@ -336,12 +341,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Close keyboard before starting relationship upload
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
-    
+
     // Load relationship memory to determine which state to show
     final memory = await RelationshipMemoryService.getMemory();
-    
+
     if (!mounted) return;
-    
+
     if (memory == null) {
       // EMPTY STATE: Show upload dialog
       _showUploadDialog();
@@ -350,7 +355,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _showRelationshipPanel(memory);
     }
   }
-  
+
   /// Show empty state upload dialog
   void _showUploadDialog() {
     SyraBottomPanel.show(
@@ -452,7 +457,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
-  
+
   /// Show filled state relationship panel
   void _showRelationshipPanel(RelationshipMemory memory) {
     SyraBottomPanel.show(
@@ -475,14 +480,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
-  
+
   /// Open analysis screen with stored memory data
   void _openAnalysisFromMemory(RelationshipMemory memory) {
     // Convert memory to analysis result format
     final analysisResult = RelationshipAnalysisResult(
       totalMessages: memory.totalMessages ?? 0,
-      startDate: memory.startDate != null ? DateTime.tryParse(memory.startDate!) : null,
-      endDate: memory.endDate != null ? DateTime.tryParse(memory.endDate!) : null,
+      startDate: memory.startDate != null
+          ? DateTime.tryParse(memory.startDate!)
+          : null,
+      endDate:
+          memory.endDate != null ? DateTime.tryParse(memory.endDate!) : null,
       shortSummary: memory.shortSummary ?? '',
       energyTimeline: (memory.energyTimeline ?? [])
           .map((e) => EnergyPoint.fromJson(e as Map<String, dynamic>))
@@ -491,7 +499,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           .map((e) => KeyMoment.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
-    
+
     Navigator.push(
       context,
       CupertinoPageRoute(
@@ -507,7 +515,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Close keyboard before file picker (additional safeguard)
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
-    
+
     try {
       // Pick file
       final result = await FilePicker.platform.pickFiles(
@@ -521,7 +529,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
 
       final file = File(result.files.single.path!);
-      
+
       if (!mounted) return;
 
       // Show loading state
@@ -530,7 +538,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
 
       // Upload and analyze
-      final analysisResult = await RelationshipAnalysisService.analyzeChat(file);
+      final analysisResult =
+          await RelationshipAnalysisService.analyzeChat(file);
 
       if (!mounted) return;
 
@@ -552,7 +561,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       );
     } catch (e) {
       debugPrint('_pickAndUploadRelationshipFile error: $e');
-      
+
       if (!mounted) return;
 
       setState(() {
@@ -585,7 +594,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             },
           ),
           ListTile(
-            leading: const Icon(Icons.camera_alt, color: SyraColors.textPrimary),
+            leading:
+                const Icon(Icons.camera_alt, color: SyraColors.textPrimary),
             title: const Text(
               'Kamera',
               style: TextStyle(color: SyraColors.textPrimary),
@@ -621,7 +631,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       // Arka planda Firebase'e upload et
       _uploadPendingImage();
-      
     } catch (e) {
       debugPrint("_pickImageForPreview error: $e");
       if (mounted) {
@@ -636,7 +645,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     try {
       final imageUrl = await ImageUploadService.uploadImage(_pendingImage!);
-      
+
       if (imageUrl != null && mounted) {
         setState(() {
           _pendingImageUrl = imageUrl;
@@ -709,10 +718,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// Handle mode selection - mod değiştirme overlay
+  /// Uses anchored popover positioned below the mode label in app bar
   void _handleModeSelection() {
     showSyraPopover<String>(
       context: context,
-      alignment: Alignment.topCenter,
+      // Use anchored positioning instead of alignment
+      anchorLink: _modeAnchorLink,
+      anchorOffset: 8.0, // 8px below the mode label
       title: 'KONUŞMA MODU',
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -830,7 +842,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     // Pending image'ı backup'la ve temizle
     final String? imageUrlToSend = _pendingImageUrl;
-    
+
     final userMessage = {
       "id": msgId,
       "sender": "user",
@@ -851,7 +863,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _isLoading = true;
       _isSending = true; // Gönderme başladı
       _messageCount++;
-      
+
       // Pending image'ı temizle
       _pendingImage = null;
       _pendingImageUrl = null;
@@ -1200,7 +1212,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 },
                 onClose: _toggleMenu,
               ),
-              
+
               // Loading overlay for relationship upload
               if (_isUploadingRelationshipFile)
                 Container(
@@ -1256,7 +1268,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
       child: Row(
         children: [
-          GestureDetector(
+          _TapScale(
             onTap: _toggleMenu,
             child: Container(
               width: 40,
@@ -1277,7 +1289,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               child: _buildModeTrigger(),
             ),
           ),
-          GestureDetector(
+          _TapScale(
             onTap: _handleDocumentUpload,
             child: Container(
               width: 40,
@@ -1299,6 +1311,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// Mode selector trigger in the top bar
+  /// Wrapped with CompositedTransformTarget to anchor the mode popover
   Widget _buildModeTrigger() {
     String modeLabel;
     switch (_selectedMode) {
@@ -1312,52 +1325,56 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         modeLabel = 'Normal';
     }
 
-    return GestureDetector(
-      onTap: _handleModeSelection,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'SYRA',
-              style: TextStyle(
-                fontFamily: 'SF Pro Display',
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.4,
-                color: SyraColors.textPrimary,
+    // Wrap with CompositedTransformTarget to anchor the popover
+    return CompositedTransformTarget(
+      link: _modeAnchorLink,
+      child: GestureDetector(
+        onTap: _handleModeSelection,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: SyraTokens.paddingSm,
+            vertical: SyraTokens.paddingXs - 2,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(SyraTokens.radiusSm),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'SYRA',
+                style: SyraTokens.titleSm.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.4,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Container(
-              width: 3,
-              height: 3,
-              decoration: BoxDecoration(
-                color: SyraColors.textSecondary.withOpacity(0.6),
-                shape: BoxShape.circle,
+              const SizedBox(width: 6),
+              Container(
+                width: 3,
+                height: 3,
+                decoration: BoxDecoration(
+                  color: SyraTokens.textSecondary.withOpacity(0.6),
+                  shape: BoxShape.circle,
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
-            Text(
-              modeLabel,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: SyraColors.textSecondary,
+              const SizedBox(width: 6),
+              Text(
+                modeLabel,
+                style: SyraTokens.bodyMd.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: SyraTokens.textSecondary,
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.expand_more_rounded,
-              size: 18,
-              color: SyraColors.textSecondary,
-            ),
-          ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.expand_more_rounded,
+                size: 18,
+                color: SyraTokens.textSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1366,51 +1383,145 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   /// Empty state with centered logo
   Widget _buildEmptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Image.asset(
-            'assets/icon/syra.png',
-            width: 100,
-            height: 100,
-            color: SyraColors.textPrimary.withOpacity(0.15),
-            colorBlendMode: BlendMode.srcIn,
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: SyraColors.textPrimary.withOpacity(0.15),
-                    width: 2,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Logo - Daha belirgin ve premium
+            Image.asset(
+              'assets/icon/syra.png',
+              width: 120,
+              height: 120,
+              color: SyraColors.accent.withOpacity(0.3),
+              colorBlendMode: BlendMode.srcIn,
+              errorBuilder: (context, error, stackTrace) {
+                return Container(
+                  width: 120,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        SyraColors.accent.withOpacity(0.2),
+                        SyraColors.accent.withOpacity(0.1),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: SyraColors.accent.withOpacity(0.2),
+                        blurRadius: 30,
+                        spreadRadius: 5,
+                      ),
+                    ],
                   ),
-                ),
-                child: Center(
-                  child: Text(
-                    _isTarotMode ? "🔮" : "S",
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.w300,
-                      color: SyraColors.textPrimary.withOpacity(0.15),
+                  child: Center(
+                    child: Text(
+                      _isTarotMode ? "🔮" : "S",
+                      style: TextStyle(
+                        fontSize: 56,
+                        fontWeight: FontWeight.w300,
+                        color: SyraColors.accent.withOpacity(0.5),
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 24),
-          Text(
-            _isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
-            style: TextStyle(
-              color: _isTarotMode ? SyraColors.accent : SyraColors.textMuted,
-              fontSize: 16,
-              fontWeight: FontWeight.w400,
+                );
+              },
             ),
-          ),
-        ],
+            const SizedBox(height: 32),
+
+            // Hero Title
+            Text(
+              _isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
+              style: TextStyle(
+                color:
+                    _isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                letterSpacing: -0.3,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+
+            // Subtitle
+            Text(
+              _isTarotMode
+                  ? "İstersen önce birkaç cümleyle durumu anlat."
+                  : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
+              style: const TextStyle(
+                color: SyraColors.textMuted,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 40),
+
+            // Suggestion Chips
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: _buildSuggestionChips(),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  List<Widget> _buildSuggestionChips() {
+    final List<String> suggestions = _isTarotMode
+        ? [
+            "Son konuşmamı kartlarla yorumla",
+            "İlişkim için genel tarot açılımı yap",
+            "Bugün için kart çek",
+          ]
+        : [
+            "İlişki mesajımı analiz et",
+            "İlk mesaj taktiği ver",
+            "Konuşmamın enerjisini değerlendir",
+          ];
+
+    return suggestions.map((text) {
+      return GestureDetector(
+        onTap: () {
+          setState(() {
+            _controller.text = text;
+          });
+          _inputFocusNode.requestFocus();
+          // Cursor'u sonuna götür
+          _controller.selection = TextSelection.fromPosition(
+            TextPosition(offset: _controller.text.length),
+          );
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: SyraColors.surface.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: SyraColors.divider.withOpacity(0.3),
+              width: 1,
+            ),
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(
+              color: SyraColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildMessageList() {
@@ -1435,37 +1546,40 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 30
             : 0;
 
-        return GestureDetector(
-          onLongPress: () => _showMessageMenu(context, msg),
-          onHorizontalDragUpdate: (details) {
-            if (details.delta.dx > 0) {
+        return _AnimatedMessageItem(
+          animationKey: ValueKey(msg["id"] ?? index),
+          child: GestureDetector(
+            onLongPress: () => _showMessageMenu(context, msg),
+            onHorizontalDragUpdate: (details) {
+              if (details.delta.dx > 0) {
+                setState(() {
+                  _swipedMessageId = msg["id"];
+                  _swipeOffset = (_swipeOffset + details.delta.dx).clamp(0, 30);
+                });
+              }
+            },
+            onHorizontalDragEnd: (_) {
+              if (_swipeOffset > 18) {
+                setState(() => _replyingTo = msg);
+              }
               setState(() {
-                _swipedMessageId = msg["id"];
-                _swipeOffset = (_swipeOffset + details.delta.dx).clamp(0, 30);
+                _swipeOffset = 0;
+                _swipedMessageId = null;
               });
-            }
-          },
-          onHorizontalDragEnd: (_) {
-            if (_swipeOffset > 18) {
-              setState(() => _replyingTo = msg);
-            }
-            setState(() {
-              _swipeOffset = 0;
-              _swipedMessageId = null;
-            });
-          },
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 90),
-            transform: Matrix4.translationValues(effectiveOffset, 0, 0),
-            child: SyraMessageBubble(
-              text: msg["text"],
-              isUser: isUser,
-              time: msg["time"] is DateTime ? msg["time"] : null,
-              replyToText: msg["replyTo"],
-              hasRedFlag: !isUser && (msg['hasRed'] == true),
-              hasGreenFlag: !isUser && (msg['hasGreen'] == true),
-              onLongPress: () => _showMessageMenu(context, msg),
-              imageUrl: msg["imageUrl"], // Yeni: resim URL'i
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 90),
+              transform: Matrix4.translationValues(effectiveOffset, 0, 0),
+              child: SyraMessageBubble(
+                text: msg["text"],
+                isUser: isUser,
+                time: msg["time"] is DateTime ? msg["time"] : null,
+                replyToText: msg["replyTo"],
+                hasRedFlag: !isUser && (msg['hasRed'] == true),
+                hasGreenFlag: !isUser && (msg['hasGreen'] == true),
+                onLongPress: () => _showMessageMenu(context, msg),
+                imageUrl: msg["imageUrl"], // Yeni: resim URL'i
+              ),
             ),
           ),
         );
@@ -1532,9 +1646,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget _buildInputBar() {
     // Text field içeriğini dinle
     final bool hasText = _controller.text.trim().isNotEmpty;
-    final bool isUploadingImage = _pendingImage != null && _pendingImageUrl == null; // Resim yükleniyor
-    final bool hasPendingImage = _pendingImage != null && _pendingImageUrl != null; // Resim hazır
-    final bool canSend = (hasText || hasPendingImage) && !_isSending && !_isLoading && !isUploadingImage;
+    final bool isUploadingImage =
+        _pendingImage != null && _pendingImageUrl == null; // Resim yükleniyor
+    final bool hasPendingImage =
+        _pendingImage != null && _pendingImageUrl != null; // Resim hazır
+    final bool canSend = (hasText || hasPendingImage) &&
+        !_isSending &&
+        !_isLoading &&
+        !isUploadingImage;
+
+    // Focus/active state
+    final bool isFocused = _inputFocusNode.hasFocus;
+    final bool isActive = isFocused || hasText || hasPendingImage;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -1559,20 +1682,34 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (_replyingTo != null) _buildReplyPreview(),
-          if (_pendingImage != null) _buildImagePreview(), // Yeni: resim preview
-          Container(
+          if (_pendingImage != null)
+            _buildImagePreview(), // Yeni: resim preview
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
             decoration: BoxDecoration(
-              color: SyraColors.surface,
+              color: isActive ? SyraColors.surfaceLight : SyraColors.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
-                color: SyraColors.border,
-                width: 0.5,
+                color: isActive
+                    ? SyraColors.accent.withOpacity(0.8)
+                    : SyraColors.border,
+                width: isActive ? 1.2 : 0.5,
               ),
+              boxShadow: isActive
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.45),
+                        blurRadius: 22,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : [],
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                GestureDetector(
+                _TapScale(
                   onTap: _handleAttachment,
                   child: Container(
                     width: 44,
@@ -1589,6 +1726,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    focusNode: _inputFocusNode,
                     enabled: !_isSending,
                     maxLines: 5,
                     minLines: 1,
@@ -1616,7 +1754,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
 
-                GestureDetector(
+                _TapScale(
                   onTap: _handleVoiceInput,
                   child: Container(
                     width: 44,
@@ -1625,9 +1763,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
                       child: Icon(
-                        _isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
+                        _isListening
+                            ? Icons.mic_rounded
+                            : Icons.mic_none_rounded,
                         key: ValueKey(_isListening),
-                        color: _isListening ? SyraColors.accent : SyraColors.textMuted,
+                        color: _isListening
+                            ? SyraColors.accent
+                            : SyraColors.textMuted,
                         size: 24,
                       ),
                     ),
@@ -1635,7 +1777,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
 
                 // Send button with smooth animation
-                GestureDetector(
+                _TapScale(
                   onTap: canSend ? _sendMessage : null,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 200),
@@ -1767,7 +1909,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
           const SizedBox(width: 12),
-          
+
           // Upload durumu
           Expanded(
             child: Column(
@@ -1826,7 +1968,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ],
             ),
           ),
-          
+
           // Kapat butonu
           GestureDetector(
             onTap: _clearPendingImage,
@@ -1849,7 +1991,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 }
 
-// RELATIONSHIP PANEL SHEET (Filled State)  
+// RELATIONSHIP PANEL SHEET (Filled State)
 // ═══════════════════════════════════════════════════════════════
 class _RelationshipPanelSheet extends StatefulWidget {
   final RelationshipMemory memory;
@@ -1865,7 +2007,8 @@ class _RelationshipPanelSheet extends StatefulWidget {
   });
 
   @override
-  State<_RelationshipPanelSheet> createState() => _RelationshipPanelSheetState();
+  State<_RelationshipPanelSheet> createState() =>
+      _RelationshipPanelSheetState();
 }
 
 class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
@@ -1892,7 +2035,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
         _isActive = value;
         _isUpdating = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -1907,7 +2050,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
       setState(() {
         _isUpdating = false;
       });
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Bir hata oluştu, lütfen tekrar deneyin'),
@@ -1981,7 +2124,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
   @override
   Widget build(BuildContext context) {
     final mem = widget.memory;
-    
+
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -2047,7 +2190,8 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
             decoration: BoxDecoration(
               color: SyraColors.background.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: SyraColors.border.withValues(alpha: 0.3)),
+              border:
+                  Border.all(color: SyraColors.border.withValues(alpha: 0.3)),
             ),
             child: SwitchListTile(
               title: const Text(
@@ -2089,7 +2233,8 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.analytics_outlined, color: Colors.white, size: 18),
+                        Icon(Icons.analytics_outlined,
+                            color: Colors.white, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'Detaylı Analiz',
@@ -2122,7 +2267,8 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.refresh, color: SyraColors.textSecondary, size: 18),
+                        Icon(Icons.refresh,
+                            color: SyraColors.textSecondary, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'Sohbeti Güncelle',
@@ -2156,7 +2302,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
       ),
     );
   }
-  
+
   String _formatDate(String isoDate) {
     try {
       final date = DateTime.parse(isoDate);
@@ -2164,5 +2310,118 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
     } catch (e) {
       return isoDate;
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Tap Scale Widget - Micro-interaction for tap feedback
+// ═══════════════════════════════════════════════════════════════
+class _TapScale extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+
+  const _TapScale({
+    required this.child,
+    this.onTap,
+  });
+
+  @override
+  State<_TapScale> createState() => _TapScaleState();
+}
+
+class _TapScaleState extends State<_TapScale> {
+  double _scale = 1.0;
+
+  void _setPressed(bool pressed) {
+    setState(() {
+      _scale = pressed ? 0.94 : 1.0;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => _setPressed(true),
+      onTapCancel: () => _setPressed(false),
+      onTapUp: (_) {
+        _setPressed(false);
+        if (widget.onTap != null) {
+          HapticFeedback.selectionClick();
+          widget.onTap!();
+        }
+      },
+      child: AnimatedScale(
+        scale: _scale,
+        duration: const Duration(milliseconds: 90),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Animated Message Item - Entrance animation for messages
+// ═══════════════════════════════════════════════════════════════
+class _AnimatedMessageItem extends StatefulWidget {
+  final Widget child;
+  final Key? animationKey;
+
+  const _AnimatedMessageItem({
+    required this.child,
+    this.animationKey,
+  });
+
+  @override
+  State<_AnimatedMessageItem> createState() => _AnimatedMessageItemState();
+}
+
+class _AnimatedMessageItemState extends State<_AnimatedMessageItem>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+  late final Animation<Offset> _offset;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 220),
+    );
+
+    _opacity = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeOut,
+    );
+
+    _offset = Tween<Offset>(
+      begin: const Offset(0, 0.15),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeOut,
+      ),
+    );
+
+    _controller.forward();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _opacity,
+      child: SlideTransition(
+        position: _offset,
+        child: widget.child,
+      ),
+    );
   }
 }

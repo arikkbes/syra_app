@@ -32,8 +32,9 @@ class SyraContextAction {
 /// Features:
 /// - Aligned near bottom center
 /// - Very light background dim
-/// - Compact card with proper spacing
-/// - Smooth slide-up animation
+/// - Premium card with glassmorphism
+/// - Smooth slide-up + fade animation
+/// - Calm, comfortable spacing
 class SyraContextMenu extends StatelessWidget {
   /// List of actions to display
   final List<SyraContextAction> actions;
@@ -56,41 +57,68 @@ class SyraContextMenu extends StatelessWidget {
         constraints: const BoxConstraints(
           maxWidth: 400,
         ),
-        decoration: BoxDecoration(
-          color: SyraTokens.card.withOpacity(0.98),
-          borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
-          border: Border.all(
-            color: SyraTokens.borderSubtle,
-            width: 1,
-          ),
-          boxShadow: SyraTokens.shadowMedium,
-        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: actions
-                .asMap()
-                .entries
-                .map((entry) {
-                  final index = entry.key;
-                  final action = entry.value;
-                  
-                  return Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _ContextMenuItem(action: action),
+          child: BackdropFilter(
+            // Subtle blur inside the sheet for glass effect
+            filter: ImageFilter.blur(
+              sigmaX: SyraTokens.blurMedium,
+              sigmaY: SyraTokens.blurMedium,
+            ),
+            child: Container(
+              decoration: BoxDecoration(
+                // Premium semi-transparent background
+                color: SyraTokens.card.withOpacity(0.96),
+                borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
+                border: Border.all(
+                  color: SyraTokens.borderSubtle,
+                  width: 1,
+                ),
+                // Very subtle shadow for depth
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                    spreadRadius: 0,
+                  ),
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                    spreadRadius: 0,
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: actions
+                    .asMap()
+                    .entries
+                    .map((entry) {
+                      final index = entry.key;
+                      final action = entry.value;
                       
-                      // Divider between items (but not after the last one)
-                      if (index < actions.length - 1)
-                        Container(
-                          height: 1,
-                          color: SyraTokens.divider,
-                        ),
-                    ],
-                  );
-                })
-                .toList(),
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _ContextMenuItem(action: action),
+                          
+                          // Divider between items (but not after the last one)
+                          if (index < actions.length - 1)
+                            Container(
+                              height: 1,
+                              margin: const EdgeInsets.symmetric(
+                                horizontal: SyraTokens.paddingMd,
+                              ),
+                              color: SyraTokens.divider,
+                            ),
+                        ],
+                      );
+                    })
+                    .toList(),
+              ),
+            ),
           ),
         ),
       ),
@@ -106,9 +134,14 @@ class _ContextMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Destructive actions use error color with slightly bolder text
     final textColor = action.isDestructive
         ? SyraTokens.error
         : SyraTokens.textPrimary;
+    
+    final fontWeight = action.isDestructive
+        ? FontWeight.w500  // Slightly bolder for destructive actions
+        : FontWeight.w400;
 
     return Material(
       color: Colors.transparent,
@@ -119,21 +152,29 @@ class _ContextMenuItem extends StatelessWidget {
           // Then execute the action
           action.onTap();
         },
+        // Subtle hover/press feedback
+        splashColor: action.isDestructive
+            ? SyraTokens.error.withOpacity(0.1)
+            : SyraTokens.accent.withOpacity(0.05),
+        highlightColor: action.isDestructive
+            ? SyraTokens.error.withOpacity(0.05)
+            : SyraTokens.accent.withOpacity(0.03),
         child: Container(
+          // Comfortable vertical padding for easy tapping
           padding: const EdgeInsets.symmetric(
-            horizontal: SyraTokens.paddingLg,
-            vertical: SyraTokens.paddingMd,
+            horizontal: SyraTokens.paddingMd,
+            vertical: SyraTokens.paddingSm + 2, // 14px for comfortable touch
           ),
           child: Row(
             children: [
-              // Icon
+              // Icon - size 20 for consistency
               Icon(
                 action.icon,
                 size: 20,
                 color: textColor,
               ),
               
-              const SizedBox(width: SyraTokens.paddingMd),
+              const SizedBox(width: SyraTokens.paddingSm),
               
               // Label
               Expanded(
@@ -141,6 +182,7 @@ class _ContextMenuItem extends StatelessWidget {
                   action.label,
                   style: SyraTokens.bodyMd.copyWith(
                     color: textColor,
+                    fontWeight: fontWeight,
                   ),
                 ),
               ),
@@ -181,35 +223,31 @@ Future<T?> showSyraContextMenu<T>({
     context: context,
     barrierDismissible: true,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
-    barrierColor: Colors.black.withOpacity(0.1), // Very light dim
+    // Very subtle background dim - calm, not aggressive
+    barrierColor: Colors.black.withOpacity(SyraTokens.dimLight),
     transitionDuration: SyraTokens.animFast,
     pageBuilder: (context, animation, secondaryAnimation) {
       return SyraContextMenu(actions: actions);
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      // Subtle blur
-      return BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: SyraTokens.blurSubtle * animation.value * 0.5,
-          sigmaY: SyraTokens.blurSubtle * animation.value * 0.5,
+      // Smooth slide up from slightly below + fade
+      // Duration: ~160ms with ease-out curve for snappy feel
+      return FadeTransition(
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: SyraTokens.curveDecelerate,
         ),
-        child: FadeTransition(
-          opacity: CurvedAnimation(
+        child: SlideTransition(
+          position: CurvedAnimation(
             parent: animation,
-            curve: SyraTokens.curveDecelerate,
-          ),
-          child: SlideTransition(
-            position: CurvedAnimation(
-              parent: animation,
-              curve: SyraTokens.curveEmphasize,
-            ).drive(
-              Tween<Offset>(
-                begin: const Offset(0, 0.1),
-                end: Offset.zero,
-              ),
+            curve: SyraTokens.curveEmphasize, // Smooth ease-out cubic
+          ).drive(
+            Tween<Offset>(
+              begin: const Offset(0, 0.03), // Slight slide from below (12px at typical height)
+              end: Offset.zero,
             ),
-            child: child,
           ),
+          child: child,
         ),
       );
     },

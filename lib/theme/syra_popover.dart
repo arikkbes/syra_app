@@ -9,9 +9,10 @@ import 'syra_tokens.dart';
 /// 
 /// Features:
 /// - Compact size with max width
-/// - Light background dim
-/// - Optional subtle blur
-/// - Smooth fade + scale animation
+/// - Blur lives INSIDE the card (not the background)
+/// - Very subtle background dim (no heavy blur)
+/// - Smooth fade + scale + slight slide animation
+/// - Optional anchored positioning (for app bar labels, etc.)
 class SyraPopover extends StatelessWidget {
   /// Optional title displayed at the top
   final String? title;
@@ -22,7 +23,7 @@ class SyraPopover extends StatelessWidget {
   /// Maximum width of the popover (default: 340)
   final double maxWidth;
   
-  /// Alignment of the popover on screen
+  /// Alignment of the popover on screen (when not anchored)
   final Alignment alignment;
 
   const SyraPopover({
@@ -47,17 +48,60 @@ class SyraPopover extends StatelessWidget {
         constraints: BoxConstraints(
           maxWidth: maxWidth,
         ),
-        decoration: BoxDecoration(
-          color: SyraTokens.card.withOpacity(0.98),
-          borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
-          border: Border.all(
-            color: SyraTokens.borderSubtle,
-            width: 1,
-          ),
-          boxShadow: SyraTokens.shadowMedium,
+        child: _PopoverCard(
+          title: title,
+          child: child,
         ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
+      ),
+    );
+  }
+}
+
+/// Internal card widget with blur applied inside
+class _PopoverCard extends StatelessWidget {
+  final String? title;
+  final Widget child;
+
+  const _PopoverCard({
+    this.title,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
+      child: BackdropFilter(
+        // Blur lives INSIDE the card, creating the glass effect
+        filter: ImageFilter.blur(
+          sigmaX: SyraTokens.blurMedium,
+          sigmaY: SyraTokens.blurMedium,
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            // Semi-transparent background for glass effect
+            color: SyraTokens.card.withOpacity(0.9),
+            borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
+            border: Border.all(
+              color: SyraTokens.borderSubtle,
+              width: 1,
+            ),
+            // Subtle shadow for premium depth
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+                spreadRadius: 0,
+              ),
+            ],
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -98,13 +142,36 @@ class SyraPopover extends StatelessWidget {
 
 /// Show a small floating popover
 /// 
-/// Usage:
+/// Supports two positioning modes:
+/// 1. **Alignment-based** (default): Position using screen alignment (topCenter, center, etc.)
+/// 2. **Anchored**: Attach to a specific widget using a LayerLink
+/// 
+/// Basic usage (alignment-based):
 /// ```dart
 /// await showSyraPopover(
 ///   context: context,
 ///   title: 'Select Mode',
 ///   alignment: Alignment.topCenter,
 ///   child: ModeSelector(),
+/// );
+/// ```
+/// 
+/// Anchored usage (attach to app bar label):
+/// ```dart
+/// // In your widget:
+/// final LayerLink _anchorLink = LayerLink();
+/// 
+/// // Wrap the anchor widget (e.g., app bar label):
+/// CompositedTransformTarget(
+///   link: _anchorLink,
+///   child: Text('GPT-4'),
+/// )
+/// 
+/// // Show popover anchored to it:
+/// await showSyraPopover(
+///   context: context,
+///   anchorLink: _anchorLink,
+///   child: ModelSelector(),
 /// );
 /// ```
 Future<T?> showSyraPopover<T>({
@@ -114,14 +181,35 @@ Future<T?> showSyraPopover<T>({
   required Widget child,
   double maxWidth = 340,
   bool barrierDismissible = true,
+  
+  /// Optional anchor link for positioning the popover relative to a widget
+  /// When provided, the popover will appear below the anchored widget
+  /// Overrides the `alignment` parameter
+  LayerLink? anchorLink,
+  
+  /// Vertical offset from anchor (when anchored)
+  double anchorOffset = 8.0,
 }) {
   return showGeneralDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
     barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+    // Very subtle background dim (no heavy blur on background)
     barrierColor: Colors.black.withOpacity(SyraTokens.dimLight),
     transitionDuration: SyraTokens.animFast,
     pageBuilder: (context, animation, secondaryAnimation) {
+      // If anchored, use CompositedTransformFollower
+      if (anchorLink != null) {
+        return _AnchoredPopover(
+          anchorLink: anchorLink,
+          anchorOffset: anchorOffset,
+          maxWidth: maxWidth,
+          title: title,
+          child: child,
+        );
+      }
+      
+      // Otherwise, use standard alignment-based positioning
       return SyraPopover(
         title: title,
         maxWidth: maxWidth,
@@ -130,28 +218,82 @@ Future<T?> showSyraPopover<T>({
       );
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
-      // Optional subtle blur
-      return BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: SyraTokens.blurSubtle * animation.value,
-          sigmaY: SyraTokens.blurSubtle * animation.value,
+      // Modern, fast animation: scale + fade + slight slide from above
+      return FadeTransition(
+        opacity: CurvedAnimation(
+          parent: animation,
+          curve: SyraTokens.curveDecelerate,
         ),
-        child: FadeTransition(
-          opacity: CurvedAnimation(
+        child: SlideTransition(
+          position: CurvedAnimation(
             parent: animation,
             curve: SyraTokens.curveDecelerate,
+          ).drive(
+            Tween<Offset>(
+              begin: const Offset(0, -0.02), // Slight slide from above
+              end: Offset.zero,
+            ),
           ),
           child: ScaleTransition(
             scale: CurvedAnimation(
               parent: animation,
               curve: SyraTokens.curveDecelerate,
-            ).drive(Tween<double>(begin: 0.95, end: 1.0)),
+            ).drive(
+              Tween<double>(begin: 0.95, end: 1.0),
+            ),
             child: child,
           ),
         ),
       );
     },
   );
+}
+
+/// Internal widget for anchored popovers
+class _AnchoredPopover extends StatelessWidget {
+  final LayerLink anchorLink;
+  final double anchorOffset;
+  final double maxWidth;
+  final String? title;
+  final Widget child;
+
+  const _AnchoredPopover({
+    required this.anchorLink,
+    required this.anchorOffset,
+    required this.maxWidth,
+    this.title,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // Positioned below the anchor
+        Positioned.fill(
+          child: CompositedTransformFollower(
+            link: anchorLink,
+            targetAnchor: Alignment.bottomCenter,
+            followerAnchor: Alignment.topCenter,
+            offset: Offset(0, anchorOffset),
+            child: Align(
+              alignment: Alignment.topCenter,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                constraints: BoxConstraints(
+                  maxWidth: maxWidth,
+                ),
+                child: _PopoverCard(
+                  title: title,
+                  child: child,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// Single selectable item for popover lists
