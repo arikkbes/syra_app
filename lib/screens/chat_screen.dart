@@ -18,6 +18,7 @@ import '../models/chat_session.dart';
 import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
 import '../theme/syra_theme.dart';
+import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_message_bubble.dart';
@@ -238,80 +239,55 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     HapticFeedback.selectionClick();
 
     final isImageMessage = msg["imageUrl"] != null;
-
-    await showDialog(
-      context: ctx,
-      builder: (_) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          insetPadding: const EdgeInsets.all(40),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  color: SyraColors.surface.withOpacity(0.95),
-                  border: Border.all(
-                    color: SyraColors.border,
-                    width: 0.5,
-                  ),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _menuButton("Yanıtla", Icons.reply_rounded, () {
-                      Navigator.pop(ctx);
-                      setState(() => _replyingTo = msg);
-                    }),
-                    if (!isImageMessage) // Sadece text mesajlar için kopyala
-                      _menuButton("Kopyala", Icons.copy_rounded, () {
-                        final text = msg["text"];
-                        if (text != null) {
-                          Clipboard.setData(ClipboardData(text: text));
-                        }
-                        Navigator.pop(ctx);
-                        BlurToast.show(ctx, "Metin kopyalandı");
-                      }),
-                    _menuButton("Paylaş", Icons.share_rounded, () {
-                      Navigator.pop(ctx);
-                    }),
-                    _menuButton("Sil", Icons.delete_rounded, () {
-                      Navigator.pop(ctx);
-                      setState(() => _messages.remove(msg));
-                    }),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _menuButton(String text, IconData icon, VoidCallback onTap) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
-        child: Row(
-          children: [
-            Icon(icon, color: SyraColors.textSecondary, size: 20),
-            const SizedBox(width: 12),
-            Text(
-              text,
-              style: TextStyle(
-                color: SyraColors.textPrimary.withOpacity(0.9),
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+    
+    final actions = <SyraContextAction>[
+      SyraContextAction(
+        icon: Icons.reply_rounded,
+        label: 'Yanıtla',
+        onTap: () {
+          setState(() => _replyingTo = msg);
+        },
       ),
+    ];
+    
+    // Sadece text mesajlar için kopyala
+    if (!isImageMessage) {
+      actions.add(
+        SyraContextAction(
+          icon: Icons.copy_rounded,
+          label: 'Kopyala',
+          onTap: () {
+            final text = msg["text"];
+            if (text != null) {
+              Clipboard.setData(ClipboardData(text: text));
+              BlurToast.show(ctx, "Metin kopyalandı");
+            }
+          },
+        ),
+      );
+    }
+    
+    actions.addAll([
+      SyraContextAction(
+        icon: Icons.share_rounded,
+        label: 'Paylaş',
+        onTap: () {
+          // TODO: Implement share functionality
+        },
+      ),
+      SyraContextAction(
+        icon: Icons.delete_rounded,
+        label: 'Sil',
+        isDestructive: true,
+        onTap: () {
+          setState(() => _messages.remove(msg));
+        },
+      ),
+    ]);
+
+    await showSyraContextMenu(
+      context: ctx,
+      actions: actions,
     );
   }
 
@@ -734,16 +710,55 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle mode selection - mod değiştirme overlay
   void _handleModeSelection() {
-    SyraBottomPanel.show(
+    showSyraPopover<String>(
       context: context,
-      child: ModeSwitchSheet(
-        selectedMode: _selectedMode,
-        onModeSelected: (String mode) {
-          setState(() {
-            _selectedMode = mode;
-          });
-        },
+      alignment: Alignment.topCenter,
+      title: 'KONUŞMA MODU',
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildModeItem(
+            mode: 'standard',
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Normal',
+            description: 'Dengeli, her konuda akıcı sohbet',
+          ),
+          const SyraPopoverDivider(),
+          _buildModeItem(
+            mode: 'deep',
+            icon: Icons.psychology_rounded,
+            label: 'Derin Analiz',
+            description: 'Detaylı psikolojik analiz ve içgörü',
+          ),
+          const SyraPopoverDivider(),
+          _buildModeItem(
+            mode: 'mentor',
+            icon: Icons.psychology_alt_rounded,
+            label: 'Dost Acı Söyler',
+            description: 'Direkt, açık ve samimi geri bildirim',
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildModeItem({
+    required String mode,
+    required IconData icon,
+    required String label,
+    required String description,
+  }) {
+    return SyraPopoverItem(
+      icon: icon,
+      label: label,
+      description: description,
+      isSelected: _selectedMode == mode,
+      onTap: () {
+        setState(() {
+          _selectedMode = mode;
+        });
+        Navigator.pop(context);
+      },
     );
   }
 
@@ -1259,14 +1274,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
           Expanded(
             child: Center(
-              child: GestureDetector(
-                onTap: _handleModeSelection,
-                child: SyraLogo(
-                  fontSize: 18,
-                  showModLabel: true,
-                  selectedMode: _selectedMode,
-                ),
-              ),
+              child: _buildModeTrigger(),
             ),
           ),
           GestureDetector(
@@ -1286,6 +1294,71 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Mode selector trigger in the top bar
+  Widget _buildModeTrigger() {
+    String modeLabel;
+    switch (_selectedMode) {
+      case 'deep':
+        modeLabel = 'Derin';
+        break;
+      case 'mentor':
+        modeLabel = 'Mentor';
+        break;
+      default:
+        modeLabel = 'Normal';
+    }
+
+    return GestureDetector(
+      onTap: _handleModeSelection,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'SYRA',
+              style: TextStyle(
+                fontFamily: 'SF Pro Display',
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: SyraColors.textPrimary,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              width: 3,
+              height: 3,
+              decoration: BoxDecoration(
+                color: SyraColors.textSecondary.withOpacity(0.6),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              modeLabel,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: SyraColors.textSecondary,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.expand_more_rounded,
+              size: 18,
+              color: SyraColors.textSecondary,
+            ),
+          ],
+        ),
       ),
     );
   }

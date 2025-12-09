@@ -2,8 +2,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
+import '../theme/design_system.dart';
 import '../models/chat_session.dart';
-import '../widgets/syra_context_menu.dart';
 import 'kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -328,58 +328,21 @@ class SideMenuNew extends StatelessWidget {
   }
 
   void _showChatContextMenu(BuildContext context, ChatSession chat) {
-    SyraContextMenu.show(
+    showSyraContextMenu(
       context: context,
-      items: [
-        SyraContextMenuItem(
+      actions: [
+        SyraContextAction(
           icon: Icons.edit_outlined,
           label: 'Rename chat',
           onTap: () => _showRenameDialog(context, chat),
         ),
-        SyraContextMenuItem(
+        SyraContextAction(
           icon: Icons.delete_outline,
           label: 'Delete chat',
           isDestructive: true,
           onTap: () => onDeleteChat(chat),
         ),
       ],
-    );
-  }
-
-  Widget _buildContextMenuItem({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isDestructive ? Colors.red : SyraColors.iconStroke,
-                size: 20,
-              ),
-              const SizedBox(width: 12),
-              Text(
-                label,
-                style: TextStyle(
-                  color: isDestructive ? Colors.red : SyraColors.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 

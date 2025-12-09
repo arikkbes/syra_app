@@ -1,5 +1,8 @@
+// lib/screens/kim_daha_cok_screen.dart
 import 'dart:ui';
+
 import 'package:flutter/material.dart';
+
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 import '../services/relationship_stats_service.dart';
@@ -7,7 +10,7 @@ import '../services/relationship_stats_service.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// KIM DAHA ÇOK? SCREEN
 /// ═══════════════════════════════════════════════════════════════
-/// Shows "Who More?" statistics from uploaded relationship data
+/// Uploaded relationship verilerinden "kim daha çok" istatistiklerini gösterir.
 /// ═══════════════════════════════════════════════════════════════
 
 class KimDahaCokScreen extends StatefulWidget {
@@ -36,7 +39,6 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
   Future<void> _loadStats() async {
     try {
       final result = await RelationshipStatsService.getStats();
-
       if (!mounted) return;
 
       if (result['success'] == true) {
@@ -44,38 +46,44 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
           _hasData = true;
           _stats = result['stats'] as Map<String, dynamic>?;
           _summary = result['summary'] as String?;
-          _startDate = result['dateRange']?['startDate'] as String?;
-          _endDate = result['dateRange']?['endDate'] as String?;
+          final range = result['dateRange'] as Map<String, dynamic>?;
+          _startDate = range?['startDate'] as String?;
+          _endDate = range?['endDate'] as String?;
           _isLoading = false;
+          _errorMessage = null;
         });
       } else {
-        // Backend'den success: false geldi (muhtemelen no data)
+        // success: false → muhtemelen hiç data yok
         setState(() {
           _hasData = false;
           _isLoading = false;
-          _errorMessage = null; // No data durumu için error yok
+          _errorMessage = null;
         });
       }
     } catch (e) {
       if (!mounted) return;
 
-      String errorMsg = 'Veriler yüklenirken bir hata oluştu.';
-      
-      // Hatayı daha anlaşılır hale getir
-      if (e.toString().contains('404') || e.toString().contains('bulunamadı')) {
-        errorMsg = 'Backend servisi henüz deploy edilmemiş.\n\nLütfen önce:\n1. cd functions\n2. firebase deploy --only functions';
-      } else if (e.toString().contains('zaman aşımı')) {
-        errorMsg = 'Sunucu yanıt vermiyor.\n\nLütfen internet bağlantınızı kontrol edin.';
-      } else if (e.toString().contains('Kullanıcı')) {
-        errorMsg = 'Oturum hatası.\n\nLütfen yeniden giriş yapın.';
+      var msg = 'Veriler yüklenirken bir hata oluştu.';
+      final text = e.toString();
+
+      if (text.contains('404') || text.contains('bulunamadı')) {
+        msg =
+            'Backend servisi henüz deploy edilmemiş.\n\nLütfen önce:\n1. cd functions\n2. firebase deploy --only functions';
+      } else if (text.contains('zaman aşımı')) {
+        msg =
+            'Sunucu yanıt vermiyor.\n\nLütfen internet bağlantınızı kontrol edin.';
+      } else if (text.contains('Kullanıcı')) {
+        msg = 'Oturum hatası.\n\nLütfen yeniden giriş yapın.';
       }
 
       setState(() {
         _hasData = false;
         _isLoading = false;
-        _errorMessage = errorMsg;
+        _errorMessage = msg;
       });
-      
+
+      // Debug log
+      // ignore: avoid_print
       print('❌ Error loading stats: $e');
     }
   }
@@ -106,6 +114,8 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
       ),
     );
   }
+
+  // ───────────────────── APP BAR ─────────────────────
 
   Widget _buildAppBar() {
     return Container(
@@ -144,6 +154,8 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
     );
   }
 
+  // ───────────────────── LOADING STATE ─────────────────────
+
   Widget _buildLoadingState() {
     return const Center(
       child: Column(
@@ -165,7 +177,11 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
     );
   }
 
+  // ───────────────────── EMPTY / ERROR STATE ─────────────────────
+
   Widget _buildEmptyState() {
+    final hasError = _errorMessage != null;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(32),
@@ -191,7 +207,7 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
             ),
             const SizedBox(height: 24),
             Text(
-              _errorMessage ?? 'Henüz İstatistik Yok',
+              hasError ? 'Bir Hata Oluştu' : 'Henüz İstatistik Yok',
               style: const TextStyle(
                 color: SyraColors.textPrimary,
                 fontSize: 20,
@@ -201,8 +217,8 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              _errorMessage != null
-                  ? 'Lütfen daha sonra tekrar deneyin.'
+              hasError
+                  ? _errorMessage!
                   : 'Bu modu kullanmak için önce Relationship Upload ile bir sohbet yüklemen gerekiyor.',
               style: TextStyle(
                 color: SyraColors.textSecondary.withOpacity(0.9),
@@ -239,19 +255,18 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
     );
   }
 
+  // ───────────────────── MAIN CONTENT ─────────────────────
+
   Widget _buildStatsContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary card
           if (_summary != null) ...[
             _buildSummaryCard(),
             const SizedBox(height: 16),
           ],
-
-          // Stats cards
           _buildStatCard(
             title: 'Kim daha çok mesaj atmış?',
             stat: _stats?['whoSentMoreMessages'] ?? 'balanced',
@@ -317,7 +332,7 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                _summary!,
+                _summary ?? '',
                 style: TextStyle(
                   color: SyraColors.textSecondary.withOpacity(0.9),
                   fontSize: 14,
@@ -346,8 +361,8 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
     required String stat,
     required IconData icon,
   }) {
-    final String displayText = _getDisplayText(stat);
-    final Color displayColor = _getDisplayColor(stat);
+    final displayText = _getDisplayText(stat);
+    final displayColor = _getDisplayColor(stat);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -436,7 +451,6 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
       case 'balanced':
         return Colors.teal;
       case 'none':
-        return SyraColors.textSecondary;
       default:
         return SyraColors.textSecondary;
     }
