@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
 import '../models/chat_session.dart';
+import '../widgets/syra_context_menu.dart';
 import 'kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -327,50 +328,21 @@ class SideMenuNew extends StatelessWidget {
   }
 
   void _showChatContextMenu(BuildContext context, ChatSession chat) {
-    showModalBottomSheet(
+    SyraContextMenu.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withValues(alpha: 0.95),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              border: const Border(
-                top: BorderSide(color: SyraColors.border),
-              ),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildContextMenuItem(
-                  context: context,
-                  icon: Icons.edit_outlined,
-                  label: 'Rename chat',
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showRenameDialog(context, chat);
-                  },
-                ),
-                const SizedBox(height: 8),
-                _buildContextMenuItem(
-                  context: context,
-                  icon: Icons.delete_outline,
-                  label: 'Delete chat',
-                  isDestructive: true,
-                  onTap: () {
-                    Navigator.pop(context);
-                    onDeleteChat(chat);
-                  },
-                ),
-              ],
-            ),
-          ),
+      items: [
+        SyraContextMenuItem(
+          icon: Icons.edit_outlined,
+          label: 'Rename chat',
+          onTap: () => _showRenameDialog(context, chat),
         ),
-      ),
+        SyraContextMenuItem(
+          icon: Icons.delete_outline,
+          label: 'Delete chat',
+          isDestructive: true,
+          onTap: () => onDeleteChat(chat),
+        ),
+      ],
     );
   }
 

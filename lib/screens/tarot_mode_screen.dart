@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../services/tarot_service.dart';
 import '../widgets/blur_toast.dart';
+import '../widgets/tarot_card_choice.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// TAROT MODE SCREEN - CONVERSATIONAL EXPERIENCE
@@ -215,7 +216,6 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
   }
 
   Widget _buildCardSelectionBubble({bool isActive = true}) {
-    // For inactive selections, show as disabled without any selection state
     final displayedSelectedCards = isActive ? _selectedCards : <int>{};
     
     return Opacity(
@@ -227,30 +227,44 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Cards
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _buildTarotCard(0, displayedSelectedCards, isActive), // The Fool
-                  _buildTarotCard(6, displayedSelectedCards, isActive), // The Lovers
-                  _buildTarotCard(16, displayedSelectedCards, isActive), // The Tower
+                  TarotCardChoice(
+                    cardId: 0,
+                    label: 'The Fool',
+                    isSelected: displayedSelectedCards.contains(0),
+                    isActive: isActive && _isCardSelectionActive,
+                    onTap: () => _handleCardTap(0),
+                  ),
+                  TarotCardChoice(
+                    cardId: 6,
+                    label: 'The Lovers',
+                    isSelected: displayedSelectedCards.contains(6),
+                    isActive: isActive && _isCardSelectionActive,
+                    onTap: () => _handleCardTap(6),
+                  ),
+                  TarotCardChoice(
+                    cardId: 16,
+                    label: 'The Tower',
+                    isSelected: displayedSelectedCards.contains(16),
+                    isActive: isActive && _isCardSelectionActive,
+                    onTap: () => _handleCardTap(16),
+                  ),
                 ],
               ),
-              const SizedBox(height: 16),
-              
-              // Instructions
+              const SizedBox(height: 20),
               Center(
                 child: Text(
                   'Kartlarını seç (1-3 kart)',
                   style: TextStyle(
-                    color: SyraColors.textMuted.withOpacity(0.8),
+                    color: SyraColors.textMuted.withValues(alpha: 0.8),
                     fontSize: 13,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
               ),
               const SizedBox(height: 16),
-              
-              // Start reading button (only show if active and cards selected)
               if (isActive && displayedSelectedCards.isNotEmpty && _isCardSelectionActive)
                 GestureDetector(
                   onTap: _handleStartReading,
@@ -263,7 +277,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
                       borderRadius: BorderRadius.circular(14),
                       boxShadow: [
                         BoxShadow(
-                          color: SyraColors.accent.withOpacity(0.3),
+                          color: SyraColors.accent.withValues(alpha: 0.3),
                           blurRadius: 12,
                           offset: const Offset(0, 4),
                         ),
@@ -294,101 +308,15 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
     );
   }
 
-  Widget _buildTarotCard(int cardId, Set<int> displayedSelectedCards, bool isActive) {
-    final isSelected = displayedSelectedCards.contains(cardId);
-    
-    return GestureDetector(
-      onTap: () {
-        if (!isActive || !_isCardSelectionActive) return;
-        setState(() {
-          if (isSelected) {
-            _selectedCards.remove(cardId);
-          } else {
-            _selectedCards.add(cardId);
-          }
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: 90,
-        height: 130,
-        decoration: BoxDecoration(
-          color: isSelected
-              ? SyraColors.accent.withOpacity(0.15)
-              : SyraColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? SyraColors.accent : SyraColors.border,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: SyraColors.accent.withOpacity(0.3),
-                    blurRadius: 16,
-                    spreadRadius: 2,
-                  ),
-                ]
-              : [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.2),
-                    blurRadius: 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 50,
-              height: 75,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: isSelected
-                      ? [
-                          SyraColors.accent.withOpacity(0.3),
-                          SyraColors.accentLight.withOpacity(0.2),
-                        ]
-                      : [
-                          SyraColors.surface,
-                          SyraColors.surfaceLight,
-                        ],
-                ),
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: isSelected
-                      ? SyraColors.accent.withOpacity(0.5)
-                      : SyraColors.border,
-                  width: 1,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  '✦',
-                  style: TextStyle(
-                    color: isSelected ? SyraColors.accent : SyraColors.textMuted,
-                    fontSize: 28,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getCardLabel(cardId),
-              style: TextStyle(
-                color: isSelected ? SyraColors.accent : SyraColors.textMuted,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
+  void _handleCardTap(int cardId) {
+    if (!_isCardSelectionActive) return;
+    setState(() {
+      if (_selectedCards.contains(cardId)) {
+        _selectedCards.remove(cardId);
+      } else {
+        _selectedCards.add(cardId);
+      }
+    });
   }
 
   Widget _buildReadingMessage(TarotMessage message) {
@@ -752,14 +680,5 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
       ));
     });
     _showCardSelection();
-  }
-
-  String _getCardLabel(int cardId) {
-    final labels = {
-      0: 'The Fool',
-      6: 'The Lovers',
-      16: 'The Tower',
-    };
-    return labels[cardId] ?? 'Card $cardId';
   }
 }

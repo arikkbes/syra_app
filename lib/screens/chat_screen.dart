@@ -22,6 +22,7 @@ import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_message_bubble.dart';
 import '../widgets/mode_switch_sheet.dart';
+import '../widgets/syra_bottom_panel.dart';
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
 import 'side_menu_new.dart';
@@ -376,148 +377,114 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   
   /// Show empty state upload dialog
   void _showUploadDialog() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: ClipRRect(
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.95),
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(20)),
-                border: const Border(
-                  top: BorderSide(color: SyraColors.border),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withValues(alpha: 0.2),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.upload_file_outlined,
+                  color: SyraColors.accent,
+                  size: 24,
                 ),
               ),
-              child: SafeArea(
+              const SizedBox(width: 12),
+              const Expanded(
                 child: Column(
-                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Title
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                SyraColors.accent.withOpacity(0.2),
-                                SyraColors.accent.withOpacity(0.2),
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.upload_file_outlined,
-                            color: SyraColors.accent,
-                            size: 24,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Relationship Upload (Beta)',
-                                style: TextStyle(
-                                  color: SyraColors.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    // Description
                     Text(
-                      'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
+                      'Relationship Upload (Beta)',
                       style: TextStyle(
-                        color: SyraColors.textSecondary.withOpacity(0.9),
-                        fontSize: 14,
-                        height: 1.5,
+                        color: SyraColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    
-                    // Upload Button
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.pop(context);
-                        _pickAndUploadRelationshipFile();
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [SyraColors.accent, SyraColors.accent],
-                          ),
-                          borderRadius: BorderRadius.circular(14),
-                          boxShadow: [
-                            BoxShadow(
-                              color: SyraColors.accent.withOpacity(0.3),
-                              blurRadius: 20,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.upload_rounded,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              'WhatsApp Chat Yükle (.txt / .zip)',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                   ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
+            style: TextStyle(
+              color: SyraColors.textSecondary.withValues(alpha: 0.9),
+              fontSize: 14,
+              height: 1.5,
             ),
           ),
-        ),
+          const SizedBox(height: 24),
+          GestureDetector(
+            onTap: () {
+              Navigator.pop(context);
+              _pickAndUploadRelationshipFile();
+            },
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [SyraColors.accent, SyraColors.accent],
+                ),
+                borderRadius: BorderRadius.circular(14),
+                boxShadow: [
+                  BoxShadow(
+                    color: SyraColors.accent.withValues(alpha: 0.3),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.upload_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                  SizedBox(width: 10),
+                  Text(
+                    'WhatsApp Chat Yükle (.txt / .zip)',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
   
   /// Show filled state relationship panel
   void _showRelationshipPanel(RelationshipMemory memory) {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _RelationshipPanelSheet(
+      padding: EdgeInsets.zero,
+      child: _RelationshipPanelSheet(
         memory: memory,
         onUpdate: () {
-          // Refresh panel
           Navigator.pop(context);
           _handleDocumentUpload();
         },
@@ -625,50 +592,34 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle attachment menu - resim gönderme özelliği
   void _handleAttachment() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withOpacity(0.95),
-              borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(20)),
-              border: const Border(
-                top: BorderSide(color: SyraColors.border),
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.image, color: SyraColors.textPrimary),
+            title: const Text(
+              'Fotoğraf Seç',
+              style: TextStyle(color: SyraColors.textPrimary),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  leading:
-                      const Icon(Icons.image, color: SyraColors.textPrimary),
-                  title: const Text('Fotoğraf Seç',
-                      style: TextStyle(color: SyraColors.textPrimary)),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _pickImageForPreview(ImageSource.gallery);
-                  },
-                ),
-                ListTile(
-                  leading: const Icon(Icons.camera_alt,
-                      color: SyraColors.textPrimary),
-                  title: const Text('Kamera',
-                      style: TextStyle(color: SyraColors.textPrimary)),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    await _pickImageForPreview(ImageSource.camera);
-                  },
-                ),
-              ],
-            ),
+            onTap: () async {
+              Navigator.pop(context);
+              await _pickImageForPreview(ImageSource.gallery);
+            },
           ),
-        ),
+          ListTile(
+            leading: const Icon(Icons.camera_alt, color: SyraColors.textPrimary),
+            title: const Text(
+              'Kamera',
+              style: TextStyle(color: SyraColors.textPrimary),
+            ),
+            onTap: () async {
+              Navigator.pop(context);
+              await _pickImageForPreview(ImageSource.camera);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -783,10 +734,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle mode selection - mod değiştirme overlay
   void _handleModeSelection() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => ModeSwitchSheet(
+      child: ModeSwitchSheet(
         selectedMode: _selectedMode,
         onModeSelected: (String mode) {
           setState(() {
@@ -1139,11 +1089,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _openChatSessions() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (_) => const ChatSessionsSheet(),
+      child: const ChatSessionsSheet(),
     );
   }
 
@@ -1962,214 +1910,176 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
     final mem = widget.memory;
     
     return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-      ),
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withOpacity(0.95),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              border: const Border(
-                top: BorderSide(color: SyraColors.border),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withValues(alpha: 0.2),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.favorite_border,
+                  color: SyraColors.accent,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Kayıtlı İlişki',
+                  style: TextStyle(
+                    color: SyraColors.textPrimary,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            mem.shortSummary ?? 'Özet mevcut değil',
+            style: TextStyle(
+              color: SyraColors.textSecondary.withValues(alpha: 0.9),
+              fontSize: 14,
+              height: 1.5,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          if (mem.startDate != null && mem.endDate != null)
+            Text(
+              '${_formatDate(mem.startDate!)} — ${_formatDate(mem.endDate!)}',
+              style: TextStyle(
+                color: SyraColors.textSecondary.withValues(alpha: 0.7),
+                fontSize: 12,
               ),
             ),
-            child: SafeArea(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Header
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              SyraColors.accent.withOpacity(0.2),
-                              SyraColors.accent.withOpacity(0.2),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.favorite_border,
-                          color: SyraColors.accent,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'Kayıtlı İlişki',
-                          style: TextStyle(
-                            color: SyraColors.textPrimary,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  
-                  // Summary
-                  Text(
-                    mem.shortSummary ?? 'Özet mevcut değil',
-                    style: TextStyle(
-                      color: SyraColors.textSecondary.withOpacity(0.9),
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 8),
-                  
-                  // Date range
-                  if (mem.startDate != null && mem.endDate != null)
-                    Text(
-                      '${_formatDate(mem.startDate!)} — ${_formatDate(mem.endDate!)}',
-                      style: TextStyle(
-                        color: SyraColors.textSecondary.withOpacity(0.7),
-                        fontSize: 12,
-                      ),
-                    ),
-                  
-                  const SizedBox(height: 20),
-                  const Divider(color: SyraColors.border, height: 1),
-                  const SizedBox(height: 16),
-                  
-                  // Toggle switch
-                  Container(
+          const SizedBox(height: 20),
+          const Divider(color: SyraColors.border, height: 1),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              color: SyraColors.background.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: SyraColors.border.withValues(alpha: 0.3)),
+            ),
+            child: SwitchListTile(
+              title: const Text(
+                'Chat\'te kullan',
+                style: TextStyle(
+                  color: SyraColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                _isActive
+                    ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
+                    : 'Veri saklanır ama chat\'te referans alınmaz',
+                style: TextStyle(
+                  color: SyraColors.textSecondary.withValues(alpha: 0.8),
+                  fontSize: 12,
+                ),
+              ),
+              value: _isActive,
+              onChanged: _isUpdating ? null : _handleToggle,
+              activeColor: SyraColors.accent,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: widget.onViewAnalysis,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: SyraColors.background.withOpacity(0.5),
+                      gradient: const LinearGradient(
+                        colors: [SyraColors.accent, SyraColors.accent],
+                      ),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SyraColors.border.withOpacity(0.3)),
                     ),
-                    child: SwitchListTile(
-                      title: const Text(
-                        'Chat\'te kullan',
-                        style: TextStyle(
-                          color: SyraColors.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      subtitle: Text(
-                        _isActive
-                            ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
-                            : 'Veri saklanır ama chat\'te referans alınmaz',
-                        style: TextStyle(
-                          color: SyraColors.textSecondary.withOpacity(0.8),
-                          fontSize: 12,
-                        ),
-                      ),
-                      value: _isActive,
-                      onChanged: _isUpdating ? null : _handleToggle,
-                      activeColor: SyraColors.accent,
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 20),
-                  
-                  // Action buttons
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: widget.onViewAnalysis,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(
-                                colors: [SyraColors.accent, SyraColors.accent],
-                              ),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.analytics_outlined, color: Colors.white, size: 18),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Detaylı Analiz',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.analytics_outlined, color: Colors.white, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Detaylı Analiz',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: widget.onUpload,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SyraColors.background.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: SyraColors.border),
-                            ),
-                            child: const Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.refresh, color: SyraColors.textSecondary, size: 18),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Sohbeti Güncelle',
-                                  style: TextStyle(
-                                    color: SyraColors.textSecondary,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Delete button
-                  Center(
-                    child: TextButton(
-                      onPressed: _isUpdating ? null : _handleDelete,
-                      child: Text(
-                        'Bu ilişkiyi unut',
-                        style: TextStyle(
-                          color: Colors.red.withOpacity(0.8),
-                          fontSize: 13,
-                        ),
-                      ),
+                      ],
                     ),
                   ),
-                  
-                  const SizedBox(height: 8),
-                ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: widget.onUpload,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: SyraColors.background.withValues(alpha: 0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: SyraColors.border),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.refresh, color: SyraColors.textSecondary, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Sohbeti Güncelle',
+                          style: TextStyle(
+                            color: SyraColors.textSecondary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Center(
+            child: TextButton(
+              onPressed: _isUpdating ? null : _handleDelete,
+              child: Text(
+                'Bu ilişkiyi unut',
+                style: TextStyle(
+                  color: Colors.red.withValues(alpha: 0.8),
+                  fontSize: 13,
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

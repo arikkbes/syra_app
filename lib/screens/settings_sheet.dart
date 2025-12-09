@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
 import '../utils/syra_prefs.dart';
+import '../widgets/syra_bottom_panel.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA SETTINGS SHEET v3.0 – 2025 Modal Bottom Sheet
@@ -23,11 +24,10 @@ class SettingsSheet extends StatefulWidget {
 
   /// Show the settings sheet
   static void show(BuildContext context) {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => const SettingsSheet(),
+      padding: EdgeInsets.zero,
+      child: const SettingsSheet(),
     );
   }
 }
@@ -66,204 +66,168 @@ class _SettingsSheetState extends State<SettingsSheet> {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? 'Guest';
 
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: BoxDecoration(
-        color: SyraColors.surface,
-        borderRadius: const BorderRadius.vertical(
-          top: Radius.circular(SyraTheme.sheetRadius),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              const Text(
+                'Settings',
+                style: SyraTypography.headingMedium,
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                color: SyraColors.iconStroke,
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
         ),
-      ),
-      child: Column(
-        children: [
-          // ─────────────────────────────────────────────────────
-          // ─────────────────────────────────────────────────────
-          Container(
-            margin: const EdgeInsets.symmetric(vertical: 12),
-            width: 36,
-            height: 4,
-            decoration: BoxDecoration(
-              color: SyraColors.divider,
-              borderRadius: BorderRadius.circular(2),
-            ),
+        const Divider(height: 1),
+        Flexible(
+          child: ListView(
+            shrinkWrap: true,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            children: [
+              _buildSection(
+                title: 'PERSONALIZATION',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.palette_outlined,
+                    title: 'Theme',
+                    subtitle: 'Dark',
+                    onTap: () {},
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.brush_outlined,
+                    title: 'Appearance',
+                    onTap: () {
+                      Navigator.pushNamed(context, '/appearance-settings');
+                    },
+                  ),
+                ],
+              ),
+              _buildSection(
+                title: 'CHAT BEHAVIOR',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.tune_outlined,
+                    title: 'Tone',
+                    subtitle: _selectedTone,
+                    onTap: () => _showTonePicker(),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.short_text_outlined,
+                    title: 'Message Length',
+                    subtitle: _selectedLength,
+                    onTap: () => _showLengthPicker(),
+                  ),
+                ],
+              ),
+              _buildSection(
+                title: 'NOTIFICATIONS',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.notifications_outlined,
+                    title: 'Push Notifications',
+                    trailing: Switch(
+                      value: _notificationsEnabled,
+                      onChanged: (val) {
+                        setState(() => _notificationsEnabled = val);
+                        _saveSettings();
+                      },
+                    ),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.tips_and_updates_outlined,
+                    title: 'Daily Tips',
+                    subtitle: 'Get relationship insights every day',
+                    trailing: Switch(
+                      value: _dailyTipsEnabled,
+                      onChanged: (val) {
+                        setState(() => _dailyTipsEnabled = val);
+                        _saveSettings();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              _buildSection(
+                title: 'DATA & PRIVACY',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.delete_outline,
+                    title: 'Clear History',
+                    subtitle: 'Delete all messages',
+                    onTap: () => _showClearHistoryDialog(),
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.archive_outlined,
+                    title: 'Archived Chats',
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/chat-archive');
+                    },
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.privacy_tip_outlined,
+                    title: 'Privacy Policy',
+                    onTap: () {},
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.delete_forever_outlined,
+                    title: 'Delete My Data',
+                    subtitle: 'Permanently delete your account',
+                    onTap: () => _showDeleteAccountDialog(),
+                  ),
+                ],
+              ),
+              _buildSection(
+                title: 'ACCOUNT',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.person_outline,
+                    title: 'Account',
+                    subtitle: email,
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/account-settings');
+                    },
+                  ),
+                  _buildSettingsTile(
+                    icon: Icons.logout_outlined,
+                    title: 'Log Out',
+                    onTap: () => _showLogoutDialog(),
+                  ),
+                ],
+              ),
+              _buildSection(
+                title: 'PREMIUM',
+                children: [
+                  _buildSettingsTile(
+                    icon: Icons.workspace_premium_outlined,
+                    title: 'SYRA Plus',
+                    subtitle: 'Unlimited messages & advanced features',
+                    trailing: const Icon(
+                      Icons.arrow_forward_ios,
+                      size: 16,
+                      color: SyraColors.accent,
+                    ),
+                    onTap: () {
+                      Navigator.pop(context);
+                      Navigator.pushNamed(context, '/premium');
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 32),
+            ],
           ),
-
-          // ─────────────────────────────────────────────────────
-          // ─────────────────────────────────────────────────────
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                const Text(
-                  'Settings',
-                  style: SyraTypography.headingMedium,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  color: SyraColors.iconStroke,
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-          ),
-
-          const Divider(height: 1),
-
-          // ─────────────────────────────────────────────────────
-          // ─────────────────────────────────────────────────────
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              children: [
-                _buildSection(
-                  title: 'PERSONALIZATION',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.palette_outlined,
-                      title: 'Theme',
-                      subtitle: 'Dark',
-                      onTap: () {
-                        // TODO: Navigate to theme settings
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.brush_outlined,
-                      title: 'Appearance',
-                      onTap: () {
-                        // TODO: Navigate to appearance settings
-                        Navigator.pushNamed(context, '/appearance-settings');
-                      },
-                    ),
-                  ],
-                ),
-
-                _buildSection(
-                  title: 'CHAT BEHAVIOR',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.tune_outlined,
-                      title: 'Tone',
-                      subtitle: _selectedTone,
-                      onTap: () => _showTonePicker(),
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.short_text_outlined,
-                      title: 'Message Length',
-                      subtitle: _selectedLength,
-                      onTap: () => _showLengthPicker(),
-                    ),
-                  ],
-                ),
-
-                _buildSection(
-                  title: 'NOTIFICATIONS',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.notifications_outlined,
-                      title: 'Push Notifications',
-                      trailing: Switch(
-                        value: _notificationsEnabled,
-                        onChanged: (val) {
-                          setState(() => _notificationsEnabled = val);
-                          _saveSettings();
-                        },
-                      ),
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.tips_and_updates_outlined,
-                      title: 'Daily Tips',
-                      subtitle: 'Get relationship insights every day',
-                      trailing: Switch(
-                        value: _dailyTipsEnabled,
-                        onChanged: (val) {
-                          setState(() => _dailyTipsEnabled = val);
-                          _saveSettings();
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-
-                _buildSection(
-                  title: 'DATA & PRIVACY',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.delete_outline,
-                      title: 'Clear History',
-                      subtitle: 'Delete all messages',
-                      onTap: () => _showClearHistoryDialog(),
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.archive_outlined,
-                      title: 'Archived Chats',
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/chat-archive');
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.privacy_tip_outlined,
-                      title: 'Privacy Policy',
-                      onTap: () {
-                        // TODO: Open privacy policy
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.delete_forever_outlined,
-                      title: 'Delete My Data',
-                      subtitle: 'Permanently delete your account',
-                      onTap: () => _showDeleteAccountDialog(),
-                    ),
-                  ],
-                ),
-
-                _buildSection(
-                  title: 'ACCOUNT',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.person_outline,
-                      title: 'Account',
-                      subtitle: email,
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/account-settings');
-                      },
-                    ),
-                    _buildSettingsTile(
-                      icon: Icons.logout_outlined,
-                      title: 'Log Out',
-                      onTap: () => _showLogoutDialog(),
-                    ),
-                  ],
-                ),
-
-                _buildSection(
-                  title: 'PREMIUM',
-                  children: [
-                    _buildSettingsTile(
-                      icon: Icons.workspace_premium_outlined,
-                      title: 'SYRA Plus',
-                      subtitle: 'Unlimited messages & advanced features',
-                      trailing: const Icon(
-                        Icons.arrow_forward_ios,
-                        size: 16,
-                        color: SyraColors.accent,
-                      ),
-                      onTap: () {
-                        Navigator.pop(context);
-                        Navigator.pushNamed(context, '/premium');
-                      },
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 32),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -351,91 +315,77 @@ class _SettingsSheetState extends State<SettingsSheet> {
   // ═════════════════════════════════════════════════════════════════
 
   void _showTonePicker() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: SyraColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Select Tone',
-                style: SyraTypography.headingSmall,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16, top: 8),
+            child: Text(
+              'Select Tone',
+              style: SyraTypography.headingSmall,
             ),
-            const Divider(height: 1),
-            ...[
-              'Balanced',
-              'Calm',
-              'Direct',
-              'Street',
-            ].map((tone) {
-              return ListTile(
-                title: Text(
-                  tone,
-                  style: const TextStyle(color: SyraColors.textPrimary),
-                ),
-                trailing: _selectedTone == tone
-                    ? const Icon(Icons.check, color: SyraColors.accent)
-                    : null,
-                onTap: () {
-                  setState(() => _selectedTone = tone);
-                  _saveSettings();
-                  Navigator.pop(context);
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
+          ),
+          const Divider(height: 1),
+          ...[
+            'Balanced',
+            'Calm',
+            'Direct',
+            'Street',
+          ].map((tone) {
+            return ListTile(
+              title: Text(
+                tone,
+                style: const TextStyle(color: SyraColors.textPrimary),
+              ),
+              trailing: _selectedTone == tone
+                  ? const Icon(Icons.check, color: SyraColors.accent)
+                  : null,
+              onTap: () {
+                setState(() => _selectedTone = tone);
+                _saveSettings();
+                Navigator.pop(context);
+              },
+            );
+          }),
+        ],
+      ),
     );
   }
 
   void _showLengthPicker() {
-    showModalBottomSheet(
+    SyraBottomPanel.show(
       context: context,
-      backgroundColor: SyraColors.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-      ),
-      builder: (context) {
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Message Length',
-                style: SyraTypography.headingSmall,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 16, top: 8),
+            child: Text(
+              'Message Length',
+              style: SyraTypography.headingSmall,
             ),
-            const Divider(height: 1),
-            ...['Short', 'Normal', 'Detailed'].map((length) {
-              return ListTile(
-                title: Text(
-                  length,
-                  style: const TextStyle(color: SyraColors.textPrimary),
-                ),
-                trailing: _selectedLength == length
-                    ? const Icon(Icons.check, color: SyraColors.accent)
-                    : null,
-                onTap: () {
-                  setState(() => _selectedLength = length);
-                  _saveSettings();
-                  Navigator.pop(context);
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-          ],
-        );
-      },
+          ),
+          const Divider(height: 1),
+          ...['Short', 'Normal', 'Detailed'].map((length) {
+            return ListTile(
+              title: Text(
+                length,
+                style: const TextStyle(color: SyraColors.textPrimary),
+              ),
+              trailing: _selectedLength == length
+                  ? const Icon(Icons.check, color: SyraColors.accent)
+                  : null,
+              onTap: () {
+                setState(() => _selectedLength = length);
+                _saveSettings();
+                Navigator.pop(context);
+              },
+            );
+          }),
+        ],
+      ),
     );
   }
 
