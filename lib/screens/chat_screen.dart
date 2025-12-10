@@ -36,6 +36,7 @@ import 'tarot_mode_screen.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/chat_message_list.dart';
 import 'chat/chat_input_bar.dart';
+import '../widgets/syra_liquid_glass_chat_bar.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -1235,7 +1236,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               },
                             ),
                           ),
-                          ChatInputBar(
+                          SyraLiquidGlassChatBar(
                             controller: _controller,
                             focusNode: _inputFocusNode,
                             isSending: _isSending,

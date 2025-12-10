@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../theme/syra_theme.dart';
 import '../../theme/syra_tokens.dart';
+import '../../widgets/syra_glass_button.dart';
 
 /// ChatGPT-style App Bar for ChatScreen
 /// 
 /// Contains:
 /// - Left: Menu button
 /// - Center: Mode selector (SYRA • Mode)
-/// - Right: Document upload button
+/// - Right: Document upload button (with liquid glass style)
 class ChatAppBar extends StatelessWidget {
   final String selectedMode;
   final LayerLink modeAnchorLink;
@@ -60,20 +61,11 @@ class ChatAppBar extends StatelessWidget {
               child: _buildModeTrigger(),
             ),
           ),
-          _TapScale(
+          SyraGlassButton(
             onTap: onDocumentUpload,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.upload_file_outlined,
-                color: SyraColors.textSecondary,
-                size: 22,
-              ),
+            child: const Icon(
+              Icons.upload_file_outlined,
+              size: 20,
             ),
           ),
         ],

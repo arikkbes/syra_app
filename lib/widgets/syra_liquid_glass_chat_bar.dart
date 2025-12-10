@@ -1,20 +1,27 @@
+// lib/widgets/syra_liquid_glass_chat_bar.dart
+
 import 'dart:io';
+import 'dart:ui';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import '../../theme/syra_theme.dart';
-import '../../widgets/syra_glass_container.dart';
+import '../theme/syra_theme.dart';
+import '../theme/syra_glass_tokens.dart';
+import '../theme/syra_tokens.dart';
 
-/// iOS 26 Style Liquid Glass Input Bar for ChatScreen
-///
+/// Premium Liquid Glass Chat Input Bar
+/// 
+/// Figma-derived Apple-style iOS 26 Liquid Glass UI
+/// Pixel-perfect symmetrical design with elevated interactions
+/// 
 /// Features:
-/// - Full-width liquid glass capsule container
-/// - Text input with auto-resize (1-5 lines)
-/// - Attachment button (left)
-/// - Voice input button
-/// - Send button (animated based on state)
-/// - Reply preview
-/// - Image upload preview
-class ChatInputBar extends StatelessWidget {
+/// - Full-width rounded liquid glass container (radius 55px from Figma)
+/// - Layered fills: #000000 100%, #333333 45%, #999999 30%
+/// - Multiple inner shadows for depth and bevel effect
+/// - Gaussian blur (20-28 range)
+/// - Material 3 icons (24×24) with theme token colors
+/// - Elevated hover/tap animations (scale 0.92 → 1.0)
+/// - SafeArea compatible
+class SyraLiquidGlassChatBar extends StatelessWidget {
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool isSending;
@@ -30,7 +37,7 @@ class ChatInputBar extends StatelessWidget {
   final VoidCallback onClearImage;
   final VoidCallback onTextChanged;
 
-  const ChatInputBar({
+  const SyraLiquidGlassChatBar({
     super.key,
     required this.controller,
     required this.focusNode,
@@ -51,10 +58,8 @@ class ChatInputBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool hasText = controller.text.trim().isNotEmpty;
-    final bool isUploadingImage =
-        pendingImage != null && pendingImageUrl == null;
-    final bool hasPendingImage =
-        pendingImage != null && pendingImageUrl != null;
+    final bool isUploadingImage = pendingImage != null && pendingImageUrl == null;
+    final bool hasPendingImage = pendingImage != null && pendingImageUrl != null;
     final bool canSend = (hasText || hasPendingImage) &&
         !isSending &&
         !isLoading &&
@@ -62,9 +67,9 @@ class ChatInputBar extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        16,
+        SyraGlassTokens.chatBarPaddingHorizontal,
         8,
-        16,
+        SyraGlassTokens.chatBarPaddingHorizontal,
         max(8.0, MediaQuery.of(context).padding.bottom - 20),
       ),
       decoration: BoxDecoration(
@@ -75,30 +80,51 @@ class ChatInputBar extends StatelessWidget {
         children: [
           if (replyingTo != null) _buildReplyPreview(),
           if (pendingImage != null) _buildImagePreview(),
-          // Main liquid glass input bar
-          SyraGlassContainer(
-            borderRadius: 999,
-            blur: 20,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          _buildLiquidGlassChatBar(canSend, hasText, hasPendingImage),
+        ],
+      ),
+    );
+  }
+
+  /// Main liquid glass chat bar container
+  /// Figma-derived with exact values
+  Widget _buildLiquidGlassChatBar(bool canSend, bool hasText, bool hasPendingImage) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
+        boxShadow: SyraGlassTokens.glassShadow,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: SyraGlassTokens.chatBarBlur,
+            sigmaY: SyraGlassTokens.chatBarBlur,
+          ),
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: SyraGlassTokens.chatBarGradient,
+              borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
+              border: Border.all(
+                color: SyraGlassTokens.white20.withOpacity(0.3),
+                width: 0.5,
+              ),
+              boxShadow: SyraGlassTokens.chatBarInnerShadows,
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: SyraGlassTokens.chatBarIconSpacing,
+              vertical: SyraGlassTokens.chatBarPaddingVertical,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Plus icon (attachment)
-                _TapScale(
+                _GlassIconButton(
+                  icon: Icons.add_rounded,
                   onTap: onAttachmentTap,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.add_rounded,
-                      color: SyraColors.textSecondary.withOpacity(0.9),
-                      size: 24,
-                    ),
-                  ),
                 ),
-
-                const SizedBox(width: 8),
+                
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
                 // Text input field
                 Expanded(
@@ -110,20 +136,20 @@ class ChatInputBar extends StatelessWidget {
                     minLines: 1,
                     onChanged: (_) => onTextChanged(),
                     style: TextStyle(
-                      color: SyraColors.textPrimary.withOpacity(0.95),
+                      color: SyraTokens.textPrimary,
                       fontSize: 15,
                       height: 1.4,
                     ),
                     decoration: InputDecoration(
                       isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
+                      contentPadding: EdgeInsets.symmetric(
                         horizontal: 8,
                         vertical: 10,
                       ),
                       border: InputBorder.none,
                       hintText: "Message",
                       hintStyle: TextStyle(
-                        color: SyraColors.textSecondary.withOpacity(0.5),
+                        color: SyraTokens.textMuted.withOpacity(0.6),
                         fontSize: 15,
                       ),
                     ),
@@ -131,94 +157,34 @@ class ChatInputBar extends StatelessWidget {
                   ),
                 ),
 
-                const SizedBox(width: 8),
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
                 // Mic icon (voice input)
-                _TapScale(
+                _GlassIconButton(
+                  icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
                   onTap: onVoiceInputTap,
-                  child: Container(
-                    width: 40,
-                    height: 40,
-                    alignment: Alignment.center,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        isListening
-                            ? Icons.mic_rounded
-                            : Icons.mic_none_rounded,
-                        key: ValueKey(isListening),
-                        color: isListening
-                            ? SyraColors.accent
-                            : SyraColors.textSecondary.withOpacity(0.9),
-                        size: 24,
-                      ),
-                    ),
-                  ),
+                  color: isListening ? SyraTokens.accent : null,
                 ),
 
-                const SizedBox(width: 4),
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
-                // Send button - small glass pill
-                _TapScale(
+                // Send button
+                _GlassSendButton(
+                  canSend: canSend,
+                  isLoading: isLoading,
                   onTap: canSend ? onSendMessage : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: 40,
-                    height: 40,
-                    child: canSend
-                        ? SyraGlassContainer(
-                            borderRadius: 999,
-                            blur: 15,
-                            padding: EdgeInsets.zero,
-                            overlayColor: SyraColors.accent,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: SyraColors.textPrimary.withOpacity(0.95),
-                              ),
-                              child: isLoading
-                                  ? const Padding(
-                                      padding: EdgeInsets.all(10),
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          SyraColors.background,
-                                        ),
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.arrow_upward_rounded,
-                                      color: SyraColors.background,
-                                      size: 20,
-                                    ),
-                            ),
-                          )
-                        : Container(
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: SyraColors.textMuted.withOpacity(0.15),
-                            ),
-                            child: Icon(
-                              Icons.arrow_upward_rounded,
-                              color: SyraColors.textMuted.withOpacity(0.4),
-                              size: 20,
-                            ),
-                          ),
-                  ),
                 ),
               ],
             ),
           ),
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildReplyPreview() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: SyraColors.surface,
@@ -281,10 +247,9 @@ class ChatInputBar extends StatelessWidget {
     );
   }
 
-  /// Pending image preview (ChatGPT/Claude style)
   Widget _buildImagePreview() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: SyraColors.surface,
@@ -296,7 +261,6 @@ class ChatInputBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Resim thumbnail
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
             child: Image.file(
@@ -307,8 +271,6 @@ class ChatInputBar extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-
-          // Upload durumu
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -366,8 +328,6 @@ class ChatInputBar extends StatelessWidget {
               ],
             ),
           ),
-
-          // Kapat butonu
           GestureDetector(
             onTap: onClearImage,
             child: Container(
@@ -389,21 +349,24 @@ class ChatInputBar extends StatelessWidget {
   }
 }
 
-/// Simple tap scale animation widget
-class _TapScale extends StatefulWidget {
-  final Widget child;
-  final VoidCallback? onTap;
+/// Glass Icon Button - Elevated tap animation
+/// Material 3 icons (24×24) with theme token colors
+class _GlassIconButton extends StatefulWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+  final Color? color;
 
-  const _TapScale({
-    required this.child,
-    this.onTap,
+  const _GlassIconButton({
+    required this.icon,
+    required this.onTap,
+    this.color,
   });
 
   @override
-  State<_TapScale> createState() => _TapScaleState();
+  State<_GlassIconButton> createState() => _GlassIconButtonState();
 }
 
-class _TapScaleState extends State<_TapScale>
+class _GlassIconButtonState extends State<_GlassIconButton>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -413,10 +376,16 @@ class _TapScaleState extends State<_TapScale>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 100),
+      duration: SyraGlassTokens.animationDuration,
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    _scaleAnimation = Tween<double>(
+      begin: SyraGlassTokens.scaleUp,
+      end: SyraGlassTokens.scaleDown,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: SyraGlassTokens.animationCurve,
+      ),
     );
   }
 
@@ -447,7 +416,135 @@ class _TapScaleState extends State<_TapScale>
       onTap: widget.onTap,
       child: ScaleTransition(
         scale: _scaleAnimation,
-        child: widget.child,
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            widget.icon,
+            size: SyraGlassTokens.chatBarIconSize,
+            color: widget.color ?? SyraTokens.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Glass Send Button - Circular with fill animation
+/// Animated based on message availability
+class _GlassSendButton extends StatefulWidget {
+  final bool canSend;
+  final bool isLoading;
+  final VoidCallback? onTap;
+
+  const _GlassSendButton({
+    required this.canSend,
+    required this.isLoading,
+    this.onTap,
+  });
+
+  @override
+  State<_GlassSendButton> createState() => _GlassSendButtonState();
+}
+
+class _GlassSendButtonState extends State<_GlassSendButton>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _scaleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: SyraGlassTokens.animationDuration,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: SyraGlassTokens.scaleUp,
+      end: SyraGlassTokens.scaleDown,
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: SyraGlassTokens.animationCurve,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    if (widget.canSend) {
+      _controller.forward();
+    }
+  }
+
+  void _handleTapUp(TapUpDetails details) {
+    if (widget.canSend) {
+      _controller.reverse();
+    }
+  }
+
+  void _handleTapCancel() {
+    if (widget.canSend) {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _handleTapDown,
+      onTapUp: _handleTapUp,
+      onTapCancel: _handleTapCancel,
+      onTap: widget.onTap,
+      child: ScaleTransition(
+        scale: _scaleAnimation,
+        child: AnimatedContainer(
+          duration: SyraGlassTokens.animationDuration,
+          curve: SyraGlassTokens.animationCurve,
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: widget.canSend
+                ? SyraTokens.textPrimary
+                : SyraTokens.textMuted.withOpacity(0.25),
+            shape: BoxShape.circle,
+            boxShadow: widget.canSend
+                ? [
+                    BoxShadow(
+                      color: SyraTokens.textPrimary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: Offset(0, 2),
+                    ),
+                  ]
+                : [],
+          ),
+          child: widget.isLoading
+              ? Padding(
+                  padding: EdgeInsets.all(10),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      SyraColors.background,
+                    ),
+                  ),
+                )
+              : Icon(
+                  Icons.arrow_upward_rounded,
+                  color: widget.canSend
+                      ? SyraColors.background
+                      : SyraColors.background.withOpacity(0.4),
+                  size: 20,
+                ),
+        ),
       ),
     );
   }
