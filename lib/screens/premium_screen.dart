@@ -232,23 +232,23 @@ class _PremiumScreenState extends State<PremiumScreen> {
         children: [
           _headerCard(),
 
-          const SizedBox(height: SyraTokens.paddingLg),
+          SizedBox(height: SyraTokens.paddingLg),
 
           _benefitsCard(),
 
-          const SizedBox(height: SyraTokens.paddingLg),
+          SizedBox(height: SyraTokens.paddingLg),
 
           _infoText(),
 
-          const SizedBox(height: SyraTokens.paddingLg),
+          SizedBox(height: SyraTokens.paddingLg),
 
           _primaryButton(),
 
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
 
           _restoreButton(),
 
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
 
           _secondaryButton(),
         ],
@@ -279,7 +279,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
               size: 26,
             ),
           ),
-          const SizedBox(width: SyraTokens.paddingMd),
+          SizedBox(width: SyraTokens.paddingMd),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -290,7 +290,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: SyraTokens.paddingXxs),
+                SizedBox(height: SyraTokens.paddingXxs),
                 Text(
                   "Sınırsız mesaj ve derin analiz özellikleri ile ilişkilerinde avantaj sağla.",
                   style: SyraTokens.bodySm.copyWith(
@@ -322,25 +322,25 @@ class _PremiumScreenState extends State<PremiumScreen> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: SyraTokens.paddingMd),
+          SizedBox(height: SyraTokens.paddingMd),
           _benefitRow(
             icon: Icons.all_inclusive_rounded,
             title: "Sınırsız sohbet",
             subtitle: "Günlük limit yok, istediğin kadar taktik ve analiz.",
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
           _benefitRow(
             icon: Icons.analytics_rounded,
             title: "Derin ilişki analizi",
             subtitle: "Mesajlarını yükleyip detaylı kırmızı bayrak analizi al.",
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
           _benefitRow(
             icon: Icons.bolt_rounded,
             title: "Taktik hatırlatma modu",
             subtitle: "Yanlış adım attığında kanka gibi uyarıp yönlendiren sistem.",
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
           _benefitRow(
             icon: Icons.shield_rounded,
             title: "Öncelikli erişim",
@@ -372,7 +372,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             color: SyraTokens.accent,
           ),
         ),
-        const SizedBox(width: SyraTokens.paddingSm),
+        SizedBox(width: SyraTokens.paddingSm),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,7 +383,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: SyraTokens.paddingXxs),
+              SizedBox(height: SyraTokens.paddingXxs),
               Text(
                 subtitle,
                 style: SyraTokens.caption.copyWith(

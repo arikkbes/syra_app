@@ -21,18 +21,21 @@ import '../theme/syra_theme.dart';
 import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
-import '../widgets/syra_message_bubble.dart';
 import '../widgets/mode_switch_sheet.dart';
 import '../widgets/syra_bottom_panel.dart';
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
-import 'side_menu_new.dart';
+import 'side_menu.dart';
 import 'relationship_analysis_screen.dart';
 import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'tactical_moves_screen.dart';
 import 'premium_management_screen.dart';
 import 'tarot_mode_screen.dart';
+// New extracted widgets
+import 'chat/chat_app_bar.dart';
+import 'chat/chat_message_list.dart';
+import 'chat/chat_input_bar.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -164,49 +167,57 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Load all chat sessions from Firestore
   Future<void> _loadChatSessions() async {
-    try {
-      final sessions = await ChatSessionService.getUserSessions();
-      if (!mounted) return;
+    final result = await ChatSessionService.getUserSessions();
+    if (!mounted) return;
+
+    if (result.success && result.sessions != null) {
       setState(() {
-        _chatSessions = sessions;
+        _chatSessions = result.sessions!;
       });
-    } catch (e) {
-      debugPrint("_loadChatSessions error: $e");
+    } else {
+      debugPrint("❌ Failed to load sessions: ${result.debugMessage}");
+      // Optionally show error to user
+      if (result.errorMessage != null && mounted) {
+        BlurToast.show(context, result.errorMessage!);
+      }
     }
   }
 
   /// Load selected chat messages
   Future<void> _loadSelectedChat(String sessionId) async {
-    try {
-      final messages = await ChatSessionService.getSessionMessages(sessionId);
-      if (!mounted) return;
+    final result = await ChatSessionService.getSessionMessages(sessionId);
+    if (!mounted) return;
 
+    if (result.success && result.messages != null) {
       setState(() {
         _currentSessionId = sessionId;
         _messages.clear();
-        _messages.addAll(messages);
+        _messages.addAll(result.messages!);
         _isTarotMode = false;
       });
 
       Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-    } catch (e) {
-      debugPrint("_loadSelectedChat error: $e");
-      if (mounted) {
-        BlurToast.show(context, "Chat yüklenirken hata oluştu");
+    } else {
+      debugPrint("❌ Failed to load messages: ${result.debugMessage}");
+      if (result.errorMessage != null && mounted) {
+        BlurToast.show(context, result.errorMessage!);
       }
     }
   }
 
   Future<void> _createInitialSession() async {
     if (_currentSessionId == null) {
-      final sessionId = await ChatSessionService.createSession(
+      final result = await ChatSessionService.createSession(
         title: 'Yeni Sohbet',
       );
-      if (sessionId != null && mounted) {
+      if (result.success && result.sessionId != null && mounted) {
         setState(() {
-          _currentSessionId = sessionId;
+          _currentSessionId = result.sessionId;
         });
         await _loadChatSessions();
+      } else {
+        debugPrint(
+            "❌ Failed to create initial session: ${result.debugMessage}");
       }
     }
   }
@@ -310,18 +321,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Start a new chat
   Future<void> _startNewChat() async {
-    final sessionId = await ChatSessionService.createSession(
+    final result = await ChatSessionService.createSession(
       title: 'Yeni Sohbet',
     );
 
-    if (sessionId != null && mounted) {
+    if (result.success && result.sessionId != null && mounted) {
       setState(() {
-        _currentSessionId = sessionId;
+        _currentSessionId = result.sessionId;
         _messages.clear();
         _replyingTo = null;
         _isTarotMode = false;
       });
       await _loadChatSessions();
+    } else {
+      debugPrint("❌ Failed to create new chat: ${result.debugMessage}");
+      if (result.errorMessage != null && mounted) {
+        BlurToast.show(context, result.errorMessage!);
+      }
     }
   }
 
@@ -371,15 +387,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraTokens.accent.withValues(alpha: 0.2),
+                      SyraTokens.accent.withValues(alpha: 0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.upload_file_outlined,
-                  color: SyraColors.accent,
+                  color: SyraTokens.accent,
                   size: 24,
                 ),
               ),
@@ -391,7 +407,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     Text(
                       'Relationship Upload (Beta)',
                       style: TextStyle(
-                        color: SyraColors.textPrimary,
+                        color: SyraTokens.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
                       ),
@@ -405,7 +421,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           Text(
             'WhatsApp sohbetini dışa aktar, buraya yükle.\nSYRA ilişki dinamiğini senin yerine analiz etsin.',
             style: TextStyle(
-              color: SyraColors.textSecondary.withValues(alpha: 0.9),
+              color: SyraTokens.textSecondary.withValues(alpha: 0.9),
               fontSize: 14,
               height: 1.5,
             ),
@@ -421,12 +437,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               padding: const EdgeInsets.symmetric(vertical: 16),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [SyraColors.accent, SyraColors.accent],
+                  colors: [SyraTokens.accent, SyraTokens.accent],
                 ),
                 borderRadius: BorderRadius.circular(14),
                 boxShadow: [
                   BoxShadow(
-                    color: SyraColors.accent.withValues(alpha: 0.3),
+                    color: SyraTokens.accent.withValues(alpha: 0.3),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
@@ -583,10 +599,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           ListTile(
-            leading: const Icon(Icons.image, color: SyraColors.textPrimary),
+            leading: const Icon(Icons.image, color: SyraTokens.textPrimary),
             title: const Text(
               'Fotoğraf Seç',
-              style: TextStyle(color: SyraColors.textPrimary),
+              style: TextStyle(color: SyraTokens.textPrimary),
             ),
             onTap: () async {
               Navigator.pop(context);
@@ -595,10 +611,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
           ListTile(
             leading:
-                const Icon(Icons.camera_alt, color: SyraColors.textPrimary),
+                const Icon(Icons.camera_alt, color: SyraTokens.textPrimary),
             title: const Text(
               'Kamera',
-              style: TextStyle(color: SyraColors.textPrimary),
+              style: TextStyle(color: SyraTokens.textPrimary),
             ),
             onTap: () async {
               Navigator.pop(context);
@@ -880,15 +896,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
 
     // ═══════════════════════════════════════════════════════════════
+    // CREATE OR UPDATE SESSION
     // ═══════════════════════════════════════════════════════════════
     if (_currentSessionId == null) {
-      final sessionId = await ChatSessionService.createSession(
+      final result = await ChatSessionService.createSession(
         title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
       );
-      if (sessionId != null) {
+      if (result.success && result.sessionId != null) {
         setState(() {
-          _currentSessionId = sessionId;
+          _currentSessionId = result.sessionId;
         });
+      } else {
+        debugPrint("❌ Failed to create session: ${result.debugMessage}");
       }
     } else {
       // Eğer session zaten varsa ama messageCount = 1 ise (ilk mesaj)
@@ -903,20 +922,21 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     }
 
+    // Save user message to session
     if (_currentSessionId != null) {
-      try {
-        await ChatSessionService.addMessageToSession(
-          sessionId: _currentSessionId!,
-          message: userMessage,
-        );
+      final saveResult = await ChatSessionService.addMessageToSession(
+        sessionId: _currentSessionId!,
+        message: userMessage,
+      );
 
+      if (saveResult.success) {
         await ChatSessionService.updateSession(
           sessionId: _currentSessionId!,
           lastMessage: text,
           messageCount: _messages.where((m) => m['sender'] == 'user').length,
         );
-      } catch (e) {
-        debugPrint("Error saving user message: $e");
+      } else {
+        debugPrint("❌ Failed to save user message: ${saveResult.debugMessage}");
       }
     }
 
@@ -931,16 +951,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════
+    // SEND MESSAGE TO AI - With new ChatSendResult
     // ═══════════════════════════════════════════════════════════════
-    try {
-      final botText = await ChatService.sendMessage(
-        userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
-        conversationHistory: _messages,
-        replyingTo: _replyingTo,
-        mode: _selectedMode,
-        imageUrl: imageUrlToSend, // Resim URL'ini backend'e gönder
-      );
+    final result = await ChatService.sendMessage(
+      userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
+      conversationHistory: _messages,
+      replyingTo: _replyingTo,
+      mode: _selectedMode,
+      imageUrl: imageUrlToSend,
+    );
 
+    // Handle result
+    if (result.success && result.responseText != null) {
+      // Success - add bot message
+      final botText = result.responseText!;
       final flags = ChatService.detectManipulation(botText);
 
       final botMessage = {
@@ -956,46 +980,48 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       setState(() {
         _messages.add(botMessage);
-
         _isTyping = false;
         _isLoading = false;
-        _isSending = false; // Gönderim tamamlandı
+        _isSending = false;
       });
 
-      // ═══════════════════════════════════════════════════════════════
-      // ═══════════════════════════════════════════════════════════════
+      // Save bot message to session
       if (_currentSessionId != null) {
-        try {
-          await ChatSessionService.addMessageToSession(
-            sessionId: _currentSessionId!,
-            message: botMessage,
-          );
+        final saveResult = await ChatSessionService.addMessageToSession(
+          sessionId: _currentSessionId!,
+          message: botMessage,
+        );
 
+        if (saveResult.success) {
           await ChatSessionService.updateSession(
             sessionId: _currentSessionId!,
             lastMessage: botText.length > 50
                 ? "${botText.substring(0, 50)}..."
                 : botText,
           );
-
           await _loadChatSessions();
-        } catch (e) {
-          debugPrint("Error saving bot message: $e");
+        } else {
+          debugPrint(
+              "❌ Failed to save bot message: ${saveResult.debugMessage}");
         }
       }
 
-      // Bot mesajı geldiğinde de scroll yap (delay ile)
+      // Scroll to bottom
       Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-    } catch (e) {
-      debugPrint("Network error: $e");
+    } else {
+      // Error - show user-friendly message
       setState(() {
         _isTyping = false;
         _isLoading = false;
-        _isSending = false; // Hata durumunda da gönderimi serbest bırak
+        _isSending = false;
       });
+
       if (mounted) {
-        BlurToast.show(context, "Bağlantı kurulamadı kanka");
+        final errorMessage = result.userMessage ?? "Bağlantı kurulamadı kanka";
+        BlurToast.show(context, errorMessage);
       }
+
+      debugPrint("❌ Chat send error: ${result.debugMessage}");
     }
   }
 
@@ -1012,9 +1038,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.95),
+                color: SyraTokens.surface.withOpacity(0.95),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SyraColors.border),
+                border: Border.all(color: SyraTokens.border),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -1024,11 +1050,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     height: 56,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: SyraColors.accent.withOpacity(0.2),
+                      color: SyraTokens.accent.withOpacity(0.2),
                     ),
                     child: const Icon(
                       Icons.workspace_premium_rounded,
-                      color: SyraColors.accent,
+                      color: SyraTokens.accent,
                       size: 28,
                     ),
                   ),
@@ -1036,7 +1062,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   const Text(
                     "Günlük Limit Doldu",
                     style: TextStyle(
-                      color: SyraColors.textPrimary,
+                      color: SyraTokens.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
@@ -1047,7 +1073,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     "Premium ile sınırsız devam edebilirsin!",
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: SyraColors.textSecondary,
+                      color: SyraTokens.textSecondary,
                       fontSize: 14,
                       height: 1.5,
                     ),
@@ -1061,15 +1087,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: SyraColors.glassBg,
+                              color: SyraTokens.glassBg,
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: SyraColors.border),
+                              border: Border.all(color: SyraTokens.border),
                             ),
                             child: const Center(
                               child: Text(
                                 "Tamam",
                                 style: TextStyle(
-                                  color: SyraColors.textSecondary,
+                                  color: SyraTokens.textSecondary,
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1088,7 +1114,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           child: Container(
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             decoration: BoxDecoration(
-                              color: SyraColors.accent,
+                              color: SyraTokens.accent,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: const Center(
@@ -1131,23 +1157,111 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           FocusScope.of(context).unfocus();
         },
         child: Scaffold(
-          backgroundColor: SyraColors.background,
+          backgroundColor: SyraTokens.background,
           body: Stack(
             children: [
               const SyraBackground(),
+
+              // ═══════════════════════════════════════════════════════════════
+              // MAIN CHAT CONTENT - Centered with max width + sliding animation
+              // ═══════════════════════════════════════════════════════════════
               SafeArea(
-                child: Column(
-                  children: [
-                    _buildAppBar(),
-                    Expanded(
-                      child: _messages.isEmpty
-                          ? _buildEmptyState()
-                          : _buildMessageList(),
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 240),
+                    curve: Curves.easeOutCubic,
+                    transform: Matrix4.identity()
+                      ..translate(_menuOpen ? 56.0 : 0.0, 0.0, 0.0)
+                      ..scale(_menuOpen ? 0.95 : 1.0),
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 720),
+                      decoration: _menuOpen
+                          ? BoxDecoration(
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 32,
+                                  offset: const Offset(-8, 0),
+                                ),
+                              ],
+                            )
+                          : null,
+                      child: Column(
+                        children: [
+                          ChatAppBar(
+                            selectedMode: _selectedMode,
+                            modeAnchorLink: _modeAnchorLink,
+                            onMenuTap: _toggleMenu,
+                            onModeTap: _handleModeSelection,
+                            onDocumentUpload: _handleDocumentUpload,
+                          ),
+                          Expanded(
+                            child: ChatMessageList(
+                              isEmpty: _messages.isEmpty,
+                              isTarotMode: _isTarotMode,
+                              onSuggestionTap: (text) {
+                                setState(() {
+                                  _controller.text = text;
+                                });
+                                _inputFocusNode.requestFocus();
+                                _controller.selection =
+                                    TextSelection.fromPosition(
+                                  TextPosition(offset: _controller.text.length),
+                                );
+                              },
+                              messages: _messages,
+                              scrollController: _scrollController,
+                              isTyping: _isTyping,
+                              swipedMessageId: _swipedMessageId,
+                              swipeOffset: _swipeOffset,
+                              onMessageLongPress: (msg) =>
+                                  _showMessageMenu(context, msg),
+                              onSwipeUpdate: (msg, delta) {
+                                setState(() {
+                                  _swipedMessageId = msg["id"];
+                                  _swipeOffset =
+                                      (_swipeOffset + delta).clamp(0, 30);
+                                });
+                              },
+                              onSwipeEnd: (msg, shouldReply) {
+                                if (shouldReply) {
+                                  setState(() => _replyingTo = msg);
+                                }
+                                setState(() {
+                                  _swipeOffset = 0;
+                                  _swipedMessageId = null;
+                                });
+                              },
+                            ),
+                          ),
+                          ChatInputBar(
+                            controller: _controller,
+                            focusNode: _inputFocusNode,
+                            isSending: _isSending,
+                            isLoading: _isLoading,
+                            isListening: _isListening,
+                            replyingTo: _replyingTo,
+                            pendingImage: _pendingImage,
+                            pendingImageUrl: _pendingImageUrl,
+                            onAttachmentTap: _handleAttachment,
+                            onVoiceInputTap: _handleVoiceInput,
+                            onSendMessage: _sendMessage,
+                            onCancelReply: () =>
+                                setState(() => _replyingTo = null),
+                            onClearImage: _clearPendingImage,
+                            onTextChanged: () => setState(() {}),
+                          ),
+                        ],
+                      ),
                     ),
-                    _buildInputBar(),
-                  ],
+                  ),
                 ),
               ),
+
+              // ═══════════════════════════════════════════════════════════════
+              // DARK OVERLAY - Tap to close menu
+              // ═══════════════════════════════════════════════════════════════
               Positioned.fill(
                 child: IgnorePointer(
                   ignoring: !_menuOpen,
@@ -1162,7 +1276,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-              SideMenuNew(
+              SideMenu(
                 slideAnimation: _menuOffset,
                 isPremium: _isPremium,
                 chatSessions: _chatSessions,
@@ -1179,28 +1293,35 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   await _loadSelectedChat(chat.id);
                 },
                 onDeleteChat: (chat) async {
-                  try {
-                    await ChatSessionService.deleteSession(chat.id);
+                  final result =
+                      await ChatSessionService.deleteSession(chat.id);
+                  if (result.success) {
                     await _loadChatSessions();
                     if (mounted) {
                       BlurToast.show(context, "Chat silindi");
                     }
-                  } catch (e) {
-                    debugPrint("Delete chat error: $e");
+                  } else {
+                    debugPrint("❌ Delete chat error: ${result.debugMessage}");
+                    if (result.errorMessage != null && mounted) {
+                      BlurToast.show(context, result.errorMessage!);
+                    }
                   }
                 },
                 onRenameChat: (chat, newTitle) async {
-                  try {
-                    await ChatSessionService.renameSession(
-                      sessionId: chat.id,
-                      newTitle: newTitle,
-                    );
+                  final result = await ChatSessionService.renameSession(
+                    sessionId: chat.id,
+                    newTitle: newTitle,
+                  );
+                  if (result.success) {
                     await _loadChatSessions();
                     if (mounted) {
                       BlurToast.show(context, "Chat adı güncellendi");
                     }
-                  } catch (e) {
-                    debugPrint("Rename chat error: $e");
+                  } else {
+                    debugPrint("❌ Rename chat error: ${result.debugMessage}");
+                    if (result.errorMessage != null && mounted) {
+                      BlurToast.show(context, result.errorMessage!);
+                    }
                   }
                 },
                 onOpenSettings: () {
@@ -1222,7 +1343,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const CircularProgressIndicator(
-                          color: SyraColors.accent,
+                          color: SyraTokens.accent,
                           strokeWidth: 3,
                         ),
                         const SizedBox(height: 20),
@@ -1258,10 +1379,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: SyraColors.background,
+        color: SyraTokens.background,
         border: Border(
           bottom: BorderSide(
-            color: SyraColors.divider,
+            color: SyraTokens.divider,
             width: 0.5,
           ),
         ),
@@ -1279,7 +1400,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               child: const Icon(
                 Icons.menu_rounded,
-                color: SyraColors.textSecondary,
+                color: SyraTokens.textSecondary,
                 size: 24,
               ),
             ),
@@ -1300,7 +1421,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               child: const Icon(
                 Icons.upload_file_outlined,
-                color: SyraColors.textSecondary,
+                color: SyraTokens.textSecondary,
                 size: 22,
               ),
             ),
@@ -1393,7 +1514,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               'assets/icon/syra.png',
               width: 120,
               height: 120,
-              color: SyraColors.accent.withOpacity(0.3),
+              color: SyraTokens.accent.withOpacity(0.3),
               colorBlendMode: BlendMode.srcIn,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
@@ -1403,15 +1524,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       colors: [
-                        SyraColors.accent.withOpacity(0.2),
-                        SyraColors.accent.withOpacity(0.1),
+                        SyraTokens.accent.withOpacity(0.2),
+                        SyraTokens.accent.withOpacity(0.1),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: SyraColors.accent.withOpacity(0.2),
+                        color: SyraTokens.accent.withOpacity(0.2),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -1423,7 +1544,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       style: TextStyle(
                         fontSize: 56,
                         fontWeight: FontWeight.w300,
-                        color: SyraColors.accent.withOpacity(0.5),
+                        color: SyraTokens.accent.withOpacity(0.5),
                       ),
                     ),
                   ),
@@ -1437,7 +1558,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               _isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
               style: TextStyle(
                 color:
-                    _isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
+                    _isTarotMode ? SyraTokens.accent : SyraTokens.textPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.3,
@@ -1452,7 +1573,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ? "İstersen önce birkaç cümleyle durumu anlat."
                   : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
               style: const TextStyle(
-                color: SyraColors.textMuted,
+                color: SyraTokens.textMuted,
                 fontSize: 14,
                 fontWeight: FontWeight.w400,
               ),
@@ -1504,17 +1625,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withOpacity(0.5),
+            color: SyraTokens.surface.withOpacity(0.5),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: SyraColors.divider.withOpacity(0.3),
+              color: SyraTokens.divider.withOpacity(0.3),
               width: 1,
             ),
           ),
           child: Text(
             text,
             style: const TextStyle(
-              color: SyraColors.textSecondary,
+              color: SyraTokens.textSecondary,
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -1596,7 +1717,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: SyraColors.surface,
+              color: SyraTokens.surface,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
@@ -1605,7 +1726,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Text(
                   "SYRA düşünüyor",
                   style: TextStyle(
-                    color: SyraColors.textMuted,
+                    color: SyraTokens.textMuted,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -1635,7 +1756,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           height: 6,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: SyraColors.textMuted.withOpacity(value),
+            color: SyraTokens.textMuted.withOpacity(value),
           ),
         );
       },
@@ -1670,10 +1791,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 20), // Safe area'dan 8 çıkar, min 8
       ),
       decoration: BoxDecoration(
-        color: SyraColors.background,
+        color: SyraTokens.background,
         border: Border(
           top: BorderSide(
-            color: SyraColors.divider,
+            color: SyraTokens.divider,
             width: 0.5,
           ),
         ),
@@ -1688,12 +1809,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             duration: const Duration(milliseconds: 180),
             curve: Curves.easeInOut,
             decoration: BoxDecoration(
-              color: isActive ? SyraColors.surfaceLight : SyraColors.surface,
+              color: isActive ? SyraTokens.surfaceLight : SyraTokens.surface,
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: isActive
-                    ? SyraColors.accent.withOpacity(0.8)
-                    : SyraColors.border,
+                    ? SyraTokens.accent.withOpacity(0.8)
+                    : SyraTokens.border,
                 width: isActive ? 1.2 : 0.5,
               ),
               boxShadow: isActive
@@ -1717,7 +1838,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     margin: const EdgeInsets.only(left: 4, bottom: 4),
                     child: const Icon(
                       Icons.add_rounded,
-                      color: SyraColors.textMuted,
+                      color: SyraTokens.textMuted,
                       size: 24,
                     ),
                   ),
@@ -1733,7 +1854,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     onChanged: (_) =>
                         setState(() {}), // TextField değiştiğinde rebuild
                     style: const TextStyle(
-                      color: SyraColors.textPrimary,
+                      color: SyraTokens.textPrimary,
                       fontSize: 15,
                       height: 1.4,
                     ),
@@ -1746,7 +1867,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       border: InputBorder.none,
                       hintText: "Message",
                       hintStyle: TextStyle(
-                        color: SyraColors.textHint,
+                        color: SyraTokens.textHint,
                         fontSize: 15,
                       ),
                     ),
@@ -1768,8 +1889,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             : Icons.mic_none_rounded,
                         key: ValueKey(_isListening),
                         color: _isListening
-                            ? SyraColors.accent
-                            : SyraColors.textMuted,
+                            ? SyraTokens.accent
+                            : SyraTokens.textMuted,
                         size: 24,
                       ),
                     ),
@@ -1787,8 +1908,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     margin: const EdgeInsets.only(right: 6, bottom: 6),
                     decoration: BoxDecoration(
                       color: canSend
-                          ? SyraColors.textPrimary
-                          : SyraColors.textMuted.withOpacity(0.3),
+                          ? SyraTokens.textPrimary
+                          : SyraTokens.textMuted.withOpacity(0.3),
                       shape: BoxShape.circle,
                     ),
                     child: _isLoading
@@ -1797,15 +1918,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                SyraColors.background,
+                                SyraTokens.background,
                               ),
                             ),
                           )
                         : Icon(
                             Icons.arrow_upward_rounded,
                             color: canSend
-                                ? SyraColors.background
-                                : SyraColors.background.withOpacity(0.5),
+                                ? SyraTokens.background
+                                : SyraTokens.background.withOpacity(0.5),
                             size: 20,
                           ),
                   ),
@@ -1823,10 +1944,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: SyraColors.surface,
+        color: SyraTokens.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: SyraColors.border,
+          color: SyraTokens.border,
           width: 0.5,
         ),
       ),
@@ -1836,7 +1957,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             width: 3,
             height: 28,
             decoration: BoxDecoration(
-              color: SyraColors.accent,
+              color: SyraTokens.accent,
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -1849,7 +1970,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Text(
                   "Yanıtlanıyor",
                   style: TextStyle(
-                    color: SyraColors.accent,
+                    color: SyraTokens.accent,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1860,7 +1981,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: SyraColors.textMuted,
+                    color: SyraTokens.textMuted,
                     fontSize: 13,
                   ),
                 ),
@@ -1874,7 +1995,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               child: Icon(
                 Icons.close_rounded,
                 size: 18,
-                color: SyraColors.textMuted,
+                color: SyraTokens.textMuted,
               ),
             ),
           ),
@@ -1889,10 +2010,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: SyraColors.surface,
+        color: SyraTokens.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: SyraColors.border,
+          color: SyraTokens.border,
           width: 0.5,
         ),
       ),
@@ -1919,7 +2040,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Text(
                   "Fotoğraf",
                   style: TextStyle(
-                    color: SyraColors.textPrimary,
+                    color: SyraTokens.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1933,14 +2054,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: SyraColors.accent,
+                          color: SyraTokens.accent,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         "Yükleniyor...",
                         style: TextStyle(
-                          color: SyraColors.textMuted,
+                          color: SyraTokens.textMuted,
                           fontSize: 12,
                         ),
                       ),
@@ -1975,13 +2096,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             child: Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: SyraColors.background,
+                color: SyraTokens.background,
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 Icons.close_rounded,
                 size: 16,
-                color: SyraColors.textMuted,
+                color: SyraTokens.textMuted,
               ),
             ),
           ),
@@ -2064,14 +2185,14 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: SyraColors.surface,
+        backgroundColor: SyraTokens.surface,
         title: const Text(
           'Bu ilişkiyi silmek istiyor musun?',
-          style: TextStyle(color: SyraColors.textPrimary),
+          style: TextStyle(color: SyraTokens.textPrimary),
         ),
         content: const Text(
           'İlişkiye ait özet ve istatistikler silinecek. SYRA bu ilişkiyi chat\'te artık referans almayacak.',
-          style: TextStyle(color: SyraColors.textSecondary),
+          style: TextStyle(color: SyraTokens.textSecondary),
         ),
         actions: [
           TextButton(
@@ -2138,15 +2259,15 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraTokens.accent.withValues(alpha: 0.2),
+                      SyraTokens.accent.withValues(alpha: 0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Icon(
                   Icons.favorite_border,
-                  color: SyraColors.accent,
+                  color: SyraTokens.accent,
                   size: 24,
                 ),
               ),
@@ -2155,7 +2276,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                 child: Text(
                   'Kayıtlı İlişki',
                   style: TextStyle(
-                    color: SyraColors.textPrimary,
+                    color: SyraTokens.textPrimary,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -2167,7 +2288,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
           Text(
             mem.shortSummary ?? 'Özet mevcut değil',
             style: TextStyle(
-              color: SyraColors.textSecondary.withValues(alpha: 0.9),
+              color: SyraTokens.textSecondary.withValues(alpha: 0.9),
               fontSize: 14,
               height: 1.5,
             ),
@@ -2179,25 +2300,25 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
             Text(
               '${_formatDate(mem.startDate!)} — ${_formatDate(mem.endDate!)}',
               style: TextStyle(
-                color: SyraColors.textSecondary.withValues(alpha: 0.7),
+                color: SyraTokens.textSecondary.withValues(alpha: 0.7),
                 fontSize: 12,
               ),
             ),
           const SizedBox(height: 20),
-          const Divider(color: SyraColors.border, height: 1),
+          const Divider(color: SyraTokens.border, height: 1),
           const SizedBox(height: 16),
           Container(
             decoration: BoxDecoration(
-              color: SyraColors.background.withValues(alpha: 0.5),
+              color: SyraTokens.background.withValues(alpha: 0.5),
               borderRadius: BorderRadius.circular(12),
               border:
-                  Border.all(color: SyraColors.border.withValues(alpha: 0.3)),
+                  Border.all(color: SyraTokens.border.withValues(alpha: 0.3)),
             ),
             child: SwitchListTile(
               title: const Text(
                 'Chat\'te kullan',
                 style: TextStyle(
-                  color: SyraColors.textPrimary,
+                  color: SyraTokens.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2207,13 +2328,13 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                     ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
                     : 'Veri saklanır ama chat\'te referans alınmaz',
                 style: TextStyle(
-                  color: SyraColors.textSecondary.withValues(alpha: 0.8),
+                  color: SyraTokens.textSecondary.withValues(alpha: 0.8),
                   fontSize: 12,
                 ),
               ),
               value: _isActive,
               onChanged: _isUpdating ? null : _handleToggle,
-              activeColor: SyraColors.accent,
+              activeColor: SyraTokens.accent,
             ),
           ),
           const SizedBox(height: 20),
@@ -2226,7 +2347,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [SyraColors.accent, SyraColors.accent],
+                        colors: [SyraTokens.accent, SyraTokens.accent],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -2260,20 +2381,20 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     decoration: BoxDecoration(
-                      color: SyraColors.background.withValues(alpha: 0.5),
+                      color: SyraTokens.background.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SyraColors.border),
+                      border: Border.all(color: SyraTokens.border),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(Icons.refresh,
-                            color: SyraColors.textSecondary, size: 18),
+                            color: SyraTokens.textSecondary, size: 18),
                         SizedBox(width: 8),
                         Text(
                           'Sohbeti Güncelle',
                           style: TextStyle(
-                            color: SyraColors.textSecondary,
+                            color: SyraTokens.textSecondary,
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
@@ -2423,5 +2544,177 @@ class _AnimatedMessageItemState extends State<_AnimatedMessageItem>
         child: widget.child,
       ),
     );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════
+/// SYRA MESSAGE BUBBLE - Chat Message Widget
+/// ═══════════════════════════════════════════════════════════════
+
+class SyraMessageBubble extends StatelessWidget {
+  final String text;
+  final bool isUser;
+  final DateTime? time;
+  final String? replyToText;
+  final bool hasRedFlag;
+  final bool hasGreenFlag;
+  final VoidCallback? onLongPress;
+  final String? imageUrl;
+
+  const SyraMessageBubble({
+    super.key,
+    required this.text,
+    required this.isUser,
+    this.time,
+    this.replyToText,
+    this.hasRedFlag = false,
+    this.hasGreenFlag = false,
+    this.onLongPress,
+    this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onLongPress: onLongPress,
+      child: Container(
+        margin: EdgeInsets.only(
+          left: isUser ? 60 : 16,
+          right: isUser ? 16 : 60,
+          bottom: 8,
+        ),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color:
+              isUser ? SyraTokens.accent.withOpacity(0.15) : SyraTokens.surface,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isUser
+                ? SyraTokens.accent.withOpacity(0.3)
+                : SyraTokens.border.withOpacity(0.3),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Reply indicator
+            if (replyToText != null) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                margin: const EdgeInsets.only(bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '↩ $replyToText',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: SyraTokens.textSecondary,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+
+            // Image if present
+            if (imageUrl != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  imageUrl!,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      height: 100,
+                      color: SyraTokens.surface,
+                      child: const Center(
+                        child: Icon(Icons.broken_image,
+                            color: SyraTokens.textMuted),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
+
+            // Message text
+            Text(
+              text,
+              style: TextStyle(
+                fontSize: 15,
+                color: isUser ? SyraTokens.textPrimary : SyraTokens.textPrimary,
+                height: 1.4,
+              ),
+            ),
+
+            // Flags and time row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // Flags
+                Row(
+                  children: [
+                    if (hasRedFlag)
+                      Container(
+                        margin: const EdgeInsets.only(right: 4, top: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: SyraTokens.error.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '🚩 Dikkat',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: SyraTokens.error,
+                          ),
+                        ),
+                      ),
+                    if (hasGreenFlag)
+                      Container(
+                        margin: const EdgeInsets.only(right: 4, top: 4),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: SyraTokens.success.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          '✓ İyi',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: SyraTokens.success,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+
+                // Time
+                if (time != null)
+                  Text(
+                    _formatTime(time!),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: SyraTokens.textMuted,
+                    ),
+                  ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour.toString().padLeft(2, '0');
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }

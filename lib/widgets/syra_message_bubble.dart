@@ -83,7 +83,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         child: GestureDetector(
           onLongPress: widget.onLongPress,
           child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
+            margin: EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: widget.isUser
                   ? CrossAxisAlignment.end

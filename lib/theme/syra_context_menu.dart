@@ -49,7 +49,7 @@ class SyraContextMenu extends StatelessWidget {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Container(
-        margin: const EdgeInsets.only(
+        margin: EdgeInsets.only(
           left: SyraTokens.paddingMd,
           right: SyraTokens.paddingMd,
           bottom: SyraTokens.paddingLg,
@@ -174,7 +174,7 @@ class _ContextMenuItem extends StatelessWidget {
                 color: textColor,
               ),
               
-              const SizedBox(width: SyraTokens.paddingSm),
+              SizedBox(width: SyraTokens.paddingSm),
               
               // Label
               Expanded(

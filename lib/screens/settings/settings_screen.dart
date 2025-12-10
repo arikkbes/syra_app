@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import '../../theme/syra_theme.dart';
+import '../../theme/syra_page.dart';
+import '../../theme/syra_tokens.dart';
 import '../../utils/syra_prefs.dart';
 import 'theme_settings_screen.dart';
 import 'appearance_settings_screen.dart';
@@ -16,6 +17,8 @@ import '../premium_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SETTINGS SCREEN - Main Settings Hub
+/// ═══════════════════════════════════════════════════════════════
+/// Module 4: Now using SyraPage + SyraTokens for consistency
 /// ═══════════════════════════════════════════════════════════════
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -34,7 +37,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadPremiumStatus() async {
-    // Check if user has premium (you can integrate with your existing premium check)
     final isPremium = SyraPrefs.getBool('isPremium', defaultValue: false);
     if (mounted) {
       setState(() {
@@ -45,99 +47,92 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: SyraColors.background,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, size: 20),
-          color: SyraColors.iconStroke,
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Settings',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.w600,
-            color: SyraColors.textPrimary,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 8),
+    return SyraPage(
+      title: 'Settings',
+      maxWidth: 720,
+      scrollable: true,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // ═══════════════════════════════════════════════════════════════
           // PERSONALIZATION
           // ═══════════════════════════════════════════════════════════════
           _buildSectionHeader('PERSONALIZATION'),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildSettingsTile(
             icon: Icons.palette_outlined,
             title: 'Theme',
             subtitle: 'Dark, Light, Pure Black',
             onTap: () => _navigateTo(const ThemeSettingsScreen()),
           ),
+          SizedBox(height: SyraTokens.paddingXs),
           _buildSettingsTile(
             icon: Icons.format_size,
             title: 'Appearance',
             subtitle: 'Font size, UI scale',
             onTap: () => _navigateTo(const AppearanceSettingsScreen()),
           ),
+          SizedBox(height: SyraTokens.paddingXs),
           _buildSettingsTile(
             icon: Icons.mood_outlined,
             title: 'Tone',
             subtitle: 'Energy, personality, humor',
             onTap: () => _navigateTo(const ToneSettingsScreen()),
           ),
+          SizedBox(height: SyraTokens.paddingXs),
           _buildSettingsTile(
             icon: Icons.text_fields,
             title: 'Message Length',
             subtitle: 'Short, Medium, Long, Adaptive',
             onTap: () => _navigateTo(const MessageLengthScreen()),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: SyraTokens.paddingLg),
 
           // ═══════════════════════════════════════════════════════════════
           // CHAT SETTINGS
           // ═══════════════════════════════════════════════════════════════
           _buildSectionHeader('CHAT SETTINGS'),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildSettingsTile(
             icon: Icons.notifications_outlined,
             title: 'Notifications',
             subtitle: 'Push, reminders, tips',
             onTap: () => _navigateTo(const NotificationsSettingsScreen()),
           ),
+          SizedBox(height: SyraTokens.paddingXs),
           _buildSettingsTile(
             icon: Icons.lightbulb_outline,
             title: 'Daily Tips',
             subtitle: 'Basic and personalized tips',
             onTap: () => _navigateTo(const DailyTipsScreen()),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: SyraTokens.paddingLg),
 
           // ═══════════════════════════════════════════════════════════════
           // DATA & PRIVACY
           // ═══════════════════════════════════════════════════════════════
           _buildSectionHeader('DATA & PRIVACY'),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildSettingsTile(
             icon: Icons.shield_outlined,
             title: 'Privacy & Data',
             subtitle: 'Clear history, delete account',
             onTap: () => _navigateTo(const PrivacyDataScreen()),
           ),
+          SizedBox(height: SyraTokens.paddingXs),
           _buildSettingsTile(
             icon: Icons.archive_outlined,
             title: 'Archived Chats',
             subtitle: 'View archived conversations',
             onTap: () => _navigateTo(const ArchivedChatsScreen()),
           ),
-          const SizedBox(height: 12),
+          SizedBox(height: SyraTokens.paddingLg),
 
           // ═══════════════════════════════════════════════════════════════
           // ACCOUNT
           // ═══════════════════════════════════════════════════════════════
           _buildSectionHeader('ACCOUNT'),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildSettingsTile(
             icon: Icons.person_outline,
             title: 'Account',
@@ -149,8 +144,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           // PREMIUM (only show for free users)
           // ═══════════════════════════════════════════════════════════════
           if (!_isPremium) ...[
-            const SizedBox(height: 12),
+            SizedBox(height: SyraTokens.paddingLg),
             _buildSectionHeader('PREMIUM'),
+            SizedBox(height: SyraTokens.paddingSm),
             _buildSettingsTile(
               icon: Icons.star_outline,
               title: 'SYRA Plus',
@@ -158,12 +154,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onTap: () => _navigateTo(const PremiumScreen()),
               trailing: Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
+                  horizontal: SyraTokens.paddingSm,
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  gradient: SyraColors.accentGradient,
-                  borderRadius: BorderRadius.circular(8),
+                  color: SyraTokens.accent,
+                  borderRadius: BorderRadius.circular(SyraTokens.radiusSm),
                 ),
                 child: const Text(
                   'UPGRADE',
@@ -177,7 +173,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ],
 
-          const SizedBox(height: 32),
+          SizedBox(height: SyraTokens.paddingXl),
         ],
       ),
     );
@@ -185,13 +181,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+      padding: EdgeInsets.only(
+        top: SyraTokens.paddingMd,
+        bottom: SyraTokens.paddingXs,
+      ),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w600,
-          color: SyraColors.textMuted,
+          color: SyraTokens.textMuted,
           letterSpacing: 0.8,
         ),
       ),
@@ -206,12 +205,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Widget? trailing,
   }) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       decoration: BoxDecoration(
-        color: SyraColors.surface,
-        borderRadius: BorderRadius.circular(12),
+        color: SyraTokens.surface,
+        borderRadius: BorderRadius.circular(SyraTokens.radiusMd),
         border: Border.all(
-          color: SyraColors.border,
+          color: SyraTokens.border,
           width: 1,
         ),
       ),
@@ -220,13 +218,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: SyraColors.surfaceLight,
-            borderRadius: BorderRadius.circular(8),
+            color: SyraTokens.surfaceLight,
+            borderRadius: BorderRadius.circular(SyraTokens.radiusSm),
           ),
           child: Icon(
             icon,
             size: 20,
-            color: SyraColors.accent,
+            color: SyraTokens.accent,
           ),
         ),
         title: Text(
@@ -234,26 +232,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
           style: const TextStyle(
             fontSize: 15,
             fontWeight: FontWeight.w500,
-            color: SyraColors.textPrimary,
+            color: SyraTokens.textPrimary,
           ),
         ),
         subtitle: Text(
           subtitle,
           style: const TextStyle(
             fontSize: 13,
-            color: SyraColors.textSecondary,
+            color: SyraTokens.textSecondary,
           ),
         ),
         trailing: trailing ??
             const Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: SyraColors.textMuted,
+              color: SyraTokens.textMuted,
             ),
         onTap: onTap,
         contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 8,
+          horizontal: SyraTokens.paddingMd,
+          vertical: SyraTokens.paddingSm,
         ),
       ),
     );

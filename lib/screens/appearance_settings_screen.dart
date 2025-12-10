@@ -130,7 +130,7 @@ class _AppearanceSettingsScreenState extends State<AppearanceSettingsScreen> {
 
   Widget _buildSectionTitle(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 4),
+      padding: EdgeInsets.only(left: 4),
       child: Text(
         title,
         style: TextStyle(

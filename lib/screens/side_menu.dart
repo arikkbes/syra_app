@@ -2,22 +2,20 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
-import '../theme/syra_tokens.dart';
-import '../theme/syra_context_menu.dart';
+import '../theme/design_system.dart';
 import '../models/chat_session.dart';
 import 'kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA SIDE MENU v4.0 – Premium Glass Drawer
+/// SYRA SIDE MENU v3.0 – 2025 AI App Style
 /// ═══════════════════════════════════════════════════════════════
-/// Features:
-/// - Glass panel overlay with backdrop blur
-/// - Premium action cards with active states
-/// - Clean chat list with section label
-/// - Polished rename/delete bottom sheet
+/// Structure:
+/// 1. Static shortcuts (New Chat, Tarot Mode)
+/// 2. Recent chats list
+/// 3. User profile row (opens Settings)
 /// ═══════════════════════════════════════════════════════════════
 
-class SideMenuNew extends StatelessWidget {
+class SideMenu extends StatelessWidget {
   final Animation<Offset> slideAnimation;
   final bool isPremium;
   final List<ChatSession> chatSessions;
@@ -30,7 +28,7 @@ class SideMenuNew extends StatelessWidget {
   final VoidCallback onOpenSettings;
   final VoidCallback onClose;
 
-  const SideMenuNew({
+  SideMenu({
     super.key,
     required this.slideAnimation,
     required this.isPremium,
@@ -53,37 +51,27 @@ class SideMenuNew extends StatelessWidget {
 
     return SlideTransition(
       position: slideAnimation,
-      child: Container(
-        width: 300,
-        decoration: BoxDecoration(
-          color: SyraColors.surface.withOpacity(0.94),
-          borderRadius: const BorderRadius.only(
-            topRight: Radius.circular(24),
-            bottomRight: Radius.circular(24),
-          ),
-          border: Border.all(
-            color: Colors.white.withOpacity(0.04),
-            width: 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.65),
-              blurRadius: 32,
-              offset: const Offset(4, 0),
+      child: SafeArea(
+        child: Container(
+          width: 300,
+          decoration: BoxDecoration(
+            color: SyraColors.background,
+            border: Border(
+              right: BorderSide(
+                color: SyraColors.divider,
+                width: 1,
+              ),
             ),
-          ],
-        ),
-        child: SafeArea(
+          ),
           child: Column(
             children: [
               // ───────────────────────────────────────────────────
-              // PRIMARY ACTION CARDS
               // ───────────────────────────────────────────────────
-              Padding(
+              Container(
                 padding: const EdgeInsets.all(16),
                 child: Column(
                   children: [
-                    _buildActionCard(
+                    _buildShortcutButton(
                       context: context,
                       icon: Icons.add_circle_outline,
                       label: 'New Chat',
@@ -92,24 +80,22 @@ class SideMenuNew extends StatelessWidget {
                         onNewChat();
                       },
                     ),
-                    const SizedBox(height: 10),
-                    _buildActionCard(
+                    const SizedBox(height: 8),
+                    _buildShortcutButton(
                       context: context,
                       icon: Icons.auto_awesome_outlined,
                       label: 'Tarot Mode',
-                      subtitle: 'Karş gelecekten haberler',
                       onTap: () {
                         onClose();
                         onTarotMode();
                       },
-                      isActive: false, // TODO: Tarot mode aktif mi kontrol et
+                      isSpecial: true,
                     ),
-                    const SizedBox(height: 10),
-                    _buildActionCard(
+                    const SizedBox(height: 8),
+                    _buildShortcutButton(
                       context: context,
                       icon: Icons.analytics_outlined,
                       label: 'Kim Daha Çok?',
-                      subtitle: 'İlişki istatistikleri',
                       onTap: () {
                         onClose();
                         Navigator.push(
@@ -124,39 +110,15 @@ class SideMenuNew extends StatelessWidget {
                 ),
               ),
 
-              // ───────────────────────────────────────────────────
-              // CHAT SESSIONS LIST
-              // ───────────────────────────────────────────────────
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Row(
-                  children: [
-                    Text(
-                      'SOHBETLER',
-                      style: TextStyle(
-                        color: SyraColors.textMuted.withOpacity(0.6),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Container(
-                        height: 1,
-                        color: SyraColors.divider.withOpacity(0.3),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              const Divider(height: 1),
 
+              // ───────────────────────────────────────────────────
+              // ───────────────────────────────────────────────────
               Expanded(
                 child: chatSessions.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: chatSessions.length,
                         itemBuilder: (context, index) {
                           final chat = chatSessions[index];
@@ -173,76 +135,67 @@ class SideMenuNew extends StatelessWidget {
                       ),
               ),
 
+              const Divider(height: 1),
+
               // ───────────────────────────────────────────────────
-              // USER PROFILE ROW
               // ───────────────────────────────────────────────────
-              Container(
-                decoration: BoxDecoration(
-                  border: Border(
-                    top: BorderSide(
-                      color: SyraColors.divider.withOpacity(0.3),
-                      width: 1,
-                    ),
-                  ),
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () {
-                      onClose();
-                      onOpenSettings();
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      child: Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: SyraColors.accent,
-                            child: Text(
-                              userInitials,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    onClose();
+                    onOpenSettings();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: SyraColors.accent,
+                          child: Text(
+                            userInitials,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                userName,
+                                style: const TextStyle(
+                                  color: SyraColors.textPrimary,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  userName,
-                                  style: const TextStyle(
-                                    color: SyraColors.textPrimary,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              const SizedBox(height: 2),
+                              Text(
+                                isPremium ? 'SYRA Plus' : 'Free Plan',
+                                style: TextStyle(
+                                  color: isPremium
+                                      ? SyraColors.accent
+                                      : SyraColors.textMuted,
+                                  fontSize: 12,
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  isPremium ? 'SYRA Plus' : 'Free Plan',
-                                  style: TextStyle(
-                                    color: isPremium
-                                        ? SyraColors.accent
-                                        : SyraColors.textMuted,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                          Icon(
-                            Icons.settings_outlined,
-                            color: SyraColors.iconMuted,
-                            size: 20,
-                          ),
-                        ],
-                      ),
+                        ),
+                        Icon(
+                          Icons.settings_outlined,
+                          color: SyraColors.iconMuted,
+                          size: 20,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -255,82 +208,46 @@ class SideMenuNew extends StatelessWidget {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // PREMIUM ACTION CARD
   // ═════════════════════════════════════════════════════════════════
 
-  Widget _buildActionCard({
+  Widget _buildShortcutButton({
     required BuildContext context,
     required IconData icon,
     required String label,
-    String? subtitle,
     required VoidCallback onTap,
-    bool isActive = false,
+    bool isSpecial = false,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: isActive
-                ? SyraColors.surfaceLight.withOpacity(0.98)
-                : SyraColors.surface,
-            borderRadius: BorderRadius.circular(18),
+            color: isSpecial
+                ? SyraColors.accent.withValues(alpha: 0.08)
+                : Colors.transparent,
             border: Border.all(
-              color: isActive
-                  ? SyraColors.accent.withOpacity(0.9)
-                  : Colors.white.withOpacity(0.06),
-              width: isActive ? 1.3 : 1,
+              color: isSpecial ? SyraColors.accent : SyraColors.border,
+              width: 1,
             ),
-            boxShadow: isActive
-                ? [
-                    BoxShadow(
-                      color: SyraColors.accent.withOpacity(0.3),
-                      blurRadius: 24,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : [],
+            borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             children: [
               Icon(
                 icon,
-                color: isActive ? SyraColors.accent : SyraColors.iconStroke,
-                size: 22,
+                color: isSpecial ? SyraColors.accent : SyraColors.iconStroke,
+                size: 20,
               ),
               const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: isActive
-                            ? SyraColors.textPrimary
-                            : SyraColors.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        style: TextStyle(
-                          color: isActive
-                              ? SyraColors.textSecondary
-                              : SyraColors.textMuted,
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ],
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSpecial ? SyraColors.accent : SyraColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -339,34 +256,33 @@ class SideMenuNew extends StatelessWidget {
       ),
     );
   }
-
-  // ═════════════════════════════════════════════════════════════════
-  // CHAT LIST ITEM
-  // ═════════════════════════════════════════════════════════════════
 
   Widget _buildChatListItem({
     required BuildContext context,
     required ChatSession chat,
     required VoidCallback onTap,
     required VoidCallback onDelete,
-    bool isSelected = false,
   }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
+    return Dismissible(
+      key: Key(chat.id),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        alignment: Alignment.centerRight,
+        padding: EdgeInsets.only(right: 20),
+        color: Colors.red.withValues(alpha: 0.1),
+        child: const Icon(
+          Icons.delete_outline,
+          color: Colors.red,
+        ),
+      ),
+      onDismissed: (_) => onDelete(),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           onLongPress: () => _showChatContextMenu(context, chat),
-          borderRadius: BorderRadius.circular(12),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: isSelected
-                  ? Colors.white.withOpacity(0.04)
-                  : Colors.transparent,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: Row(
               children: [
                 Icon(
@@ -380,7 +296,7 @@ class SideMenuNew extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        chat.title.isEmpty ? 'Yeni Sohbet' : chat.title,
+                        chat.title.isEmpty ? 'New Chat' : chat.title,
                         style: const TextStyle(
                           color: SyraColors.textPrimary,
                           fontSize: 14,
@@ -413,133 +329,24 @@ class SideMenuNew extends StatelessWidget {
     );
   }
 
-  // ═════════════════════════════════════════════════════════════════
-  // CONTEXT MENU (RENAME/DELETE)
-  // ═════════════════════════════════════════════════════════════════
-
   void _showChatContextMenu(BuildContext context, ChatSession chat) {
-    showModalBottomSheet(
+    showSyraContextMenu(
       context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => _buildContextSheet(context, chat),
-    );
-  }
-
-  Widget _buildContextSheet(BuildContext context, ChatSession chat) {
-    return ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          color: SyraColors.surface.withOpacity(0.96),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).padding.bottom + 16,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Grab handle
-              Container(
-                margin: const EdgeInsets.only(top: 12, bottom: 8),
-                width: 36,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: SyraColors.divider,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-
-              // Title
-              Padding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-                child: Text(
-                  chat.title.isEmpty ? 'Yeni Sohbet' : chat.title,
-                  style: const TextStyle(
-                    color: SyraColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-
-              // Actions
-              _buildSheetAction(
-                context: context,
-                icon: Icons.edit_outlined,
-                label: 'Rename chat',
-                onTap: () {
-                  Navigator.pop(context);
-                  _showRenameDialog(context, chat);
-                },
-              ),
-
-              _buildSheetAction(
-                context: context,
-                icon: Icons.delete_outline,
-                label: 'Delete chat',
-                isDestructive: true,
-                onTap: () {
-                  Navigator.pop(context);
-                  onDeleteChat(chat);
-                },
-              ),
-
-              const SizedBox(height: 8),
-            ],
-          ),
+      actions: [
+        SyraContextAction(
+          icon: Icons.edit_outlined,
+          label: 'Rename chat',
+          onTap: () => _showRenameDialog(context, chat),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSheetAction({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool isDestructive = false,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isDestructive
-                    ? Colors.red.withOpacity(0.9)
-                    : SyraColors.iconStroke,
-                size: 22,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isDestructive
-                        ? Colors.red.withOpacity(0.9)
-                        : SyraColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
+        SyraContextAction(
+          icon: Icons.delete_outline,
+          label: 'Delete chat',
+          isDestructive: true,
+          onTap: () => onDeleteChat(chat),
         ),
-      ),
+      ],
     );
   }
-
-  // ═════════════════════════════════════════════════════════════════
-  // RENAME DIALOG
-  // ═════════════════════════════════════════════════════════════════
 
   void _showRenameDialog(BuildContext context, ChatSession chat) {
     final controller = TextEditingController(text: chat.title);
@@ -549,25 +356,15 @@ class SideMenuNew extends StatelessWidget {
       builder: (context) => Dialog(
         backgroundColor: Colors.transparent,
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.96),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.08),
-                  width: 1,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 32,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
+                color: SyraColors.surface.withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: SyraColors.border),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -577,11 +374,11 @@ class SideMenuNew extends StatelessWidget {
                     'Rename Chat',
                     style: TextStyle(
                       color: SyraColors.textPrimary,
-                      fontSize: 20,
+                      fontSize: 18,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   TextField(
                     controller: controller,
                     autofocus: true,
@@ -591,25 +388,22 @@ class SideMenuNew extends StatelessWidget {
                     ),
                     decoration: InputDecoration(
                       hintText: 'Enter new title',
-                      hintStyle: const TextStyle(
+                      hintStyle: TextStyle(
                         color: SyraColors.textMuted,
                       ),
                       filled: true,
-                      fillColor: SyraColors.background.withOpacity(0.5),
+                      fillColor: SyraColors.background,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: SyraColors.border),
+                        borderSide: BorderSide(color: SyraColors.border),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(color: SyraColors.border),
+                        borderSide: BorderSide(color: SyraColors.border),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
-                        borderSide: const BorderSide(
-                          color: SyraColors.accent,
-                          width: 1.5,
-                        ),
+                        borderSide: BorderSide(color: SyraColors.accent),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
@@ -617,13 +411,13 @@ class SideMenuNew extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text(
+                        child: Text(
                           'Cancel',
                           style: TextStyle(
                             color: SyraColors.textMuted,
@@ -647,10 +441,9 @@ class SideMenuNew extends StatelessWidget {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 24,
+                            horizontal: 20,
                             vertical: 12,
                           ),
-                          elevation: 0,
                         ),
                         child: const Text(
                           'Rename',
@@ -671,10 +464,6 @@ class SideMenuNew extends StatelessWidget {
     );
   }
 
-  // ═════════════════════════════════════════════════════════════════
-  // EMPTY STATE
-  // ═════════════════════════════════════════════════════════════════
-
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
@@ -685,7 +474,7 @@ class SideMenuNew extends StatelessWidget {
             Icon(
               Icons.chat_outlined,
               size: 48,
-              color: SyraColors.divider.withOpacity(0.5),
+              color: SyraColors.divider,
             ),
             const SizedBox(height: 16),
             Text(
@@ -695,23 +484,11 @@ class SideMenuNew extends StatelessWidget {
                 fontSize: 14,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Start a conversation',
-              style: TextStyle(
-                color: SyraColors.textMuted.withOpacity(0.6),
-                fontSize: 12,
-              ),
-            ),
           ],
         ),
       ),
     );
   }
-
-  // ═════════════════════════════════════════════════════════════════
-  // HELPERS
-  // ═════════════════════════════════════════════════════════════════
 
   String _getUserInitials(String name) {
     final parts = name.split(' ');

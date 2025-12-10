@@ -32,6 +32,12 @@ class SyraPage extends StatelessWidget {
   
   /// Bottom widget (e.g., for action buttons)
   final Widget? bottom;
+  
+  /// Maximum width for centered layout on wide screens (default: 720)
+  final double maxWidth;
+  
+  /// Whether to apply centered layout with maxWidth constraint
+  final bool useCenteredLayout;
 
   const SyraPage({
     super.key,
@@ -42,6 +48,8 @@ class SyraPage extends StatelessWidget {
     this.onBack,
     this.scrollable = true,
     this.bottom,
+    this.maxWidth = 720,
+    this.useCenteredLayout = true,
   });
 
   @override
@@ -62,20 +70,41 @@ class SyraPage extends StatelessWidget {
             
             // Body
             Expanded(
-              child: scrollable
-                  ? SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: SyraTokens.pagePadding,
-                        vertical: SyraTokens.paddingLg,
+              child: useCenteredLayout
+                  ? Align(
+                      alignment: Alignment.topCenter,
+                      child: Container(
+                        constraints: BoxConstraints(maxWidth: maxWidth),
+                        child: scrollable
+                            ? SingleChildScrollView(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: SyraTokens.pagePadding,
+                                  vertical: SyraTokens.paddingLg,
+                                ),
+                                child: body,
+                              )
+                            : Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: SyraTokens.pagePadding,
+                                ),
+                                child: body,
+                              ),
                       ),
-                      child: body,
                     )
-                  : Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: SyraTokens.pagePadding,
-                      ),
-                      child: body,
-                    ),
+                  : scrollable
+                      ? SingleChildScrollView(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: SyraTokens.pagePadding,
+                            vertical: SyraTokens.paddingLg,
+                          ),
+                          child: body,
+                        )
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: SyraTokens.pagePadding,
+                          ),
+                          child: body,
+                        ),
             ),
             
             // Bottom widget if provided

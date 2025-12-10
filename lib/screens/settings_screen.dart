@@ -60,7 +60,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             subtitle: 'Font size, UI scale',
             onTap: () => _navigateTo(const AppearanceSettingsScreen()),
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
 
           // ═══════════════════════════════════════════════════════
           // CHAT SETTINGS
@@ -73,7 +73,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _navigateTo(const NotificationsSettingsScreen()),
           ),
 
-          const SizedBox(height: SyraTokens.paddingLg * 1.5),
+          SizedBox(height: SyraTokens.paddingLg * 1.5),
 
           // İstersen burada ileride Premium / Account / Privacy
           // gibi ekstra bölümleri tekrar ekleyebiliriz.

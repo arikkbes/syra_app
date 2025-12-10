@@ -1,42 +1,161 @@
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import '../models/chat_session.dart';
+
+/// ═══════════════════════════════════════════════════════════════
+/// CHAT SESSION SERVICE — Manages chat session CRUD operations
+/// ═══════════════════════════════════════════════════════════════
+/// 
+/// Responsibilities:
+/// - Create, read, update, delete chat sessions
+/// - Load messages for a session
+/// - Save messages to a session
+/// 
+/// Module 3 improvements:
+/// - Added SessionResult for structured error handling
+/// - Wrapped all Firestore operations in try-catch
+/// - Enhanced logging
+/// - Better error messages
+/// 
+/// FIRESTORE STRUCTURE (DO NOT CHANGE):
+/// users/{uid}/chat_sessions/{sessionId}
+///   - title: string
+///   - createdAt: timestamp
+///   - lastUpdatedAt: timestamp
+///   - messageCount: int
+///   - lastMessage: string?
+///   
+///   messages/{messageId}
+///     - sender: string ("user" | "bot")
+///     - text: string
+///     - timestamp: timestamp
+///     - ...other fields
+/// ═══════════════════════════════════════════════════════════════
+
+/// Result type for session operations
+class SessionResult {
+  /// Whether the operation was successful
+  final bool success;
+  
+  /// Session ID (if applicable and success)
+  final String? sessionId;
+  
+  /// List of sessions (if applicable and success)
+  final List<ChatSession>? sessions;
+  
+  /// List of messages (if applicable and success)
+  final List<Map<String, dynamic>>? messages;
+  
+  /// User-friendly error message (if !success)
+  final String? errorMessage;
+  
+  /// Technical error details for logging (if !success)
+  final String? debugMessage;
+
+  const SessionResult({
+    required this.success,
+    this.sessionId,
+    this.sessions,
+    this.messages,
+    this.errorMessage,
+    this.debugMessage,
+  });
+
+  /// Create a successful result
+  factory SessionResult.success({
+    String? sessionId,
+    List<ChatSession>? sessions,
+    List<Map<String, dynamic>>? messages,
+  }) {
+    return SessionResult(
+      success: true,
+      sessionId: sessionId,
+      sessions: sessions,
+      messages: messages,
+    );
+  }
+
+  /// Create an error result
+  factory SessionResult.error({
+    required String errorMessage,
+    String? debugMessage,
+  }) {
+    return SessionResult(
+      success: false,
+      errorMessage: errorMessage,
+      debugMessage: debugMessage,
+    );
+  }
+}
 
 class ChatSessionService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  
+  // Collection names (DO NOT CHANGE)
+  static const String _usersCollection = 'users';
+  static const String _sessionsSubcollection = 'chat_sessions';
+  static const String _messagesSubcollection = 'messages';
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<List<ChatSession>> getUserSessions() async {
+  // ═══════════════════════════════════════════════════════════════
+  // SESSION CRUD OPERATIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Get all chat sessions for the current user
+  /// 
+  /// Returns SessionResult with sessions list or error
+  static Future<SessionResult> getUserSessions() async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return [];
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.success(sessions: []);
+      }
+
+      debugPrint("📥 [ChatSessionService] Loading sessions for user: ${user.uid}");
 
       final snapshot = await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .orderBy('lastUpdatedAt', descending: true)
           .get();
 
-      return snapshot.docs
+      final sessions = snapshot.docs
           .map((doc) => ChatSession.fromMap(doc.data(), doc.id))
           .toList();
-    } catch (e) {
-      print('getUserSessions error: $e');
-      return [];
+
+      debugPrint("✅ [ChatSessionService] Loaded ${sessions.length} sessions");
+      return SessionResult.success(sessions: sessions);
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in getUserSessions: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Sohbetler yüklenemedi. Tekrar dene.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in getUserSessions: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Sohbetler yüklenirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<String?> createSession({String? title}) async {
+  /// Create a new chat session
+  /// 
+  /// Returns SessionResult with new session ID or error
+  static Future<SessionResult> createSession({String? title}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return null;
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.error(
+          errorMessage: "Oturum oluşturulamadı. Giriş yapmalısın.",
+          debugMessage: "User not authenticated",
+        );
+      }
 
       final now = DateTime.now();
       final sessionData = {
@@ -47,22 +166,37 @@ class ChatSessionService {
         'lastMessage': null,
       };
 
+      debugPrint("📤 [ChatSessionService] Creating session: ${sessionData['title']}");
+
       final docRef = await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .add(sessionData);
 
-      return docRef.id;
-    } catch (e) {
-      print('createSession error: $e');
-      return null;
+      debugPrint("✅ [ChatSessionService] Session created: ${docRef.id}");
+      return SessionResult.success(sessionId: docRef.id);
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in createSession: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Yeni sohbet oluşturulamadı. Tekrar dene.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in createSession: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Sohbet oluşturulurken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<void> updateSession({
+  /// Update an existing chat session
+  /// 
+  /// Updates lastMessage, title, or messageCount
+  /// Returns SessionResult (success/error)
+  static Future<SessionResult> updateSession({
     required String sessionId,
     String? lastMessage,
     String? title,
@@ -70,8 +204,15 @@ class ChatSessionService {
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.error(
+          errorMessage: "Oturum güncellenemedi.",
+          debugMessage: "User not authenticated",
+        );
+      }
 
+      // Build update data
       final updateData = <String, dynamic>{
         'lastUpdatedAt': DateTime.now(),
       };
@@ -80,103 +221,209 @@ class ChatSessionService {
       if (title != null) updateData['title'] = title;
       if (messageCount != null) updateData['messageCount'] = messageCount;
 
+      debugPrint("📤 [ChatSessionService] Updating session: $sessionId");
+
       await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .doc(sessionId)
           .update(updateData);
-    } catch (e) {
-      print('updateSession error: $e');
+
+      debugPrint("✅ [ChatSessionService] Session updated: $sessionId");
+      return SessionResult.success();
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in updateSession: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Sohbet güncellenemedi.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in updateSession: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Sohbet güncellenirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<void> renameSession({
+  /// Rename a chat session
+  /// 
+  /// Returns SessionResult (success/error)
+  static Future<SessionResult> renameSession({
     required String sessionId,
     required String newTitle,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.error(
+          errorMessage: "Sohbet adı değiştirilemedi.",
+          debugMessage: "User not authenticated",
+        );
+      }
+
+      debugPrint("📤 [ChatSessionService] Renaming session: $sessionId → $newTitle");
 
       await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .doc(sessionId)
           .update({
         'title': newTitle,
         'lastUpdatedAt': DateTime.now(),
       });
-    } catch (e) {
-      print('renameSession error: $e');
+
+      debugPrint("✅ [ChatSessionService] Session renamed: $sessionId");
+      return SessionResult.success();
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in renameSession: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Sohbet adı değiştirilemedi.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in renameSession: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Sohbet adı değiştirilirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<void> deleteSession(String sessionId) async {
+  /// Delete a chat session
+  /// 
+  /// Returns SessionResult (success/error)
+  static Future<SessionResult> deleteSession(String sessionId) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.error(
+          errorMessage: "Sohbet silinemedi.",
+          debugMessage: "User not authenticated",
+        );
+      }
+
+      debugPrint("📤 [ChatSessionService] Deleting session: $sessionId");
 
       await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .doc(sessionId)
           .delete();
-    } catch (e) {
-      print('deleteSession error: $e');
+
+      debugPrint("✅ [ChatSessionService] Session deleted: $sessionId");
+      return SessionResult.success();
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in deleteSession: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Sohbet silinemedi.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in deleteSession: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Sohbet silinirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<List<Map<String, dynamic>>> getSessionMessages(
-    String sessionId,
-  ) async {
+  // ═══════════════════════════════════════════════════════════════
+  // MESSAGE OPERATIONS
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Get all messages for a session
+  /// 
+  /// Returns SessionResult with messages list or error
+  static Future<SessionResult> getSessionMessages(String sessionId) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return [];
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.success(messages: []);
+      }
+
+      debugPrint("📥 [ChatSessionService] Loading messages for session: $sessionId");
 
       final snapshot = await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .doc(sessionId)
-          .collection('messages')
+          .collection(_messagesSubcollection)
           .orderBy('timestamp', descending: false)
           .get();
 
-      return snapshot.docs.map((doc) => doc.data()).toList();
-    } catch (e) {
-      print('getSessionMessages error: $e');
-      return [];
+      final messages = snapshot.docs.map((doc) => doc.data()).toList();
+
+      debugPrint("✅ [ChatSessionService] Loaded ${messages.length} messages");
+      return SessionResult.success(messages: messages);
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in getSessionMessages: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Mesajlar yüklenemedi.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in getSessionMessages: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Mesajlar yüklenirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  static Future<void> addMessageToSession({
+  /// Add a message to a session
+  /// 
+  /// Returns SessionResult (success/error)
+  static Future<SessionResult> addMessageToSession({
     required String sessionId,
     required Map<String, dynamic> message,
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) return;
+      if (user == null) {
+        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        return SessionResult.error(
+          errorMessage: "Mesaj kaydedilemedi.",
+          debugMessage: "User not authenticated",
+        );
+      }
+
+      debugPrint("📤 [ChatSessionService] Adding message to session: $sessionId");
 
       await _firestore
-          .collection('users')
+          .collection(_usersCollection)
           .doc(user.uid)
-          .collection('chat_sessions')
+          .collection(_sessionsSubcollection)
           .doc(sessionId)
-          .collection('messages')
+          .collection(_messagesSubcollection)
           .add(message);
-    } catch (e) {
-      print('addMessageToSession error: $e');
+
+      debugPrint("✅ [ChatSessionService] Message added to session: $sessionId");
+      return SessionResult.success();
+      
+    } on FirebaseException catch (e) {
+      debugPrint("❌ [ChatSessionService] FirebaseException in addMessageToSession: ${e.code} - ${e.message}");
+      return SessionResult.error(
+        errorMessage: "Mesaj kaydedilemedi.",
+        debugMessage: "FirebaseException: ${e.code} - ${e.message}",
+      );
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in addMessageToSession: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Mesaj kaydedilirken hata oluştu.",
+        debugMessage: "Error: $e",
+      );
     }
   }
 }

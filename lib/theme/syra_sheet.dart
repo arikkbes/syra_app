@@ -44,7 +44,7 @@ class SyraSheet extends StatelessWidget {
           maxHeight: effectiveMaxHeight,
         ),
         child: Container(
-          margin: const EdgeInsets.all(SyraTokens.paddingLg),
+          margin: EdgeInsets.all(SyraTokens.paddingLg),
           decoration: BoxDecoration(
             color: SyraTokens.card.withOpacity(0.95),
             borderRadius: BorderRadius.circular(SyraTokens.radiusLg),
@@ -63,7 +63,7 @@ class SyraSheet extends StatelessWidget {
                 if (title != null)
                   Container(
                     width: double.infinity,
-                    padding: const EdgeInsets.all(SyraTokens.paddingLg),
+                    padding: EdgeInsets.all(SyraTokens.paddingLg),
                     decoration: BoxDecoration(
                       border: Border(
                         bottom: BorderSide(
@@ -82,7 +82,7 @@ class SyraSheet extends StatelessWidget {
                 // Content
                 Flexible(
                   child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(SyraTokens.paddingLg),
+                    padding: EdgeInsets.all(SyraTokens.paddingLg),
                     child: child,
                   ),
                 ),
@@ -166,12 +166,12 @@ class SyraSheetActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: SyraTokens.paddingLg),
+      padding: EdgeInsets.only(top: SyraTokens.paddingLg),
       child: Row(
         mainAxisAlignment: alignment,
         children: children
             .map((child) => Padding(
-                  padding: const EdgeInsets.only(left: SyraTokens.paddingSm),
+                  padding: EdgeInsets.only(left: SyraTokens.paddingSm),
                   child: child,
                 ))
             .toList(),

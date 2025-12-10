@@ -259,12 +259,12 @@ class TacticalMovesScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           ...tips.map((tip) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
+                padding: EdgeInsets.only(bottom: 10),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      margin: const EdgeInsets.only(top: 6),
+                      margin: EdgeInsets.only(top: 6),
                       width: 6,
                       height: 6,
                       decoration: BoxDecoration(

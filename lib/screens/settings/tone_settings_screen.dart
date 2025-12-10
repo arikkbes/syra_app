@@ -214,7 +214,7 @@ class _ToneSettingsScreenState extends State<ToneSettingsScreen> {
           ),
           const SizedBox(height: 16),
           ..._personalityOptions.map((option) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.only(bottom: 12),
                 child: _buildPersonalityOption(
                   value: option['value'] as String,
                   title: option['title'] as String,

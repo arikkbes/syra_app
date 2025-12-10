@@ -294,7 +294,7 @@ class _DailyTipScreenState extends State<DailyTipScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          padding: EdgeInsets.only(left: 4, bottom: 12),
           child: Text(
             "Tüm Tavsiyeler",
             style: TextStyle(
@@ -310,7 +310,7 @@ class _DailyTipScreenState extends State<DailyTipScreen> {
           final isSelected = index == _currentTipIndex;
 
           return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: EdgeInsets.only(bottom: 10),
             child: GestureDetector(
               onTap: () {
                 setState(() {

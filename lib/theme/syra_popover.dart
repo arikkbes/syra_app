@@ -338,7 +338,7 @@ class SyraPopoverItem extends StatelessWidget {
               // Icon
               if (icon != null)
                 Padding(
-                  padding: const EdgeInsets.only(right: SyraTokens.paddingSm),
+                  padding: EdgeInsets.only(right: SyraTokens.paddingSm),
                   child: Icon(
                     icon,
                     size: 20,
@@ -366,7 +366,7 @@ class SyraPopoverItem extends StatelessWidget {
                     ),
                     if (description != null)
                       Padding(
-                        padding: const EdgeInsets.only(
+                        padding: EdgeInsets.only(
                           top: SyraTokens.paddingXxs,
                         ),
                         child: Text(

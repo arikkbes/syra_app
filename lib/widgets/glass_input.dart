@@ -99,7 +99,7 @@ class _GlassInputBarState extends State<GlassInputBar> {
           Container(
             width: 44,
             height: 44,
-            margin: const EdgeInsets.only(left: 4, bottom: 4),
+            margin: EdgeInsets.only(left: 4, bottom: 4),
             child: const Icon(
               Icons.add_rounded,
               color: SyraColors.textMuted,
@@ -142,7 +142,7 @@ class _GlassInputBarState extends State<GlassInputBar> {
             child: Container(
               width: 40,
               height: 40,
-              margin: const EdgeInsets.only(right: 6, bottom: 6),
+              margin: EdgeInsets.only(right: 6, bottom: 6),
               decoration: BoxDecoration(
                 color: _hasText && !widget.isLoading
                     ? SyraColors.textPrimary
@@ -173,7 +173,7 @@ class _GlassInputBarState extends State<GlassInputBar> {
 
   Widget _buildReplyPreview() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: SyraColors.surface,

@@ -301,7 +301,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
           const SizedBox(height: 20),
           ...analysisResult.energyTimeline.map((point) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: 12),
               child: _buildEnergyPoint(point),
             );
           }),
@@ -413,7 +413,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
           const SizedBox(height: 20),
           ...analysisResult.keyMoments.map((moment) {
             return Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(bottom: 16),
               child: _buildKeyMoment(moment),
             );
           }),

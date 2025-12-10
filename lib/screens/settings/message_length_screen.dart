@@ -103,7 +103,7 @@ class _MessageLengthScreenState extends State<MessageLengthScreen> {
           const SizedBox(height: 24),
 
           ..._lengthOptions.map((option) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
+                padding: EdgeInsets.only(bottom: 12),
                 child: _buildLengthOption(
                   value: option['value'] as String,
                   title: option['title'] as String,

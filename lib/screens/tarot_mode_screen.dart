@@ -183,7 +183,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
   Widget _buildSystemMessage(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.only(bottom: 16),
       child: Center(
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -223,7 +223,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
       child: AbsorbPointer(
         absorbing: !isActive,
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 24),
+          padding: EdgeInsets.only(bottom: 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -321,14 +321,14 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
   Widget _buildReadingMessage(TarotMessage message) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+      padding: EdgeInsets.only(bottom: 20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Card info chip
           if (message.cardMeta != null && message.cardMeta!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(bottom: 12),
+              padding: EdgeInsets.only(bottom: 12),
               child: Wrap(
                 spacing: 6,
                 children: message.cardMeta!.map((card) {
@@ -388,7 +388,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
   Widget _buildUserMessage(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, left: 40),
+      padding: EdgeInsets.only(bottom: 12, left: 40),
       child: Align(
         alignment: Alignment.centerRight,
         child: Container(
@@ -415,7 +415,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
   Widget _buildAssistantMessage(String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, right: 40),
+      padding: EdgeInsets.only(bottom: 12, right: 40),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(
@@ -440,7 +440,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
   Widget _buildLoadingIndicator() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12, right: 40),
+      padding: EdgeInsets.only(bottom: 12, right: 40),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Container(

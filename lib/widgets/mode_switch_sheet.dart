@@ -64,7 +64,7 @@ class ModeSwitchSheet extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        margin: const EdgeInsets.only(bottom: 8),
+        margin: EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? SyraColors.accent.withOpacity(0.15)

@@ -48,14 +48,14 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: SyraTokens.paddingXs),
+          SizedBox(height: SyraTokens.paddingXs),
           Text(
             'Choose your preferred theme',
             style: SyraTokens.bodyMd.copyWith(
               color: SyraTokens.textSecondary,
             ),
           ),
-          const SizedBox(height: SyraTokens.paddingLg),
+          SizedBox(height: SyraTokens.paddingLg),
 
           _buildThemeOption(
             value: 'dark',
@@ -63,14 +63,14 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             description: 'Modern dark theme with cool tones',
             icon: Icons.dark_mode_outlined,
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildThemeOption(
             value: 'light',
             title: 'Light',
             description: 'Clean light theme for daytime use',
             icon: Icons.light_mode_outlined,
           ),
-          const SizedBox(height: SyraTokens.paddingSm),
+          SizedBox(height: SyraTokens.paddingSm),
           _buildThemeOption(
             value: 'pure_black',
             title: 'Pure Black',
@@ -119,7 +119,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                 size: 24,
               ),
             ),
-            const SizedBox(width: SyraTokens.paddingMd),
+            SizedBox(width: SyraTokens.paddingMd),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -132,7 +132,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                           : SyraTokens.textPrimary,
                     ),
                   ),
-                  const SizedBox(height: SyraTokens.paddingXxs),
+                  SizedBox(height: SyraTokens.paddingXxs),
                   Text(
                     description,
                     style: SyraTokens.bodySm,

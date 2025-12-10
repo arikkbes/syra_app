@@ -68,7 +68,7 @@ class ChatArchiveScreen extends StatelessWidget {
                         _buildInfoBanner(),
                         const SizedBox(height: 20),
                         ...archivedChats.map((chat) => Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
+                              padding: EdgeInsets.only(bottom: 12),
                               child: _buildArchiveItem(context, chat),
                             )),
                         const SizedBox(height: 20),
