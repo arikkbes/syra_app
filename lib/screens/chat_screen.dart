@@ -9,6 +9,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/chat_service.dart';
+import '../services/chat_service_streaming.dart'; // ← STREAMING SUPPORT
 import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
@@ -36,7 +37,7 @@ import 'tarot_mode_screen.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/chat_message_list.dart';
 import 'chat/chat_input_bar.dart';
-import '../widgets/syra_liquid_glass_chat_bar.dart';
+import '../widgets/chatgpt_mode_selector.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -63,6 +64,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isTyping = false;
   bool _isSending = false; // Anti-spam flag
   bool _userScrolledUp = false; // Track if user manually scrolled
+  bool _isAITyping = false; // ← STREAMING: AI typing indicator
 
   Map<String, dynamic>? _replyingTo;
 
@@ -734,60 +736,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Handle mode selection - mod değiştirme overlay
-  /// Uses anchored popover positioned below the mode label in app bar
+  /// Handle mode selection - ChatGPT style animated popup
   void _handleModeSelection() {
-    showSyraPopover<String>(
+    showChatGPTModeSelector(
       context: context,
-      // Use anchored positioning instead of alignment
-      anchorLink: _modeAnchorLink,
-      anchorOffset: 8.0, // 8px below the mode label
-      title: 'KONUŞMA MODU',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildModeItem(
-            mode: 'standard',
-            icon: Icons.chat_bubble_outline_rounded,
-            label: 'Normal',
-            description: 'Dengeli, her konuda akıcı sohbet',
-          ),
-          const SyraPopoverDivider(),
-          _buildModeItem(
-            mode: 'deep',
-            icon: Icons.psychology_rounded,
-            label: 'Derin Analiz',
-            description: 'Detaylı psikolojik analiz ve içgörü',
-          ),
-          const SyraPopoverDivider(),
-          _buildModeItem(
-            mode: 'mentor',
-            icon: Icons.psychology_alt_rounded,
-            label: 'Dost Acı Söyler',
-            description: 'Direkt, açık ve samimi geri bildirim',
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildModeItem({
-    required String mode,
-    required IconData icon,
-    required String label,
-    required String description,
-  }) {
-    return SyraPopoverItem(
-      icon: icon,
-      label: label,
-      description: description,
-      isSelected: _selectedMode == mode,
-      onTap: () {
+      selectedMode: _selectedMode,
+      onModeSelected: (mode) {
         setState(() {
           _selectedMode = mode;
         });
-        Navigator.pop(context);
       },
+      anchorPosition: const Offset(0, 140), // Position above the input bar
     );
   }
 
@@ -952,65 +911,117 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
 
     // ═══════════════════════════════════════════════════════════════
-    // SEND MESSAGE TO AI - With new ChatSendResult
+    // 🚀 STREAMING AI RESPONSE
     // ═══════════════════════════════════════════════════════════════
-    final result = await ChatService.sendMessage(
-      userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
-      conversationHistory: _messages,
-      replyingTo: _replyingTo,
-      mode: _selectedMode,
-      imageUrl: imageUrlToSend,
-    );
 
-    // Handle result
-    if (result.success && result.responseText != null) {
-      // Success - add bot message
-      final botText = result.responseText!;
-      final flags = ChatService.detectManipulation(botText);
+    // Show typing indicator
+    setState(() {
+      _isAITyping = true;
+    });
 
-      final botMessage = {
-        "id": UniqueKey().toString(),
-        "sender": "bot",
-        "text": botText,
-        "replyTo": null,
-        "time": DateTime.now(),
-        "timestamp": DateTime.now(),
-        "hasRed": flags['hasRed'] ?? false,
-        "hasGreen": flags['hasGreen'] ?? false,
-      };
+    // Small delay (AI "thinking")
+    await Future.delayed(Duration(milliseconds: 500));
 
-      setState(() {
-        _messages.add(botMessage);
-        _isTyping = false;
-        _isLoading = false;
-        _isSending = false;
-      });
+    // Create empty bot message
+    final botMessageId = UniqueKey().toString();
+    final botMessage = {
+      "id": botMessageId,
+      "sender": "bot",
+      "text": "", // ← Starts empty
+      "replyTo": null,
+      "time": DateTime.now(),
+      "timestamp": DateTime.now(),
+      "hasRed": false,
+      "hasGreen": false,
+    };
 
-      // Save bot message to session
-      if (_currentSessionId != null) {
-        final saveResult = await ChatSessionService.addMessageToSession(
-          sessionId: _currentSessionId!,
-          message: botMessage,
-        );
+    setState(() {
+      _isAITyping = false;
+      _messages.add(botMessage);
+    });
 
-        if (saveResult.success) {
-          await ChatSessionService.updateSession(
-            sessionId: _currentSessionId!,
-            lastMessage: botText.length > 50
-                ? "${botText.substring(0, 50)}..."
-                : botText,
-          );
-          await _loadChatSessions();
-        } else {
-          debugPrint(
-              "❌ Failed to save bot message: ${saveResult.debugMessage}");
+    // Stream AI response word-by-word
+    try {
+      await for (final chunk in ChatServiceStreaming.sendMessageStream(
+        userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
+        conversationHistory: _messages,
+        replyingTo: _replyingTo,
+        mode: _selectedMode,
+        imageUrl: imageUrlToSend,
+      )) {
+        // Error handling
+        if (chunk.error != null) {
+          setState(() {
+            _isTyping = false;
+            _isLoading = false;
+            _isSending = false;
+          });
+
+          if (mounted) {
+            BlurToast.show(context, chunk.error!);
+          }
+
+          // Remove empty bot message
+          setState(() {
+            _messages.removeWhere((m) => m['id'] == botMessageId);
+          });
+
+          return;
         }
-      }
 
-      // Scroll to bottom
-      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
-    } else {
-      // Error - show user-friendly message
+        // Stream completed
+        if (chunk.isDone) {
+          // Detect manipulation flags
+          final index = _messages.indexWhere((m) => m['id'] == botMessageId);
+          if (index != -1) {
+            final finalText = _messages[index]['text'] as String;
+            final flags = ChatService.detectManipulation(finalText);
+
+            setState(() {
+              _messages[index]['hasRed'] = flags['hasRed'] ?? false;
+              _messages[index]['hasGreen'] = flags['hasGreen'] ?? false;
+              _isTyping = false;
+              _isLoading = false;
+            });
+
+            // Save bot message to session
+            if (_currentSessionId != null) {
+              final saveResult = await ChatSessionService.addMessageToSession(
+                sessionId: _currentSessionId!,
+                message: _messages[index],
+              );
+
+              if (saveResult.success) {
+                await ChatSessionService.updateSession(
+                  sessionId: _currentSessionId!,
+                  lastMessage: finalText.length > 50
+                      ? "${finalText.substring(0, 50)}..."
+                      : finalText,
+                );
+                await _loadChatSessions();
+              }
+            }
+          }
+
+          debugPrint("✅ Streaming completed!");
+          break;
+        }
+
+        // Append chunk to bot message
+        setState(() {
+          final index = _messages.indexWhere((m) => m['id'] == botMessageId);
+          if (index != -1) {
+            _messages[index]['text'] =
+                (_messages[index]['text'] as String) + chunk.text;
+          }
+        });
+
+        // Auto-scroll to bottom
+        _scrollToBottom();
+      }
+    } catch (e) {
+      debugPrint("❌ Streaming error: $e");
+
       setState(() {
         _isTyping = false;
         _isLoading = false;
@@ -1018,11 +1029,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
 
       if (mounted) {
-        final errorMessage = result.userMessage ?? "Bağlantı kurulamadı kanka";
-        BlurToast.show(context, errorMessage);
+        BlurToast.show(context, "Bir hata oluştu. Tekrar dene kanka.");
       }
 
-      debugPrint("❌ Chat send error: ${result.debugMessage}");
+      // Remove empty bot message on error
+      setState(() {
+        _messages.removeWhere((m) => m['id'] == botMessageId);
+      });
     }
   }
 
@@ -1201,6 +1214,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             child: ChatMessageList(
                               isEmpty: _messages.isEmpty,
                               isTarotMode: _isTarotMode,
+                              isAITyping:
+                                  _isAITyping, // ← STREAMING: typing indicator
                               onSuggestionTap: (text) {
                                 setState(() {
                                   _controller.text = text;
@@ -1236,7 +1251,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               },
                             ),
                           ),
-                          SyraLiquidGlassChatBar(
+                          ChatInputBar(
                             controller: _controller,
                             focusNode: _inputFocusNode,
                             isSending: _isSending,
@@ -1252,6 +1267,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 setState(() => _replyingTo = null),
                             onClearImage: _clearPendingImage,
                             onTextChanged: () => setState(() {}),
+                            onCameraTap: () =>
+                                _pickImageForPreview(ImageSource.camera),
+                            onGalleryTap: () =>
+                                _pickImageForPreview(ImageSource.gallery),
+                            onModeTap: _handleModeSelection,
+                            currentMode: _getModeDisplayName(),
                           ),
                         ],
                       ),
@@ -1766,178 +1787,44 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// ChatGPT-style input bar
   Widget _buildInputBar() {
-    // Text field içeriğini dinle
-    final bool hasText = _controller.text.trim().isNotEmpty;
-    final bool isUploadingImage =
-        _pendingImage != null && _pendingImageUrl == null; // Resim yükleniyor
-    final bool hasPendingImage =
-        _pendingImage != null && _pendingImageUrl != null; // Resim hazır
-    final bool canSend = (hasText || hasPendingImage) &&
-        !_isSending &&
-        !_isLoading &&
-        !isUploadingImage;
-
-    // Focus/active state
-    final bool isFocused = _inputFocusNode.hasFocus;
-    final bool isActive = isFocused || hasText || hasPendingImage;
-
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        16,
-        8,
-        16,
-        max(
-            8.0,
-            MediaQuery.of(context).padding.bottom -
-                20), // Safe area'dan 8 çıkar, min 8
-      ),
-      decoration: BoxDecoration(
-        color: SyraTokens.background,
-        border: Border(
-          top: BorderSide(
-            color: SyraTokens.divider,
-            width: 0.5,
-          ),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (_replyingTo != null) _buildReplyPreview(),
-          if (_pendingImage != null)
-            _buildImagePreview(), // Yeni: resim preview
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeInOut,
-            decoration: BoxDecoration(
-              color: isActive ? SyraTokens.surfaceLight : SyraTokens.surface,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isActive
-                    ? SyraTokens.accent.withOpacity(0.8)
-                    : SyraTokens.border,
-                width: isActive ? 1.2 : 0.5,
-              ),
-              boxShadow: isActive
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.45),
-                        blurRadius: 22,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _TapScale(
-                  onTap: _handleAttachment,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    margin: const EdgeInsets.only(left: 4, bottom: 4),
-                    child: const Icon(
-                      Icons.add_rounded,
-                      color: SyraTokens.textMuted,
-                      size: 24,
-                    ),
-                  ),
-                ),
-
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _inputFocusNode,
-                    enabled: !_isSending,
-                    maxLines: 5,
-                    minLines: 1,
-                    onChanged: (_) =>
-                        setState(() {}), // TextField değiştiğinde rebuild
-                    style: const TextStyle(
-                      color: SyraTokens.textPrimary,
-                      fontSize: 15,
-                      height: 1.4,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 12,
-                      ),
-                      border: InputBorder.none,
-                      hintText: "Message",
-                      hintStyle: TextStyle(
-                        color: SyraTokens.textHint,
-                        fontSize: 15,
-                      ),
-                    ),
-                    onSubmitted: (_) => canSend ? _sendMessage() : null,
-                  ),
-                ),
-
-                _TapScale(
-                  onTap: _handleVoiceInput,
-                  child: Container(
-                    width: 44,
-                    height: 44,
-                    margin: const EdgeInsets.only(bottom: 4),
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: Icon(
-                        _isListening
-                            ? Icons.mic_rounded
-                            : Icons.mic_none_rounded,
-                        key: ValueKey(_isListening),
-                        color: _isListening
-                            ? SyraTokens.accent
-                            : SyraTokens.textMuted,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-
-                // Send button with smooth animation
-                _TapScale(
-                  onTap: canSend ? _sendMessage : null,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: 40,
-                    height: 40,
-                    margin: const EdgeInsets.only(right: 6, bottom: 6),
-                    decoration: BoxDecoration(
-                      color: canSend
-                          ? SyraTokens.textPrimary
-                          : SyraTokens.textMuted.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
-                    child: _isLoading
-                        ? const Padding(
-                            padding: EdgeInsets.all(10),
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                SyraTokens.background,
-                              ),
-                            ),
-                          )
-                        : Icon(
-                            Icons.arrow_upward_rounded,
-                            color: canSend
-                                ? SyraTokens.background
-                                : SyraTokens.background.withOpacity(0.5),
-                            size: 20,
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    return ChatInputBar(
+      controller: _controller,
+      focusNode: _inputFocusNode,
+      isSending: _isSending,
+      isLoading: _isLoading,
+      isListening: _isListening,
+      replyingTo: _replyingTo,
+      pendingImage: _pendingImage,
+      pendingImageUrl: _pendingImageUrl,
+      onAttachmentTap: _handleAttachment,
+      onVoiceInputTap: _handleVoiceInput,
+      onSendMessage: _sendMessage,
+      onCancelReply: () => setState(() => _replyingTo = null),
+      onClearImage: () => setState(() {
+        _pendingImage = null;
+        _pendingImageUrl = null;
+      }),
+      onTextChanged: () => setState(() {}),
+      onCameraTap: () => _pickImageForPreview(ImageSource.camera),
+      onGalleryTap: () => _pickImageForPreview(ImageSource.gallery),
+      onModeTap: _handleModeSelection,
+      currentMode: _getModeDisplayName(),
     );
+  }
+
+  String _getModeDisplayName() {
+    switch (_selectedMode) {
+      case 'tarot':
+        return 'Tarot';
+      case 'flirt':
+        return 'Flört';
+      case 'deep':
+        return 'Derin';
+      case 'tactical':
+        return 'Taktik';
+      default:
+        return 'Pro';
+    }
   }
 
   Widget _buildReplyPreview() {

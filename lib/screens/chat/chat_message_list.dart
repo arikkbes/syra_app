@@ -18,6 +18,7 @@ class ChatMessageList extends StatelessWidget {
   final List<Map<String, dynamic>> messages;
   final ScrollController scrollController;
   final bool isTyping;
+  final bool isAITyping; // ← STREAMING: AI typing indicator
   final String? swipedMessageId;
   final double swipeOffset;
   final Function(Map<String, dynamic>) onMessageLongPress;
@@ -32,6 +33,7 @@ class ChatMessageList extends StatelessWidget {
     required this.messages,
     required this.scrollController,
     required this.isTyping,
+    this.isAITyping = false, // ← STREAMING: default false
     this.swipedMessageId,
     required this.swipeOffset,
     required this.onMessageLongPress,
@@ -185,10 +187,16 @@ class ChatMessageList extends StatelessWidget {
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      itemCount: messages.length + (isTyping ? 1 : 0),
+      itemCount: messages.length + (isTyping ? 1 : 0) + (isAITyping ? 1 : 0), // ← STREAMING
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
-        if (isTyping && index == messages.length) {
+        // Show AI typing indicator (3 dots)
+        if (isAITyping && index == messages.length) {
+          return _buildAITypingIndicator();
+        }
+        
+        // Show regular typing indicator
+        if (isTyping && index == messages.length + (isAITyping ? 1 : 0)) {
           return _buildTypingIndicator();
         }
 
@@ -289,6 +297,34 @@ class ChatMessageList extends StatelessWidget {
       },
     );
   }
+
+  /// AI Typing Indicator (3 dots animation) - STREAMING
+  Widget _buildAITypingIndicator() {
+    return Padding(
+      padding: EdgeInsets.only(left: 4, top: 8, bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: SyraColors.surface,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _TypingDot(delay: 0),
+                const SizedBox(width: 8),
+                _TypingDot(delay: 200),
+                const SizedBox(width: 8),
+                _TypingDot(delay: 400),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// Animated message item wrapper for fade-in effect
@@ -344,6 +380,68 @@ class _AnimatedMessageItemState extends State<_AnimatedMessageItem>
       child: SlideTransition(
         position: _slideAnimation,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TYPING DOT ANIMATION WIDGET - For AI Typing Indicator
+// ═══════════════════════════════════════════════════════════════
+
+class _TypingDot extends StatefulWidget {
+  final int delay;
+
+  const _TypingDot({required this.delay});
+
+  @override
+  State<_TypingDot> createState() => _TypingDotState();
+}
+
+class _TypingDotState extends State<_TypingDot>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 600),
+    );
+
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+
+    Future.delayed(Duration(milliseconds: widget.delay), () {
+      if (mounted) {
+        _controller.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: SyraColors.accent,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }

@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.4+1
+version: 1.0.4+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -51,6 +51,7 @@ dependencies:
   google_fonts: ^6.3.3
   flutter_animate: ^4.5.0
   animations: ^2.0.11
+  shimmer: ^3.0.0
   json_rpc_2: ^4.0.0
   path: ^1.9.1
   stack_trace: ^1.12.1
