@@ -3,12 +3,12 @@ import '../theme/syra_theme.dart';
 import 'syra_bottom_panel.dart';
 
 class ModeSwitchSheet extends StatelessWidget {
-  final String selectedMode;
+  final String currentMode;
   final Function(String) onModeSelected;
 
   const ModeSwitchSheet({
     super.key,
-    required this.selectedMode,
+    required this.currentMode,
     required this.onModeSelected,
   });
 
@@ -55,7 +55,7 @@ class ModeSwitchSheet extends StatelessWidget {
     required String displayName,
     required String key,
   }) {
-    final isSelected = selectedMode == key;
+    final isSelected = currentMode == key;
 
     return InkWell(
       onTap: () {
@@ -64,7 +64,7 @@ class ModeSwitchSheet extends StatelessWidget {
       },
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        margin: EdgeInsets.only(bottom: 8),
+        margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(
           color: isSelected
               ? SyraColors.accent.withOpacity(0.15)
@@ -92,7 +92,7 @@ class ModeSwitchSheet extends StatelessWidget {
               ),
             ),
             if (isSelected)
-              Icon(
+              const Icon(
                 Icons.check_circle_rounded,
                 color: SyraColors.accent,
                 size: 20,

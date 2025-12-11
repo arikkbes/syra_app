@@ -1,9 +1,11 @@
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-// ═══════════════════════════════════════════════════════════════
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
+import '../theme/syra_glass.dart';
+
+/// ═══════════════════════════════════════════════════════════════
+/// BLUR TOAST - Premium glass toast notification
+/// Updated to use unified glass system
+/// ═══════════════════════════════════════════════════════════════
 
 class BlurToast {
   static OverlayEntry? _entry;
@@ -19,36 +21,19 @@ class BlurToast {
           left: 24,
           right: 24,
           child: Center(
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(14),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: SyraColors.neonCyan.withValues(alpha: 0.08),
-                        blurRadius: 16,
-                        spreadRadius: 2,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    msg,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
+            child: SyraGlassContainer(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+              borderRadius: 14,
+              blur: 24,
+              opacity: 0.7,
+              withShadow: true,
+              child: Text(
+                msg,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: SyraColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),
@@ -64,3 +49,4 @@ class BlurToast {
     });
   }
 }
+

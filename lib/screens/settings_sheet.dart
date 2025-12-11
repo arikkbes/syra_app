@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
+import '../theme/syra_design_tokens.dart';
 import '../utils/syra_prefs.dart';
 import '../widgets/syra_bottom_panel.dart';
 
@@ -75,7 +76,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
             children: [
               const Text(
                 'Settings',
-                style: SyraTypography.headingMedium,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: SyraColors.textPrimary,
+                ),
               ),
               const Spacer(),
               IconButton(
@@ -245,7 +250,12 @@ class _SettingsSheetState extends State<SettingsSheet> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             title,
-            style: SyraTypography.overline,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.2,
+              color: SyraColors.textSecondary,
+            ),
           ),
         ),
         ...children,
@@ -324,7 +334,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
             padding: EdgeInsets.only(bottom: 16, top: 8),
             child: Text(
               'Select Tone',
-              style: SyraTypography.headingSmall,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: SyraColors.textPrimary,
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -364,7 +378,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
             padding: EdgeInsets.only(bottom: 16, top: 8),
             child: Text(
               'Message Length',
-              style: SyraTypography.headingSmall,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: SyraColors.textPrimary,
+              ),
             ),
           ),
           const Divider(height: 1),

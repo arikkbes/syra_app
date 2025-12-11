@@ -1,6 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
+import '../theme/syra_glass.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA BACKGROUND v2.0 — ChatGPT 2025 Style
@@ -113,6 +113,7 @@ class SyraLogo extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// Re-export GlassCard from unified glass system
 // ═══════════════════════════════════════════════════════════════
 class GlassCard extends StatelessWidget {
   final Widget child;
@@ -132,26 +133,11 @@ class GlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SyraGlassCard(
+      padding: padding,
       margin: margin,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(borderRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: blurAmount, sigmaY: blurAmount),
-          child: Container(
-            padding: padding ?? const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: SyraColors.surface.withOpacity(0.8),
-              borderRadius: BorderRadius.circular(borderRadius),
-              border: Border.all(
-                color: SyraColors.border,
-                width: 0.5,
-              ),
-            ),
-            child: child,
-          ),
-        ),
-      ),
+      borderRadius: borderRadius,
+      child: child,
     );
   }
 }

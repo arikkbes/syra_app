@@ -70,4 +70,9 @@ class RelationshipAnalysisService {
       throw Exception('Analiz hatası: ${e.toString()}');
     }
   }
+
+  /// Upload relationship file (alias for analyzeChat for backward compatibility)
+  static Future<RelationshipAnalysisResult> uploadRelationshipFile(File file) async {
+    return analyzeChat(file);
+  }
 }

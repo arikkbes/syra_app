@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import '../models/image_upload_result.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// IMAGE UPLOAD SERVICE — Firebase Storage'a resim yükleme
@@ -10,12 +11,12 @@ class ImageUploadService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
 
   /// Resmi Firebase Storage'a yükle ve URL'ini döndür
-  static Future<String?> uploadImage(File imageFile) async {
+  static Future<ImageUploadResult> uploadImage(File imageFile) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         debugPrint('ImageUploadService: User not logged in');
-        return null;
+        return ImageUploadResult.failure('Kullanıcı oturumu bulunamadı');
       }
 
       // Unique dosya adı oluştur: user_uid/timestamp_random.jpg
@@ -39,10 +40,10 @@ class ImageUploadService {
       final downloadUrl = await snapshot.ref.getDownloadURL();
       
       debugPrint('Image uploaded successfully: $downloadUrl');
-      return downloadUrl;
+      return ImageUploadResult.success(downloadUrl);
     } catch (e) {
       debugPrint('ImageUploadService error: $e');
-      return null;
+      return ImageUploadResult.failure('Resim yüklenemedi: ${e.toString()}');
     }
   }
 

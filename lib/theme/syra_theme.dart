@@ -162,115 +162,10 @@ class SyraColors {
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
-class SyraTypography {
-  static const String logoFont = "SF Pro Display";
-  static const String mainFont = "SF Pro Display";
-  static const String fallbackFont = ".SF UI Text";
-
-  static TextStyle logoStyle({double fontSize = 20}) => TextStyle(
-        fontFamily: logoFont,
-        fontSize: fontSize,
-        fontWeight: FontWeight.w600,
-        letterSpacing: fontSize * 0.12,
-        color: SyraColors.textPrimary,
-      );
-
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  /// Large header (screen titles)
-  static const TextStyle headingLarge = TextStyle(
-    fontSize: 28,
-    fontWeight: FontWeight.w700,
-    color: SyraColors.textPrimary,
-    letterSpacing: -0.5,
-    height: 1.2,
-  );
-
-  /// Medium header (section titles)
-  static const TextStyle headingMedium = TextStyle(
-    fontSize: 20,
-    fontWeight: FontWeight.w600,
-    color: SyraColors.textPrimary,
-    letterSpacing: -0.3,
-  );
-
-  /// Small header (subsections)
-  static const TextStyle headingSmall = TextStyle(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: SyraColors.textPrimary,
-  );
-
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  /// Primary body text
-  static const TextStyle bodyText = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    letterSpacing: 0.1,
-    color: SyraColors.textPrimary,
-  );
-
-  /// Secondary body text (descriptions)
-  static const TextStyle bodyTextSecondary = TextStyle(
-    fontSize: 14,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    color: SyraColors.textSecondary,
-  );
-
-  /// Small text (hints, captions)
-  static const TextStyle caption = TextStyle(
-    fontSize: 12,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0.2,
-    color: SyraColors.textMuted,
-  );
-
-  /// Overline (section labels - small caps style)
-  static const TextStyle overline = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 1.2,
-    color: SyraColors.textSecondary,
-  );
-
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  /// Message text in chat
-  static const TextStyle messageText = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w400,
-    height: 1.5,
-    letterSpacing: 0.1,
-    color: SyraColors.textPrimary,
-  );
-
-  /// Timestamp in chat
-  static const TextStyle timeText = TextStyle(
-    fontSize: 11,
-    fontWeight: FontWeight.w400,
-    letterSpacing: 0.2,
-    color: SyraColors.textMuted,
-  );
-
-  // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
-  /// Button text
-  static const TextStyle button = TextStyle(
-    fontSize: 15,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.3,
-  );
-
-  /// Small button text
-  static const TextStyle buttonSmall = TextStyle(
-    fontSize: 13,
-    fontWeight: FontWeight.w600,
-    letterSpacing: 0.3,
-  );
-}
+// ═══════════════════════════════════════════════════════════════
+// NOTE: SyraTypography moved to syra_design_tokens.dart
+// Use: import '../theme/syra_design_tokens.dart';
+// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
@@ -288,7 +183,7 @@ class SyraTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: SyraColors.background,
-        fontFamily: SyraTypography.fallbackFont,
+        fontFamily: 'Inter',
 
         // ─────────────────────────────────────────────────────────────
         // ─────────────────────────────────────────────────────────────
@@ -349,13 +244,21 @@ class SyraTheme {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(cardRadius),
             ),
-            textStyle: SyraTypography.button,
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         textButtonTheme: TextButtonThemeData(
           style: TextButton.styleFrom(
             foregroundColor: SyraColors.accent,
-            textStyle: SyraTypography.button,
+            textStyle: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
+            ),
           ),
         ),
         outlinedButtonTheme: OutlinedButtonThemeData(
