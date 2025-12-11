@@ -1,3 +1,6 @@
+// LEGACY / UNUSED COPY – canonical version lives under lib/screens/side_menu.dart
+// Kept only as backup. Do not import this file from production code.
+
 // lib/screens/side_menu.dart
 
 import 'dart:ui';

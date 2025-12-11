@@ -1,5 +1,8 @@
 // lib/widgets/chat_empty_state.dart
 
+// LEGACY / UNUSED COPY – canonical version lives under lib/widgets/chat_empty_state.dart
+// Kept only as backup. Do not import this file from production code.
+
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';

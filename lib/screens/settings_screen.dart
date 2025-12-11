@@ -6,9 +6,9 @@ import '../../theme/syra_theme.dart';
 import '../../theme/design_system.dart';
 import '../../utils/syra_prefs.dart';
 
-import 'theme_settings_screen.dart';
-import 'appearance_settings_screen.dart';
-import 'notifications_settings_screen.dart';
+import 'settings/theme_settings_screen.dart';
+import 'settings/appearance_settings_screen.dart';
+import 'settings/notifications_settings_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SETTINGS SCREEN - Main Settings Hub (simplified, no missing screens)

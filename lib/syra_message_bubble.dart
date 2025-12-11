@@ -1,6 +1,9 @@
 // lib/widgets/syra_message_bubble.dart
 
 import 'dart:ui';
+// LEGACY / UNUSED COPY – canonical version lives under lib/widgets/syra_message_bubble.dart
+// Kept only as backup. Do not import this file from production code.
+
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';

@@ -7,12 +7,12 @@ import '../../theme/syra_glass.dart';
 import '../../widgets/syra_glass_button.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM CHAT APP BAR
+/// PREMIUM CHAT APP BAR - Claude Style
 /// ═══════════════════════════════════════════════════════════════
-/// Glass header for ChatScreen with:
-/// - Left: Menu button
-/// - Center: Mode selector (SYRA • Mode) with glass pill
-/// - Right: Document upload button
+/// Clean, minimal header with:
+/// - Left: Hamburger menu icon button
+/// - Center: Text-based selector (SYRA • Mode + chevron)
+/// - Right: Single profile/ghost icon button
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatAppBar extends StatelessWidget {
@@ -37,9 +37,9 @@ class ChatAppBar extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
+          height: 56,
           padding: EdgeInsets.symmetric(
             horizontal: SyraSpacing.md,
-            vertical: SyraSpacing.sm + 2,
           ),
           decoration: BoxDecoration(
             color: SyraColors.background.withValues(alpha: 0.85),
@@ -52,7 +52,7 @@ class ChatAppBar extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // Menu button
+              // Left: Menu button
               _TapScale(
                 onTap: onMenuTap,
                 child: Container(
@@ -70,20 +70,28 @@ class ChatAppBar extends StatelessWidget {
                 ),
               ),
 
-              // Mode selector (center)
+              // Center: Text-based mode selector (NOT a pill)
               Expanded(
                 child: Center(
                   child: _buildModeTrigger(),
                 ),
               ),
 
-              // Upload button
-              SyraGlassButton(
+              // Right: Profile/ghost button
+              _TapScale(
                 onTap: onDocumentUpload,
-                child: Icon(
-                  Icons.upload_file_outlined,
-                  size: 18,
-                  color: SyraColors.iconStroke,
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(SyraRadius.sm),
+                  ),
+                  child: Icon(
+                    Icons.person_outline_rounded,
+                    color: SyraColors.iconStroke,
+                    size: 22,
+                  ),
                 ),
               ),
             ],
@@ -93,11 +101,11 @@ class ChatAppBar extends StatelessWidget {
     );
   }
 
-  /// Mode selector with premium glass pill design
+  /// Mode selector - Clean text-based design without heavy glass pill
   Widget _buildModeTrigger() {
     String modeLabel;
     Color modeColor;
-    
+
     switch (selectedMode) {
       case 'deep':
         modeLabel = 'Derin';
@@ -116,54 +124,55 @@ class ChatAppBar extends StatelessWidget {
       link: modeAnchorLink,
       child: _TapScale(
         onTap: onModeTap,
-        child: SyraGlassContainer(
+        child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: SyraSpacing.md,
-            vertical: SyraSpacing.xs + 2,
+            horizontal: SyraSpacing.sm,
+            vertical: SyraSpacing.xs,
           ),
-          borderRadius: SyraRadius.full,
-          blur: SyraGlass.blurSubtle,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               // SYRA logo text
               Text(
                 'SYRA',
-                style: SyraTextStyles.logoStyle(fontSize: 16).copyWith(
-                  letterSpacing: 1.2,
+                style: SyraTextStyles.logoStyle(fontSize: 17).copyWith(
+                  letterSpacing: 1.0,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-              
-              SizedBox(width: SyraSpacing.xs),
-              
+
+              SizedBox(width: 6),
+
               // Dot separator
               Container(
                 width: 3,
                 height: 3,
                 decoration: BoxDecoration(
-                  color: SyraColors.textMuted.withValues(alpha: 0.5),
+                  color: SyraColors.textMuted.withValues(alpha: 0.4),
                   shape: BoxShape.circle,
                 ),
               ),
-              
-              SizedBox(width: SyraSpacing.xs),
-              
+
+              SizedBox(width: 6),
+
               // Mode label
               Text(
                 modeLabel,
-                style: SyraTextStyles.labelMedium.copyWith(
-                  color: modeColor,
+                style: TextStyle(
+                  color: modeColor.withValues(alpha: 0.85),
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
+                  letterSpacing: 0.2,
                 ),
               ),
-              
+
               SizedBox(width: 4),
-              
-              // Dropdown arrow
+
+              // Dropdown arrow (small)
               Icon(
-                Icons.expand_more_rounded,
-                size: 16,
-                color: SyraColors.iconMuted,
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: SyraColors.iconMuted.withValues(alpha: 0.6),
               ),
             ],
           ),

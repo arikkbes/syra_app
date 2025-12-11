@@ -1,3 +1,6 @@
+// LEGACY – replaced by screens/settings/theme_settings_screen.dart.
+// Kept only for backup. Do not use in production.
+
 import 'package:flutter/material.dart';
 import '../../theme/syra_theme.dart';
 import '../../theme/design_system.dart';

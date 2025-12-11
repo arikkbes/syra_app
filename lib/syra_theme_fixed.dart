@@ -1,3 +1,6 @@
+// LEGACY / UNUSED COPY – canonical version lives under lib/theme/syra_theme.dart
+// Kept only as backup. Do not import this file from production code.
+
 // lib/theme/syra_theme.dart
 
 import 'package:flutter/material.dart';

@@ -8,11 +8,11 @@ import 'package:flutter/services.dart';
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM CHAT INPUT BAR - ChatGPT iOS Style
+/// PREMIUM CHAT INPUT BAR - Single Capsule Design
 /// ═══════════════════════════════════════════════════════════════
 /// Clean single-layer glassmorphism design with:
-/// - Subtle backdrop blur
-/// - Clean input field without nested containers
+/// - ONE capsule container only (no nested pill)
+/// - Clean TextField with no background/border
 /// - Bottom action row with glass buttons
 /// ═══════════════════════════════════════════════════════════════
 
@@ -92,7 +92,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               _buildImagePreview(),
               const SizedBox(height: 8),
             ],
-            // Main input container
+            // Main input container - SINGLE CAPSULE ONLY
             _buildMainContainer(canSend, hasText),
           ],
         ),
@@ -101,7 +101,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// MAIN GLASS CONTAINER
+  /// MAIN GLASS CONTAINER - SINGLE CAPSULE (no inner pill)
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildMainContainer(bool canSend, bool hasText) {
     return ClipRRect(
@@ -110,26 +110,27 @@ class _ChatInputBarState extends State<ChatInputBar> {
         filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
         child: Container(
           decoration: BoxDecoration(
-            // Clean gradient background
-            gradient: LinearGradient(
+            // SYRA-style background gradient
+            gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFF2A2D35).withOpacity(0.85),
-                const Color(0xFF1E2128).withOpacity(0.92),
+                Color(0xE111131A), // SyraColors.surface with 88% opacity
+                Color(0xF20C0F15), // SyraColors.surfaceDark with 95% opacity
               ],
             ),
             borderRadius: BorderRadius.circular(28),
-            // Subtle top highlight
+            // Border with SYRA's divider color
             border: Border.all(
-              color: Colors.white.withOpacity(0.08),
+              color: const Color(
+                  0x991A1E24), // SyraColors.divider with 60% opacity
               width: 1,
             ),
             // Soft shadow
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
-                blurRadius: 20,
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 24,
                 offset: const Offset(0, 4),
               ),
             ],
@@ -149,15 +150,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// INPUT ROW - TextField with mic/send button
+  /// INPUT ROW - Clean TextField (NO inner container/pill)
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildInputRow(bool canSend, bool hasText) {
-    return Container(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // Text field
+          // Text field - CLEAN with no background/border
           Expanded(
             child: TextField(
               controller: widget.controller,
@@ -167,18 +168,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
               minLines: 1,
               onChanged: (_) => widget.onTextChanged(),
               style: const TextStyle(
-                color: Colors.white,
+                color: Color(0xFFEDEDED), // textPrimary
                 fontSize: 16,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
               ),
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.zero,
                 border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
                 hintText: 'SYRA\'ya sor',
                 hintStyle: TextStyle(
-                  color: Colors.white.withOpacity(0.35),
+                  color: Color(0xFF5A5F66), // textMuted
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                 ),
@@ -218,14 +222,21 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Container(
           width: 36,
           height: 36,
-          decoration: const BoxDecoration(
-            color: Colors.white,
+          decoration: BoxDecoration(
+            color: const Color(0xFF66E0FF), // SYRA accent cyan
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF66E0FF).withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           child: const Icon(
             Icons.arrow_upward_rounded,
             size: 20,
-            color: Color(0xFF1E2128),
+            color: Color(0xFF0B0E14), // Dark background color
           ),
         ),
       );
@@ -240,10 +251,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
       child: Container(
         width: 36,
         height: 36,
-        child: Icon(
+        child: const Icon(
           Icons.mic_none_rounded,
           size: 22,
-          color: Colors.white.withOpacity(0.5),
+          color: Color(0xFF9AA0A6), // iconMuted
         ),
       ),
     );
@@ -254,7 +265,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildActionRow(bool canSend) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
       child: Row(
         children: [
           // Plus button
@@ -265,7 +276,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               widget.onAttachmentTap();
             },
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           // Camera button
           _buildActionButton(
             icon: Icons.camera_alt_outlined,
@@ -273,34 +284,32 @@ class _ChatInputBarState extends State<ChatInputBar> {
               HapticFeedback.lightImpact();
               if (widget.onCameraTap != null) {
                 widget.onCameraTap!();
-              } else {
-                widget.onAttachmentTap();
               }
             },
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 6),
           // Gallery button
           _buildActionButton(
-            icon: Icons.photo_library_outlined,
+            icon: Icons.image_outlined,
             onTap: () {
               HapticFeedback.lightImpact();
               if (widget.onGalleryTap != null) {
                 widget.onGalleryTap!();
-              } else {
-                widget.onAttachmentTap();
               }
             },
           ),
           const Spacer(),
-          // Mode selector
-          _buildModeSelector(),
+          // Pro dropdown (if exists)
+          if (widget.onModeTap != null) ...[
+            _buildProDropdown(),
+          ],
         ],
       ),
     );
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// ACTION BUTTON - Circular icon button
+  /// ACTION BUTTON - Glass style
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildActionButton({
     required IconData icon,
@@ -309,54 +318,74 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return _TapScale(
       onTap: onTap,
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          shape: BoxShape.circle,
+          color: const Color(0x8016181F), // surfaceLight with 50% opacity
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: const Color(0x801A1E24), // divider with 50% opacity
+            width: 0.5,
+          ),
         ),
         child: Icon(
           icon,
           size: 20,
-          color: Colors.white.withOpacity(0.7),
+          color: const Color(0xFF9AA0A6), // iconMuted
         ),
       ),
     );
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// MODE SELECTOR
+  /// PRO DROPDOWN BUTTON
   /// ═══════════════════════════════════════════════════════════════
-  Widget _buildModeSelector() {
-    final modeName = widget.currentMode ?? 'Pro';
+  Widget _buildProDropdown() {
+    String modeLabel;
+    switch (widget.currentMode) {
+      case 'deep':
+        modeLabel = 'Derin';
+        break;
+      case 'mentor':
+        modeLabel = 'Mentor';
+        break;
+      default:
+        modeLabel = 'Normal';
+    }
 
     return _TapScale(
       onTap: () {
         HapticFeedback.lightImpact();
-        widget.onModeTap?.call();
+        if (widget.onModeTap != null) {
+          widget.onModeTap!();
+        }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(18),
+          color: const Color(0x8016181F), // surfaceLight with 50% opacity
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: const Color(0x801A1E24), // divider with 50% opacity
+            width: 0.5,
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              modeName,
-              style: TextStyle(
-                color: Colors.white.withOpacity(0.8),
-                fontSize: 14,
+              modeLabel,
+              style: const TextStyle(
+                color: Color(0xFF9AA0A6), // textSecondary
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
             ),
             const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 18,
-              color: Colors.white.withOpacity(0.6),
+            const Icon(
+              Icons.expand_more_rounded,
+              size: 16,
+              color: Color(0xFF5A5F66), // textMuted
             ),
           ],
         ),
@@ -374,13 +403,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onVoiceInputTap();
       },
       child: Container(
-        width: 40,
-        height: 40,
+        width: 36,
+        height: 36,
         decoration: const BoxDecoration(
           color: Colors.white,
           shape: BoxShape.circle,
         ),
-        child: const _VoiceWaveAnimation(),
+        child: const Center(
+          child: _VoiceWaveAnimation(),
+        ),
       ),
     );
   }
@@ -392,10 +423,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2D35).withOpacity(0.8),
+        color: const Color(0xCC2A2D35), // with 80% opacity
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: SyraColors.accent.withOpacity(0.3),
+          color: const Color(0x4D66E0FF), // accent with 30% opacity
           width: 1,
         ),
       ),
@@ -405,7 +436,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: SyraColors.accent,
+              color: const Color(0xFF66E0FF), // accent
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -414,10 +445,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Yanıtlanıyor',
                   style: TextStyle(
-                    color: SyraColors.accent,
+                    color: Color(0xFF66E0FF), // accent
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -460,7 +491,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF2A2D35).withOpacity(0.8),
+        color: const Color(0xCC2A2D35), // with 80% opacity
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -484,7 +515,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation(SyraColors.accent),
+                                AlwaysStoppedAnimation(Color(0xFF66E0FF)),
                           ),
                         ),
                       ),

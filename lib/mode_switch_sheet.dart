@@ -1,7 +1,10 @@
+// LEGACY / UNUSED COPY – canonical version lives under lib/widgets/mode_switch_sheet.dart
+// Kept only as backup. Do not import this file from production code.
+
 // lib/widgets/mode_switch_sheet.dart
 
 import 'package:flutter/material.dart';
-import 'mode_selector_popover.dart';
+import 'widgets/mode_selector_popover.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// MODE SWITCH SHEET - Backward Compatibility Wrapper
