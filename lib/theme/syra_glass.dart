@@ -1,370 +1,387 @@
+// lib/theme/syra_glass.dart
+
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:glassmorphism/glassmorphism.dart';
-import '../theme/syra_theme.dart';
+import 'syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS SYSTEM v3.0 - Unified Glassmorphism
-/// Using the glassmorphism package for consistent, premium glass effects
+/// SYRA GLASS COMPONENTS
+/// Unified glass/frosted UI system for premium look
 /// ═══════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════
+// GLASS TOKENS
+// ═══════════════════════════════════════════════════════════════
 class SyraGlass {
   SyraGlass._();
 
-  // ═══════════════════════════════════════════════════════════════
-  // GLASS CONSTANTS
-  // ═══════════════════════════════════════════════════════════════
+  // ─── Colors ───
+  static const Color base = Color(0xFF1A1D26);
+  static const Color overlay = Color(0x331A1D26);
 
-  /// Standard blur amount for glass effects
-  static const double blurStrength = 20.0;
+  // Figma-derived chat bar colors
+  static const Color chatBarBlack = Color(0xFF000000);
+  static const Color chatBarGray45 = Color(0x73333333);
+  static const Color chatBarGray30 = Color(0x4D999999);
 
-  /// Light blur for subtle effects
-  static const double blurLight = 10.0;
+  // White opacity variants
+  static const Color white100 = Color(0xFFFFFFFF);
+  static const Color white40 = Color(0x66FFFFFF);
+  static const Color white20 = Color(0x33FFFFFF);
+  static const Color white12 = Color(0x1FFFFFFF);
+  static const Color white8 = Color(0x14FFFFFF);
+  static const Color white1 = Color(0x03FFFFFF);
 
-  /// Strong blur for prominent glass surfaces
-  static const double blurStrong = 30.0;
+  // ─── Blur Levels ───
+  static const double blurSubtle = 8.0;
+  static const double blurMedium = 16.0;
+  static const double blurStrong = 24.0;
 
-  /// Standard border thickness
-  static const double borderThickness = 1.0;
+  // ─── Dimensions ───
+  static const double buttonSize = 48.0;
+  static const double barHeight = 48.0;
+  static const double cardPadding = 16.0;
 
-  /// Subtle border thickness
-  static const double borderThin = 0.5;
+  // ─── Gradients ───
+  static LinearGradient get glassGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          white20,
+          base.withOpacity(0.6),
+          base.withOpacity(0.8),
+        ],
+        stops: const [0.0, 0.4, 1.0],
+      );
 
-  /// Glass opacity - main surface
-  static const double opacityMain = 0.15;
+  static LinearGradient get liquidGlassGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          chatBarGray30,
+          chatBarGray45,
+          chatBarBlack.withOpacity(0.85),
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      );
 
-  /// Glass opacity - lighter variant
-  static const double opacityLight = 0.08;
+  static LinearGradient get innerGlowGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          white1,
+          Colors.transparent,
+        ],
+      );
 
-  /// Glass opacity - stronger variant
-  static const double opacityStrong = 0.25;
+  static LinearGradient get highlightGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          white12,
+          white1,
+          Colors.transparent,
+        ],
+        stops: const [0.0, 0.4, 1.0],
+      );
 
-  // ═══════════════════════════════════════════════════════════════
-  // GLASS COLORS
-  // ═══════════════════════════════════════════════════════════════
+  // ─── Shadows ───
+  static List<BoxShadow> get glassShadow => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.65),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+        ),
+      ];
 
-  /// Main glass fill color (dark with low opacity)
-  static Color get fillColor => SyraColors.surface.withOpacity(opacityMain);
-
-  /// Light glass fill
-  static Color get fillLight => SyraColors.surface.withOpacity(opacityLight);
-
-  /// Strong glass fill
-  static Color get fillStrong => SyraColors.surface.withOpacity(opacityStrong);
-
-  /// Glass border color
-  static Color get borderColor => Colors.white.withOpacity(0.12);
-
-  /// Subtle border
-  static Color get borderSubtle => Colors.white.withOpacity(0.06);
-
-  // ═══════════════════════════════════════════════════════════════
-  // GLASS SHADOWS
-  // ═══════════════════════════════════════════════════════════════
-
-  /// Standard glass shadow
-  static List<BoxShadow> get shadow => [
+  static List<BoxShadow> get subtleShadow => [
         BoxShadow(
           color: Colors.black.withOpacity(0.3),
-          blurRadius: 20,
-          offset: const Offset(0, 8),
-        ),
-      ];
-
-  /// Elevated glass shadow (for floating elements)
-  static List<BoxShadow> get shadowElevated => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.4),
-          blurRadius: 32,
-          offset: const Offset(0, 12),
-        ),
-      ];
-
-  /// Subtle shadow
-  static List<BoxShadow> get shadowSubtle => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.2),
           blurRadius: 12,
           offset: const Offset(0, 4),
         ),
       ];
+
+  static List<BoxShadow> get lightShadow => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.2),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ];
 }
 
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS CONTAINER
-/// Main reusable glass container component
-/// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// BASE GLASS CONTAINER
+// ═══════════════════════════════════════════════════════════════
 class SyraGlassContainer extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
-  final EdgeInsetsGeometry? margin;
-  final double borderRadius;
+  final double? borderRadius;
+  final double blur;
+  final Color? color;
+  final Gradient? gradient;
+  final Border? border;
+  final List<BoxShadow>? boxShadow;
   final double? width;
   final double? height;
-  final double? blur;
-  final double? opacity;
-  final Color? fillColor;
-  final Color? borderColor;
-  final bool withShadow;
-  final AlignmentGeometry? alignment;
+  final bool enableHighlight;
 
   const SyraGlassContainer({
     super.key,
     required this.child,
     this.padding,
-    this.margin,
-    this.borderRadius = 16,
+    this.borderRadius,
+    this.blur = 16.0,
+    this.color,
+    this.gradient,
+    this.border,
+    this.boxShadow,
     this.width,
     this.height,
-    this.blur,
-    this.opacity,
-    this.fillColor,
-    this.borderColor,
-    this.withShadow = true,
-    this.alignment,
+    this.enableHighlight = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    final effectiveBlur = blur ?? SyraGlass.blurStrength;
-    final effectiveFillColor = fillColor ?? SyraGlass.fillColor;
-    final effectiveBorderColor = borderColor ?? SyraGlass.borderColor;
+    final effectiveRadius = borderRadius ?? SyraRadius.md;
+    final effectiveBorder = border ??
+        Border.all(
+          color: SyraGlass.white12,
+          width: 0.5,
+        );
 
     return Container(
-      margin: margin,
       width: width,
       height: height,
-      decoration: withShadow
-          ? BoxDecoration(
-              borderRadius: BorderRadius.circular(borderRadius),
-              boxShadow: SyraGlass.shadow,
-            )
-          : null,
-      child: GlassmorphicContainer(
-        width: width ?? double.infinity,
-        height: height ?? double.infinity,
-        borderRadius: borderRadius,
-        blur: effectiveBlur,
-        alignment: alignment ?? Alignment.center,
-        border: SyraGlass.borderThickness,
-        linearGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            effectiveFillColor.withOpacity(opacity ?? 0.15),
-            effectiveFillColor.withOpacity((opacity ?? 0.15) * 0.5),
-          ],
-        ),
-        borderGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            effectiveBorderColor,
-            effectiveBorderColor.withOpacity(0.5),
-          ],
-        ),
-        child: Padding(
-          padding: padding ?? EdgeInsets.zero,
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS BUTTON
-/// Circular glass button with tap animation
-/// ═══════════════════════════════════════════════════════════════
-class SyraGlassButton extends StatefulWidget {
-  final Widget child;
-  final VoidCallback onTap;
-  final bool enabled;
-  final double size;
-
-  const SyraGlassButton({
-    super.key,
-    required this.child,
-    required this.onTap,
-    this.enabled = true,
-    this.size = 48.0,
-  });
-
-  @override
-  State<SyraGlassButton> createState() => _SyraGlassButtonState();
-}
-
-class _SyraGlassButtonState extends State<SyraGlassButton>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 150),
-    );
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.92,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTapDown: widget.enabled ? (_) => _controller.forward() : null,
-      onTapUp: widget.enabled ? (_) => _controller.reverse() : null,
-      onTapCancel: widget.enabled ? () => _controller.reverse() : null,
-      onTap: widget.enabled ? widget.onTap : null,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
-        child: Container(
-          width: widget.size,
-          height: widget.size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: SyraGlass.shadow,
-          ),
-          child: GlassmorphicContainer(
-            width: widget.size,
-            height: widget.size,
-            borderRadius: widget.size / 2,
-            blur: SyraGlass.blurStrength,
-            alignment: Alignment.center,
-            border: SyraGlass.borderThickness,
-            linearGradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                SyraGlass.fillColor,
-                SyraGlass.fillColor.withOpacity(0.5),
-              ],
-            ),
-            borderGradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                SyraGlass.borderColor,
-                SyraGlass.borderColor.withOpacity(0.5),
-              ],
-            ),
-            child: IconTheme(
-              data: IconThemeData(
-                color: SyraColors.textPrimary.withOpacity(0.9),
-                size: 20,
-              ),
-              child: widget.child,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS BAR
-/// Pill-shaped glass bar for input fields and action bars
-/// ═══════════════════════════════════════════════════════════════
-class SyraGlassBar extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final double? height;
-  final double? blur;
-
-  const SyraGlassBar({
-    super.key,
-    required this.child,
-    this.padding,
-    this.height,
-    this.blur,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveHeight = height ?? 56.0;
-    final effectiveRadius = effectiveHeight / 2;
-    final effectiveBlur = blur ?? SyraGlass.blurStrength;
-
-    return Container(
-      height: effectiveHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
-        boxShadow: SyraGlass.shadow,
+        boxShadow: boxShadow ?? SyraGlass.subtleShadow,
       ),
-      child: GlassmorphicContainer(
-        width: double.infinity,
-        height: effectiveHeight,
-        borderRadius: effectiveRadius,
-        blur: effectiveBlur,
-        alignment: Alignment.center,
-        border: SyraGlass.borderThickness,
-        linearGradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            SyraGlass.fillColor,
-            SyraGlass.fillColor.withOpacity(0.5),
-          ],
-        ),
-        borderGradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            SyraGlass.borderColor,
-            SyraGlass.borderColor.withOpacity(0.5),
-          ],
-        ),
-        child: Padding(
-          padding: padding ?? const EdgeInsets.symmetric(horizontal: 16),
-          child: child,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(effectiveRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: blur, sigmaY: blur),
+          child: Container(
+            decoration: BoxDecoration(
+              color: color,
+              gradient: gradient ?? SyraGlass.glassGradient,
+              borderRadius: BorderRadius.circular(effectiveRadius),
+              border: effectiveBorder,
+            ),
+            child: Stack(
+              children: [
+                // Optional highlight overlay
+                if (enableHighlight)
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: SyraGlass.highlightGradient,
+                      borderRadius: BorderRadius.circular(effectiveRadius),
+                    ),
+                  ),
+                // Content
+                Padding(
+                  padding: padding ?? EdgeInsets.zero,
+                  child: child,
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
 }
 
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA GLASS CARD
-/// Card-style glass container (from glass_background.dart GlassCard)
-/// ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// GLASS CARD
+// ═══════════════════════════════════════════════════════════════
 class SyraGlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
-  final double borderRadius;
+  final double? borderRadius;
+  final VoidCallback? onTap;
 
   const SyraGlassCard({
     super.key,
     required this.child,
     this.padding,
     this.margin,
-    this.borderRadius = 16,
+    this.borderRadius,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final card = SyraGlassContainer(
+      borderRadius: borderRadius ?? SyraRadius.card,
+      padding: padding ?? const EdgeInsets.all(SyraGlass.cardPadding),
+      child: child,
+    );
+
+    if (onTap != null) {
+      return Padding(
+        padding: margin ?? EdgeInsets.zero,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(borderRadius ?? SyraRadius.card),
+          child: card,
+        ),
+      );
+    }
+
+    return Padding(
+      padding: margin ?? EdgeInsets.zero,
+      child: card,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GLASS BAR (Pill-shaped, for chat input, etc.)
+// ═══════════════════════════════════════════════════════════════
+class SyraGlassBar extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+  final double? height;
+
+  const SyraGlassBar({
+    super.key,
+    required this.child,
+    this.padding,
+    this.height,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveHeight = height ?? SyraGlass.barHeight;
+    final effectiveRadius = effectiveHeight / 2;
+
+    return SyraGlassContainer(
+      height: effectiveHeight,
+      borderRadius: effectiveRadius,
+      gradient: SyraGlass.liquidGlassGradient,
+      blur: SyraGlass.blurStrong,
+      padding: padding ??
+          const EdgeInsets.symmetric(
+            horizontal: 14.0,
+          ),
+      child: child,
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GLASS BUTTON (Circular)
+// ═══════════════════════════════════════════════════════════════
+// NOTE: SyraGlassButton moved to lib/widgets/syra_glass_button.dart
+// This version is deprecated. Use: import '../../widgets/syra_glass_button.dart';
+/*
+class SyraGlassButton extends StatelessWidget {
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final double? size;
+  final Color? color;
+
+  const SyraGlassButton({
+    super.key,
+    required this.icon,
+    this.onPressed,
+    this.size,
+    this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final effectiveSize = size ?? SyraGlass.buttonSize;
+
+    return SyraGlassContainer(
+      width: effectiveSize,
+      height: effectiveSize,
+      borderRadius: effectiveSize / 2,
+      blur: SyraGlass.blurMedium,
+      gradient: color != null
+          ? LinearGradient(
+              colors: [
+                color!.withOpacity(0.3),
+                color!.withOpacity(0.1),
+              ],
+            )
+          : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(effectiveSize / 2),
+          child: Center(child: icon),
+        ),
+      ),
+    );
+  }
+}
+*/
+
+// ═══════════════════════════════════════════════════════════════
+// GLASS PILL (Compact tag/badge style)
+// ═══════════════════════════════════════════════════════════════
+class SyraGlassPill extends StatelessWidget {
+  final String text;
+  final IconData? icon;
+  final VoidCallback? onTap;
+  final Color? color;
+
+  const SyraGlassPill({
+    super.key,
+    required this.text,
+    this.icon,
+    this.onTap,
+    this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return SyraGlassContainer(
-      padding: padding ?? const EdgeInsets.all(16),
-      margin: margin,
-      borderRadius: borderRadius,
-      blur: SyraGlass.blurLight,
-      opacity: 0.8,
-      child: child,
+      borderRadius: SyraRadius.full,
+      padding: EdgeInsets.symmetric(
+        horizontal: icon != null ? 10 : 12,
+        vertical: 6,
+      ),
+      blur: SyraGlass.blurSubtle,
+      gradient: color != null
+          ? LinearGradient(
+              colors: [
+                color!.withOpacity(0.2),
+                color!.withOpacity(0.05),
+              ],
+            )
+          : null,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(SyraRadius.full),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) ...[
+                Icon(
+                  icon,
+                  size: 14,
+                  color: color ?? SyraColors.textSecondary,
+                ),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                text,
+                style: SyraTextStyles.labelSmall.copyWith(
+                  color: color ?? SyraColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

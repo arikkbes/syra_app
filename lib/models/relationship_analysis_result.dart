@@ -5,8 +5,6 @@
 /// ═══════════════════════════════════════════════════════════════
 
 class RelationshipAnalysisResult {
-  final bool success;
-  final String? userMessage;
   final int totalMessages;
   final DateTime? startDate;
   final DateTime? endDate;
@@ -15,8 +13,6 @@ class RelationshipAnalysisResult {
   final List<KeyMoment> keyMoments;
 
   RelationshipAnalysisResult({
-    this.success = true,
-    this.userMessage,
     required this.totalMessages,
     this.startDate,
     this.endDate,
@@ -27,8 +23,6 @@ class RelationshipAnalysisResult {
 
   factory RelationshipAnalysisResult.fromJson(Map<String, dynamic> json) {
     return RelationshipAnalysisResult(
-      success: json['success'] as bool? ?? true,
-      userMessage: json['userMessage'] as String?,
       totalMessages: json['totalMessages'] as int? ?? 0,
       startDate: json['startDate'] != null
           ? DateTime.tryParse(json['startDate'] as String)
@@ -50,8 +44,6 @@ class RelationshipAnalysisResult {
 
   Map<String, dynamic> toJson() {
     return {
-      'success': success,
-      if (userMessage != null) 'userMessage': userMessage,
       'totalMessages': totalMessages,
       'startDate': startDate?.toIso8601String(),
       'endDate': endDate?.toIso8601String(),

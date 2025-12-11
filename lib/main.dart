@@ -118,7 +118,7 @@ class _AuthGate extends StatelessWidget {
               height: 60,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const SweepGradient(
+                gradient: SweepGradient(
                   colors: [
                     SyraColors.neonPink,
                     SyraColors.neonViolet,

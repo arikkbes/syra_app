@@ -7,7 +7,7 @@ import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
 import '../theme/syra_animations.dart';
 import '../models/chat_session.dart';
-import 'kim_daha_cok_screen.dart';
+import '../screens/kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA SIDE MENU v4.0 – Premium Glass Design
@@ -212,7 +212,8 @@ class SideMenu extends StatelessWidget {
                               onSelectChat(chat);
                             },
                             onDelete: () => onDeleteChat(chat),
-                            onRename: (newTitle) => onRenameChat(chat, newTitle),
+                            onRename: (newTitle) =>
+                                onRenameChat(chat, newTitle),
                           );
                         },
                       ),
@@ -575,14 +576,12 @@ class SideMenu extends StatelessWidget {
   // ═════════════════════════════════════════════════════════════════
 
   String _getUserInitials(String name) {
-    final parts = name.trim().split(' ').where((p) => p.isNotEmpty).toList();
+    final parts = name.trim().split(' ');
     if (parts.isEmpty) return '?';
     if (parts.length == 1) {
-      return parts[0].isNotEmpty ? parts[0][0].toUpperCase() : '?';
+      return parts[0].substring(0, 1).toUpperCase();
     }
-    final first = parts[0].isNotEmpty ? parts[0][0] : '';
-    final second = parts[1].isNotEmpty ? parts[1][0] : '';
-    return (first + second).toUpperCase();
+    return (parts[0].substring(0, 1) + parts[1].substring(0, 1)).toUpperCase();
   }
 
   void _showRenameDialog(

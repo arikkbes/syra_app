@@ -2,7 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
-import '../theme/syra_design_tokens.dart';
 import '../utils/syra_prefs.dart';
 import '../widgets/syra_bottom_panel.dart';
 
@@ -74,13 +73,9 @@ class _SettingsSheetState extends State<SettingsSheet> {
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              const Text(
+              Text(
                 'Settings',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: SyraColors.textPrimary,
-                ),
+                style: SyraTextStyles.headingMedium,
               ),
               const Spacer(),
               IconButton(
@@ -250,12 +245,7 @@ class _SettingsSheetState extends State<SettingsSheet> {
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Text(
             title,
-            style: const TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
-              color: SyraColors.textSecondary,
-            ),
+            style: SyraTextStyles.overline,
           ),
         ),
         ...children,
@@ -330,15 +320,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 16, top: 8),
             child: Text(
               'Select Tone',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: SyraColors.textPrimary,
-              ),
+              style: SyraTextStyles.headingSmall,
             ),
           ),
           const Divider(height: 1),
@@ -351,10 +337,10 @@ class _SettingsSheetState extends State<SettingsSheet> {
             return ListTile(
               title: Text(
                 tone,
-                style: const TextStyle(color: SyraColors.textPrimary),
+                style: TextStyle(color: SyraColors.textPrimary),
               ),
               trailing: _selectedTone == tone
-                  ? const Icon(Icons.check, color: SyraColors.accent)
+                  ? Icon(Icons.check, color: SyraColors.accent)
                   : null,
               onTap: () {
                 setState(() => _selectedTone = tone);
@@ -374,15 +360,11 @@ class _SettingsSheetState extends State<SettingsSheet> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.only(bottom: 16, top: 8),
             child: Text(
               'Message Length',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: SyraColors.textPrimary,
-              ),
+              style: SyraTextStyles.headingSmall,
             ),
           ),
           const Divider(height: 1),
@@ -390,10 +372,10 @@ class _SettingsSheetState extends State<SettingsSheet> {
             return ListTile(
               title: Text(
                 length,
-                style: const TextStyle(color: SyraColors.textPrimary),
+                style: TextStyle(color: SyraColors.textPrimary),
               ),
               trailing: _selectedLength == length
-                  ? const Icon(Icons.check, color: SyraColors.accent)
+                  ? Icon(Icons.check, color: SyraColors.accent)
                   : null,
               onTap: () {
                 setState(() => _selectedLength = length);

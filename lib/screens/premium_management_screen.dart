@@ -186,7 +186,7 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
               child: _loading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
                         color: SyraColors.neonCyan,
                       ),

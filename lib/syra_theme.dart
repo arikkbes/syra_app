@@ -57,15 +57,6 @@ class SyraColors {
   static const Color userBubbleBg = Color(0xFF16181F);
   static const Color syraBubbleGlow = accent;
 
-  // ─── Neon Colors (backward compatibility) ───
-  static const Color neonPink = accent;
-  static const Color neonCyan = accent;
-  static const Color neonPinkLight = accentLight;
-  static const Color neonCyanLight = accentLight;
-  static const Color neonPinkDark = Color(0xFF4DC4E0);
-  static const Color neonCyanDark = Color(0xFF4DC4E0);
-  static const Color neonViolet = Color(0xFF7AC7E0);
-
   // ─── Gradients ───
   static const LinearGradient backgroundGradient = LinearGradient(
     begin: Alignment.topCenter,
@@ -309,30 +300,6 @@ class SyraTextStyles {
         letterSpacing: fontSize * 0.12,
         color: SyraColors.textPrimary,
       );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// BACKWARD COMPATIBILITY: SyraTypography → SyraTextStyles
-// ═══════════════════════════════════════════════════════════════
-@Deprecated('Use SyraTextStyles instead')
-class SyraTypography {
-  SyraTypography._();
-
-  static TextStyle get headingLarge => SyraTextStyles.headingLarge;
-  static TextStyle get headingMedium => SyraTextStyles.headingMedium;
-  static TextStyle get headingSmall => SyraTextStyles.headingSmall;
-  static TextStyle get bodyText => SyraTextStyles.bodyMedium;
-  static TextStyle get bodyTextSecondary => SyraTextStyles.bodySmall;
-  static TextStyle get caption => SyraTextStyles.caption;
-  static TextStyle get overline => SyraTextStyles.overline;
-  static TextStyle get button => SyraTextStyles.button;
-  
-  // Message bubble specific styles
-  static TextStyle get messageText => SyraTextStyles.bodyMedium;
-  static TextStyle get timeText => SyraTextStyles.caption;
-  
-  static TextStyle logoStyle({double fontSize = 20}) => 
-      SyraTextStyles.logoStyle(fontSize: fontSize);
 }
 
 // ═══════════════════════════════════════════════════════════════
