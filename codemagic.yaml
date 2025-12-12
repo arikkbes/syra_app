@@ -1,0 +1,24 @@
+workflows:
+  ios_syra_simulator:
+    name: SYRA iOS Native (Simulator) - Quick Test
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+
+    environment:
+      xcode: latest
+
+    scripts:
+      - name: Build iOS Native for Simulator (no signing)
+        script: |
+          set -e
+          cd ios_native
+          xcodebuild \
+            -project SyraNative.xcodeproj \
+            -scheme SyraNative \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
+            clean build
+
+    artifacts:
+      - ios_native/**/Logs/**/*
