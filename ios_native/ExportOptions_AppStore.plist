@@ -10,13 +10,9 @@
     <key>teamID</key>
     <string>4NK7SA2722</string>
     
-    <!-- Otomatik code signing (Codemagic halleder) -->
+    <!-- Otomatik code signing -->
     <key>signingStyle</key>
     <string>automatic</string>
-    
-    <!-- Certificate type -->
-    <key>signingCertificate</key>
-    <string>Apple Distribution</string>
     
     <!-- Bitcode (modern iOS için kapalı) -->
     <key>uploadBitcode</key>
@@ -29,26 +25,11 @@
     <key>uploadSymbols</key>
     <true/>
     
-    <!-- Bundle ID için provisioning profile mapping -->
-    <key>provisioningProfiles</key>
-    <dict>
-        <key>com.ariksoftware.syra</key>
-        <string>match AppStore com.ariksoftware.syra</string>
-    </dict>
-    
     <!-- Destination (TestFlight) -->
     <key>destination</key>
     <string>upload</string>
     
-    <!-- iCloud environment -->
-    <key>iCloudContainerEnvironment</key>
-    <string>Production</string>
-    
-    <!-- Thinning (App Store optimize eder) -->
-    <key>thinning</key>
-    <string>&lt;none&gt;</string>
-    
-    <!-- Strip Swift symbols (App Store'da küçült) -->
+    <!-- Strip Swift symbols -->
     <key>stripSwiftSymbols</key>
     <true/>
 </dict>
