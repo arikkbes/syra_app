@@ -10,11 +10,11 @@ import '../models/chat_session.dart';
 import 'kim_daha_cok_screen.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA SIDE MENU v4.0 – Premium Glass Design
+/// SYRA SIDE MENU v5.0 – ChatGPT-Style List Design
 /// ═══════════════════════════════════════════════════════════════
 /// Structure:
-/// 1. Primary CTA: New Chat
-/// 2. Features: Tarot Mode, Kim Daha Çok
+/// 1. Search bar at top
+/// 2. Primary actions (list-based, no big pills)
 /// 3. Recent chats list
 /// 4. Bottom: User profile + Settings
 /// ═══════════════════════════════════════════════════════════════
@@ -58,7 +58,7 @@ class SideMenu extends StatelessWidget {
       child: SafeArea(
         child: Container(
           width: 340,
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             color: SyraColors.background,
             border: Border(
               right: BorderSide(
@@ -70,149 +70,142 @@ class SideMenu extends StatelessWidget {
           child: Column(
             children: [
               // ───────────────────────────────────────────────────
-              // HEADER: Logo + Close
+              // HEADER: Search bar + Compose button
               // ───────────────────────────────────────────────────
-              Container(
-                padding: EdgeInsets.symmetric(
-                  horizontal: SyraSpacing.md,
-                  vertical: SyraSpacing.md,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  SyraSpacing.md,
+                  SyraSpacing.md,
+                  SyraSpacing.md,
+                  SyraSpacing.sm,
                 ),
                 child: Row(
                   children: [
-                    Text(
-                      'SYRA',
-                      style: SyraTextStyles.logoStyle(fontSize: 22),
+                    // Search bar
+                    Expanded(
+                      child: const _SyraDrawerSearch(),
                     ),
-                    Spacer(),
-                    IconButton(
-                      onPressed: onClose,
-                      icon: Icon(
-                        Icons.close,
-                        color: SyraColors.iconMuted,
-                        size: 20,
-                      ),
-                      padding: EdgeInsets.all(SyraSpacing.xs),
-                      constraints: BoxConstraints(),
+                    const SizedBox(width: 12),
+                    // Compose button
+                    _buildComposeButton(
+                      onTap: () {
+                        onClose();
+                        onNewChat();
+                      },
                     ),
                   ],
                 ),
               ),
 
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: SyraSpacing.md),
-                child: Divider(height: 1, color: SyraColors.divider),
-              ),
+              const SizedBox(height: SyraSpacing.sm),
 
               // ───────────────────────────────────────────────────
-              // PRIMARY CTA: New Chat
+              // PRIMARY ACTIONS SECTION
               // ───────────────────────────────────────────────────
               Padding(
-                padding: EdgeInsets.all(SyraSpacing.md),
-                child: _buildPrimaryCTA(
-                  context: context,
-                  icon: Icons.add_circle_outline,
-                  label: 'Yeni Sohbet',
-                  onTap: () {
-                    onClose();
-                    onNewChat();
-                  },
-                ).fadeInSlide(delay: Duration(milliseconds: 50)),
-              ),
-
-              // ───────────────────────────────────────────────────
-              // FEATURES SECTION
-              // ───────────────────────────────────────────────────
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: SyraSpacing.md),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'ÖZELLIKLER',
-                      style: SyraTextStyles.overline,
+                padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Sohbetler',
+                    style: SyraTextStyles.headingMedium.copyWith(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
                     ),
-                    SizedBox(height: SyraSpacing.sm),
-                    _buildFeatureItem(
-                      context: context,
-                      icon: Icons.auto_awesome_outlined,
-                      label: 'Tarot Modu',
-                      accent: true,
-                      onTap: () {
-                        onClose();
-                        onTarotMode();
-                      },
-                    ).fadeInSlide(delay: Duration(milliseconds: 100)),
-                    SizedBox(height: SyraSpacing.xs),
-                    _buildFeatureItem(
-                      context: context,
-                      icon: Icons.analytics_outlined,
-                      label: 'Kim Daha Çok?',
-                      onTap: () {
-                        onClose();
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const KimDahaCokScreen(),
-                          ),
-                        );
-                      },
-                    ).fadeInSlide(delay: Duration(milliseconds: 150)),
-                  ],
+                  ),
                 ),
               ),
 
-              SizedBox(height: SyraSpacing.lg),
+              const SizedBox(height: SyraSpacing.sm),
 
+              _SyraDrawerItem(
+                icon: Icons.add_circle_outline,
+                label: 'Yeni Sohbet',
+                onTap: () {
+                  onClose();
+                  onNewChat();
+                },
+              ).fadeInSlide(delay: const Duration(milliseconds: 50)),
+
+              _SyraDrawerItem(
+                icon: Icons.auto_awesome_outlined,
+                label: 'Tarot Modu',
+                onTap: () {
+                  onClose();
+                  onTarotMode();
+                },
+              ).fadeInSlide(delay: const Duration(milliseconds: 100)),
+
+              _SyraDrawerItem(
+                icon: Icons.analytics_outlined,
+                label: 'Kim Daha Çok?',
+                onTap: () {
+                  onClose();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const KimDahaCokScreen(),
+                    ),
+                  );
+                },
+              ).fadeInSlide(delay: const Duration(milliseconds: 150)),
+
+              const SizedBox(height: SyraSpacing.lg),
+
+              // ───────────────────────────────────────────────────
+              // SECTION DIVIDER
+              // ───────────────────────────────────────────────────
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: SyraSpacing.md),
-                child: Divider(height: 1, color: SyraColors.divider),
+                padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+                child: Container(
+                  height: 1,
+                  color: SyraColors.divider.withOpacity(0.5),
+                ),
               ),
 
-              SizedBox(height: SyraSpacing.md),
+              const SizedBox(height: SyraSpacing.md),
+
+              // ───────────────────────────────────────────────────
+              // RECENT CHATS SECTION HEADER
+              // ───────────────────────────────────────────────────
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Geçmiş',
+                    style: SyraTextStyles.caption.copyWith(
+                      color: SyraColors.textMuted,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: SyraSpacing.sm),
 
               // ───────────────────────────────────────────────────
               // RECENT CHATS LIST
               // ───────────────────────────────────────────────────
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: SyraSpacing.md),
-                child: Row(
-                  children: [
-                    Text(
-                      'SON SOHBETLER',
-                      style: SyraTextStyles.overline,
-                    ),
-                    Spacer(),
-                    Text(
-                      '${chatSessions.length}',
-                      style: SyraTextStyles.caption,
-                    ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: SyraSpacing.sm),
-
               Expanded(
                 child: chatSessions.isEmpty
                     ? _buildEmptyState()
                     : ListView.builder(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: SyraSpacing.md,
-                          vertical: SyraSpacing.xs,
-                        ),
+                        padding: EdgeInsets.zero,
                         itemCount: chatSessions.length,
                         itemBuilder: (context, index) {
                           final chat = chatSessions[index];
-                          return _buildChatListItem(
-                            context: context,
+                          return _SyraChatListItem(
                             chat: chat,
-                            index: index,
                             onTap: () {
                               onClose();
                               onSelectChat(chat);
                             },
                             onDelete: () => onDeleteChat(chat),
-                            onRename: (newTitle) => onRenameChat(chat, newTitle),
+                            onRename: (newTitle) =>
+                                onRenameChat(chat, newTitle),
                           );
                         },
                       ),
@@ -222,8 +215,11 @@ class SideMenu extends StatelessWidget {
               // BOTTOM: User Profile + Settings
               // ───────────────────────────────────────────────────
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: SyraSpacing.md),
-                child: Divider(height: 1, color: SyraColors.divider),
+                padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+                child: Container(
+                  height: 1,
+                  color: SyraColors.divider.withOpacity(0.5),
+                ),
               ),
 
               _buildUserProfile(
@@ -244,209 +240,35 @@ class SideMenu extends StatelessWidget {
   }
 
   // ═════════════════════════════════════════════════════════════════
-  // PRIMARY CTA BUTTON
+  // COMPOSE BUTTON (matches search bar style)
   // ═════════════════════════════════════════════════════════════════
 
-  Widget _buildPrimaryCTA({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
+  Widget _buildComposeButton({
     required VoidCallback onTap,
-  }) {
-    return SyraGlassCard(
-      padding: EdgeInsets.symmetric(
-        horizontal: SyraSpacing.md,
-        vertical: 14,
-      ),
-      onTap: onTap,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            color: SyraColors.accent,
-            size: 20,
-          ),
-          SizedBox(width: SyraSpacing.sm),
-          Text(
-            label,
-            style: SyraTextStyles.labelLarge.copyWith(
-              color: SyraColors.accent,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ═════════════════════════════════════════════════════════════════
-  // FEATURE ITEM
-  // ═════════════════════════════════════════════════════════════════
-
-  Widget _buildFeatureItem({
-    required BuildContext context,
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-    bool accent = false,
   }) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(SyraRadius.sm),
+        borderRadius: BorderRadius.circular(24),
         child: Container(
-          padding: EdgeInsets.symmetric(
-            horizontal: SyraSpacing.md,
-            vertical: SyraSpacing.sm + 2,
-          ),
+          width: 48,
+          height: 48,
           decoration: BoxDecoration(
-            color: accent
-                ? SyraColors.accent.withValues(alpha: 0.05)
-                : Colors.transparent,
+            color: Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: accent
-                  ? SyraColors.accent.withValues(alpha: 0.3)
-                  : SyraColors.border,
+              color: Colors.white.withOpacity(0.09),
               width: 1,
             ),
-            borderRadius: BorderRadius.circular(SyraRadius.sm),
           ),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: accent ? SyraColors.accent : SyraColors.iconStroke,
-                size: 18,
-              ),
-              SizedBox(width: SyraSpacing.sm),
-              Text(
-                label,
-                style: SyraTextStyles.bodyMedium.copyWith(
-                  color: accent ? SyraColors.accent : SyraColors.textPrimary,
-                ),
-              ),
-            ],
+          child: const Icon(
+            Icons.edit_square,
+            size: 20,
+            color: Color(0xFF9CA3AF),
           ),
         ),
       ),
-    );
-  }
-
-  // ═════════════════════════════════════════════════════════════════
-  // CHAT LIST ITEM
-  // ═════════════════════════════════════════════════════════════════
-
-  Widget _buildChatListItem({
-    required BuildContext context,
-    required ChatSession chat,
-    required int index,
-    required VoidCallback onTap,
-    required VoidCallback onDelete,
-    required Function(String) onRename,
-  }) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: SyraSpacing.xs),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(SyraRadius.sm),
-          child: Container(
-            padding: EdgeInsets.symmetric(
-              horizontal: SyraSpacing.sm,
-              vertical: SyraSpacing.sm,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.transparent,
-              borderRadius: BorderRadius.circular(SyraRadius.sm),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.chat_bubble_outline,
-                  color: SyraColors.iconMuted,
-                  size: 16,
-                ),
-                SizedBox(width: SyraSpacing.sm),
-                Expanded(
-                  child: Text(
-                    chat.title,
-                    style: SyraTextStyles.bodySmall.copyWith(
-                      color: SyraColors.textSecondary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                _buildChatActions(
-                  context: context,
-                  chat: chat,
-                  onDelete: onDelete,
-                  onRename: onRename,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    ).fadeInSlide(delay: Duration(milliseconds: 200 + (index * 30)));
-  }
-
-  Widget _buildChatActions({
-    required BuildContext context,
-    required ChatSession chat,
-    required VoidCallback onDelete,
-    required Function(String) onRename,
-  }) {
-    return PopupMenuButton<String>(
-      icon: Icon(
-        Icons.more_horiz,
-        color: SyraColors.iconMuted,
-        size: 16,
-      ),
-      color: SyraColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(SyraRadius.md),
-        side: BorderSide(
-          color: SyraColors.border,
-          width: 1,
-        ),
-      ),
-      itemBuilder: (context) => [
-        PopupMenuItem(
-          value: 'rename',
-          child: Row(
-            children: [
-              Icon(Icons.edit_outlined, size: 16, color: SyraColors.iconStroke),
-              SizedBox(width: SyraSpacing.sm),
-              Text('Yeniden Adlandır', style: SyraTextStyles.bodySmall),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'delete',
-          child: Row(
-            children: [
-              Icon(Icons.delete_outline, size: 16, color: SyraColors.error),
-              SizedBox(width: SyraSpacing.sm),
-              Text(
-                'Sil',
-                style: SyraTextStyles.bodySmall.copyWith(
-                  color: SyraColors.error,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-      onSelected: (value) {
-        if (value == 'delete') {
-          onDelete();
-        } else if (value == 'rename') {
-          _showRenameDialog(context, chat, onRename);
-        }
-      },
     );
   }
 
@@ -457,27 +279,21 @@ class SideMenu extends StatelessWidget {
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: EdgeInsets.all(SyraSpacing.xl),
+        padding: const EdgeInsets.all(SyraSpacing.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.chat_bubble_outline,
-              color: SyraColors.iconMuted,
-              size: 48,
+              color: SyraColors.iconMuted.withOpacity(0.5),
+              size: 40,
             ),
-            SizedBox(height: SyraSpacing.md),
+            const SizedBox(height: SyraSpacing.md),
             Text(
               'Henüz sohbet yok',
-              style: SyraTextStyles.bodyMedium.copyWith(
+              style: SyraTextStyles.bodySmall.copyWith(
                 color: SyraColors.textMuted,
               ),
-              textAlign: TextAlign.center,
-            ),
-            SizedBox(height: SyraSpacing.xs),
-            Text(
-              'Yeni bir sohbet başlatın',
-              style: SyraTextStyles.caption,
               textAlign: TextAlign.center,
             ),
           ],
@@ -502,52 +318,55 @@ class SideMenu extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         child: Container(
-          padding: EdgeInsets.all(SyraSpacing.md),
+          padding: const EdgeInsets.all(SyraSpacing.md),
           child: Row(
             children: [
               Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
+                width: 36,
+                height: 36,
+                decoration: const BoxDecoration(
                   gradient: SyraColors.accentGradient,
                   shape: BoxShape.circle,
                 ),
                 child: Center(
                   child: Text(
                     userInitials,
-                    style: SyraTextStyles.labelLarge.copyWith(
+                    style: SyraTextStyles.labelMedium.copyWith(
                       color: Colors.white,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
               ),
-              SizedBox(width: SyraSpacing.sm),
+              const SizedBox(width: SyraSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       userName,
-                      style: SyraTextStyles.bodyMedium.copyWith(
+                      style: SyraTextStyles.bodySmall.copyWith(
                         fontWeight: FontWeight.w500,
+                        color: SyraColors.textPrimary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Row(
                       children: [
                         if (isPremium) ...[
-                          Icon(
+                          const Icon(
                             Icons.workspace_premium,
-                            size: 12,
+                            size: 11,
                             color: SyraColors.accent,
                           ),
-                          SizedBox(width: 4),
+                          const SizedBox(width: 4),
                         ],
                         Text(
-                          isPremium ? 'SYRA Plus' : 'Ücretsiz Plan',
+                          isPremium ? 'Plus' : 'Ücretsiz',
                           style: SyraTextStyles.caption.copyWith(
+                            fontSize: 11,
                             color: isPremium
                                 ? SyraColors.accent
                                 : SyraColors.textMuted,
@@ -558,10 +377,10 @@ class SideMenu extends StatelessWidget {
                   ],
                 ),
               ),
-              Icon(
+              const Icon(
                 Icons.settings_outlined,
                 color: SyraColors.iconMuted,
-                size: 20,
+                size: 18,
               ),
             ],
           ),
@@ -584,6 +403,234 @@ class SideMenu extends StatelessWidget {
     final second = parts[1].isNotEmpty ? parts[1][0] : '';
     return (first + second).toUpperCase();
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SEARCH BAR WIDGET - ChatGPT iOS Quality
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraDrawerSearch extends StatelessWidget {
+  const _SyraDrawerSearch();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.09),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          Icon(
+            Icons.search,
+            size: 20,
+            color: SyraColors.textMuted.withOpacity(0.7),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: TextField(
+              style: SyraTextStyles.bodyMedium.copyWith(
+                fontSize: 16,
+                color: SyraColors.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Ara',
+                hintStyle: SyraTextStyles.bodyMedium.copyWith(
+                  fontSize: 16,
+                  color: SyraColors.textMuted.withOpacity(0.55),
+                ),
+                border: InputBorder.none,
+                enabledBorder: InputBorder.none,
+                focusedBorder: InputBorder.none,
+                filled: false,
+                isDense: true,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DRAWER LIST ITEM (ChatGPT-style)
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraDrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+  final bool isActive;
+
+  const _SyraDrawerItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.isActive = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 48,
+          padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+          decoration: BoxDecoration(
+            // Subtle left accent line when active
+            border: isActive
+                ? const Border(
+                    left: BorderSide(
+                      color: SyraColors.accent,
+                      width: 2,
+                    ),
+                  )
+                : null,
+            color: isActive
+                ? SyraColors.surfaceLight.withOpacity(0.3)
+                : Colors.transparent,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                size: 20,
+                color: isActive ? SyraColors.accent : SyraColors.iconMuted,
+              ),
+              const SizedBox(width: SyraSpacing.sm),
+              Expanded(
+                child: Text(
+                  label,
+                  style: SyraTextStyles.bodySmall.copyWith(
+                    fontWeight: FontWeight.w500,
+                    color: isActive
+                        ? SyraColors.textPrimary
+                        : SyraColors.textSecondary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CHAT LIST ITEM (Clean list style)
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraChatListItem extends StatelessWidget {
+  final ChatSession chat;
+  final VoidCallback onTap;
+  final VoidCallback onDelete;
+  final Function(String) onRename;
+
+  const _SyraChatListItem({
+    required this.chat,
+    required this.onTap,
+    required this.onDelete,
+    required this.onRename,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
+          child: Row(
+            children: [
+              Icon(
+                Icons.chat_bubble_outline,
+                size: 16,
+                color: SyraColors.iconMuted.withOpacity(0.6),
+              ),
+              const SizedBox(width: SyraSpacing.sm),
+              Expanded(
+                child: Text(
+                  chat.title,
+                  style: SyraTextStyles.bodySmall.copyWith(
+                    color: SyraColors.textSecondary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              // Options menu
+              PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_horiz,
+                  size: 16,
+                  color: SyraColors.iconMuted.withOpacity(0.5),
+                ),
+                color: SyraColors.surface,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(SyraRadius.md),
+                  side: const BorderSide(
+                    color: SyraColors.border,
+                    width: 1,
+                  ),
+                ),
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'rename',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_outlined,
+                            size: 16, color: SyraColors.iconStroke),
+                        const SizedBox(width: SyraSpacing.sm),
+                        Text('Yeniden Adlandır',
+                            style: SyraTextStyles.bodySmall),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        const Icon(Icons.delete_outline,
+                            size: 16, color: SyraColors.error),
+                        const SizedBox(width: SyraSpacing.sm),
+                        Text(
+                          'Sil',
+                          style: SyraTextStyles.bodySmall.copyWith(
+                            color: SyraColors.error,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                onSelected: (value) {
+                  if (value == 'delete') {
+                    onDelete();
+                  } else if (value == 'rename') {
+                    _showRenameDialog(context, chat, onRename);
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   void _showRenameDialog(
     BuildContext context,
@@ -597,7 +644,7 @@ class SideMenu extends StatelessWidget {
         backgroundColor: SyraColors.surface,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(SyraRadius.lg),
-          side: BorderSide(color: SyraColors.border, width: 1),
+          side: const BorderSide(color: SyraColors.border, width: 1),
         ),
         title: Text(
           'Sohbeti Yeniden Adlandır',
