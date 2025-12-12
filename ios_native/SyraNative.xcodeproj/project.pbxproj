@@ -23,6 +23,9 @@
 		A1000014000000000000001 /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000013000000000000001 /* AppState.swift */; };
 		A1000015000000000000001 /* MessageBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000014000000000000001 /* MessageBubble.swift */; };
 		A1000016000000000000001 /* ChatComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000015000000000000001 /* ChatComposer.swift */; };
+
+		/* ✅ ADDED */
+		A1000017000000000000001 /* SyraButtonPressStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000016000000000000001 /* SyraButtonPressStyle.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +46,9 @@
 		A2000013000000000000001 /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		A2000014000000000000001 /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		A2000015000000000000001 /* ChatComposer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatComposer.swift; sourceTree = "<group>"; };
+
+		/* ✅ ADDED */
+		A2000016000000000000001 /* SyraButtonPressStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SyraButtonPressStyle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -78,6 +84,10 @@
 				A2000012000000000000001 /* ChatSession.swift */,
 				A2000005000000000000001 /* SyraTopBar.swift */,
 				A2000006000000000000001 /* SyraIconButton.swift */,
+
+				/* ✅ ADDED (konum kritik değil ama burada mantıklı) */
+				A2000016000000000000001 /* SyraButtonPressStyle.swift */,
+
 				A2000007000000000000001 /* SyraGlassSurface.swift */,
 				A2000008000000000000001 /* SyraTokens.swift */,
 				A2000009000000000000001 /* SyraHaptics.swift */,
@@ -175,6 +185,10 @@
 				A1000013000000000000001 /* ChatSession.swift in Sources */,
 				A1000005000000000000001 /* SyraTopBar.swift in Sources */,
 				A1000006000000000000001 /* SyraIconButton.swift in Sources */,
+
+				/* ✅ ADDED */
+				A1000017000000000000001 /* SyraButtonPressStyle.swift in Sources */,
+
 				A1000007000000000000001 /* SyraGlassSurface.swift in Sources */,
 				A1000009000000000000001 /* SyraTokens.swift in Sources */,
 				A1000010000000000000001 /* SyraHaptics.swift in Sources */,
