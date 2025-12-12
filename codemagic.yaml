@@ -1,192 +1,86 @@
 workflows:
-  # ═══════════════════════════════════════════════════════════════
-  # TESTFLIGHT BUILD - App Store Connect'e Upload
-  # ═══════════════════════════════════════════════════════════════
+  ios-syra-simulator:
+    name: SYRA iOS Native (Simulator)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build (simulator)
+        script: |
+          set -euo pipefail
+          cd ios_native
+          xcodebuild \
+            -project SyraNative.xcodeproj \
+            -scheme SyraNative \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/DerivedData" \
+            clean build
+    artifacts:
+      - $CM_BUILD_DIR/DerivedData/Build/Products/Release-iphonesimulator/*.app
+      - $CM_BUILD_DIR/DerivedData/Logs/Build/*.xcactivitylog
+
   ios-syra-testflight:
-    name: SYRA iOS TestFlight
+    name: SYRA iOS Native (TestFlight)
     max_build_duration: 60
     instance_type: mac_mini_m2
-    
+
+    # Codemagic UI'da gördüğün App Store Connect API key adı
     integrations:
-      app_store_connect: codemagic
-    
+      app_store_connect: SyraAPIKey
+
     environment:
-      xcode: 15.2
-      
-      # iOS Code Signing (AUTOMATIC - Codemagic halleder)
+      xcode: latest
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.ariksoftware.syra
-      
       vars:
-        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
-        XCODE_SCHEME: "SyraNative"
-        APP_STORE_ID: "6755663545"
-    
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: 'main'
-          include: true
-    
+        TEAM_ID: 4NK7SA2722
+
     scripts:
-      - name: Show Xcode Version
+      - name: Set build number (CFBundleVersion)
         script: |
-          xcodebuild -version
-          echo "Team ID: 4NK7SA2722"
-      
-      - name: Set iOS Version
-        script: |
+          set -euo pipefail
           cd ios_native
-          # Marketing version
-          agvtool new-marketing-version 1.0.0
-      
-      - name: Increment Build Number
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" Info.plist
+
+      - name: Archive (Release)
         script: |
+          set -euo pipefail
           cd ios_native
-          BUILD_NUMBER=$(date +%Y%m%d%H%M)
-          agvtool new-version -all $BUILD_NUMBER
-          echo "Build number: $BUILD_NUMBER"
-      
-      - name: Fetch Signing Files
-        script: |
-          echo "Fetching signing files from Apple Developer Portal..."
-          # Codemagic otomatik fetch eder
-      
-      - name: Build Archive (Release)
-        script: |
-          cd ios_native
-          xcodebuild -project SyraNative.xcodeproj \
+          xcodebuild \
+            -project SyraNative.xcodeproj \
             -scheme SyraNative \
-            -sdk iphoneos \
             -configuration Release \
-            -archivePath $CM_BUILD_DIR/SyraNative.xcarchive \
-            DEVELOPMENT_TEAM=4NK7SA2722 \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
+            DEVELOPMENT_TEAM=$TEAM_ID \
             CODE_SIGN_STYLE=Automatic \
             -allowProvisioningUpdates \
-            clean archive | xcpretty
-      
+            clean archive
+
       - name: Export IPA (App Store)
         script: |
+          set -euo pipefail
+          cd ios_native
           xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/SyraNative.xcarchive \
-            -exportPath $CM_BUILD_DIR \
-            -exportOptionsPlist ios_native/ExportOptions_AppStore.plist \
+            -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
+            -exportPath "$CM_BUILD_DIR/export" \
+            -exportOptionsPlist "ExportOptions_AppStore.plist" \
             -allowProvisioningUpdates
-    
+
     artifacts:
-      - $CM_BUILD_DIR/*.ipa
-      - $CM_BUILD_DIR/*.dSYM.zip
+      - $CM_BUILD_DIR/export/*.ipa
+      - $CM_BUILD_DIR/export/*.dSYM.zip
       - $CM_BUILD_DIR/SyraNative.xcarchive
-    
+
     publishing:
-      email:
-        recipients:
-          - arikkbesir@gmail.com
-        notify:
-          success: true
-          failure: true
-      
-      # TestFlight'a otomatik upload
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        beta_groups:
-          - Internal Testers
-
-  # ═══════════════════════════════════════════════════════════════
-  # DEVELOPMENT BUILD - Telefonuna Hızlı Test
-  # ═══════════════════════════════════════════════════════════════
-  ios-syra-development:
-    name: SYRA iOS Development Build
-    max_build_duration: 60
-    instance_type: mac_mini_m2
-    
-    environment:
-      xcode: 15.2
-      
-      # iOS Code Signing (Development - AUTOMATIC)
-      ios_signing:
-        distribution_type: development
-        bundle_identifier: com.ariksoftware.syra
-      
-      vars:
-        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
-        XCODE_SCHEME: "SyraNative"
-    
-    scripts:
-      - name: Show Xcode Version
-        script: |
-          xcodebuild -version
-          echo "Team ID: 4NK7SA2722"
-      
-      - name: Build Archive (Development)
-        script: |
-          cd ios_native
-          xcodebuild -project SyraNative.xcodeproj \
-            -scheme SyraNative \
-            -sdk iphoneos \
-            -configuration Debug \
-            -archivePath $CM_BUILD_DIR/SyraNative.xcarchive \
-            DEVELOPMENT_TEAM=4NK7SA2722 \
-            CODE_SIGN_STYLE=Automatic \
-            -allowProvisioningUpdates \
-            clean archive | xcpretty
-      
-      - name: Export IPA (Development)
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath $CM_BUILD_DIR/SyraNative.xcarchive \
-            -exportPath $CM_BUILD_DIR \
-            -exportOptionsPlist ios_native/ExportOptions_Development.plist \
-            -allowProvisioningUpdates
-    
-    artifacts:
-      - $CM_BUILD_DIR/*.ipa
-      - $CM_BUILD_DIR/SyraNative.xcarchive
-    
-    publishing:
-      email:
-        recipients:
-          - arikkbesir@gmail.com
-        notify:
-          success: true
-          failure: true
-
-  # ═══════════════════════════════════════════════════════════════
-  # SIMULATOR BUILD - Hızlı Compile Test
-  # ═══════════════════════════════════════════════════════════════
-  ios-syra-simulator:
-    name: SYRA iOS Simulator (Quick Test)
-    max_build_duration: 30
-    instance_type: mac_mini_m2
-    
-    environment:
-      xcode: 15.2
-      
-      vars:
-        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
-        XCODE_SCHEME: "SyraNative"
-    
-    scripts:
-      - name: Build for Simulator
-        script: |
-          cd ios_native
-          xcodebuild -project SyraNative.xcodeproj \
-            -scheme SyraNative \
-            -sdk iphonesimulator \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro' \
-            -configuration Debug \
-            clean build | xcpretty
-    
-    artifacts:
-      - ios_native/build/**/*.app
-    
-    publishing:
-      email:
-        recipients:
-          - arikkbesir@gmail.com
-        notify:
-          success: false
-          failure: true
+        # beta_groups:
+        #   - Internal Testers
