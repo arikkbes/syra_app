@@ -23,6 +23,8 @@
 ///   child: PremiumContent(),
 /// );
 /// ```
+library;
+
 
 export 'syra_tokens.dart';
 export 'syra_page.dart';

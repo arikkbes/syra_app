@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.4+5
+version: 1.0.4+6
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -44,6 +44,9 @@ dependencies:
   # 📁 File picker
   file_picker: ^8.1.4
 
+  # 🎨 SVG support
+  flutter_svg: ^2.0.10+1
+
   # 🎤 Speech to text — FIXED 7.3.0
   speech_to_text: ^7.3.0
   dtd: ^4.0.0
@@ -76,3 +79,4 @@ flutter:
     - assets/icon/syra.png
     - assets/images/syra_logo.png
     - assets/images/syra_logo_tarot.png
+    - assets/icons/

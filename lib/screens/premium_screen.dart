@@ -1,8 +1,6 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/design_system.dart';
-import '../widgets/glass_background.dart';
 import '../services/purchase_service.dart';
 
 /// ═══════════════════════════════════════════════════════════════

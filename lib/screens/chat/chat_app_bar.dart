@@ -3,8 +3,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme/syra_theme.dart';
-import '../../theme/syra_glass.dart';
-import '../../widgets/syra_glass_button.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM CHAT APP BAR - Claude Style

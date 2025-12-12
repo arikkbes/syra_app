@@ -3,6 +3,7 @@
 /// ═══════════════════════════════════════════════════════════════
 /// Tüm custom widget'ların tek yerden export edilmesi.
 /// ═══════════════════════════════════════════════════════════════
+library;
 
 export 'neon_ring.dart';
 export 'glass_input.dart';

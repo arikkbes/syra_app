@@ -5,15 +5,17 @@ import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../../theme/syra_theme.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM CHAT INPUT BAR - Single Capsule Design
+/// PREMIUM GLASSMORPHISM CHAT INPUT BAR
 /// ═══════════════════════════════════════════════════════════════
-/// Clean single-layer glassmorphism design with:
-/// - ONE capsule container only (no nested pill)
-/// - Clean TextField with no background/border
-/// - Bottom action row with glass buttons
+/// Updated to match Figma design:
+/// - Height: ~90px
+/// - Border radius: 24px
+/// - Glass effects: white 0.07 + black overlay 0.08
+/// - Backdrop blur with clean layout
+/// - SVG icons: plus, camera, mic, arrow_up (send)
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatInputBar extends StatefulWidget {
@@ -92,8 +94,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               _buildImagePreview(),
               const SizedBox(height: 8),
             ],
-            // Main input container - SINGLE CAPSULE ONLY
-            _buildMainContainer(canSend, hasText),
+            // Main glassmorphism input container
+            _buildGlassInputBar(canSend, hasText),
           ],
         ),
       ),
@@ -101,321 +103,167 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// MAIN GLASS CONTAINER - Premium Pill Shape with Quality Borders
+  /// GLASSMORPHISM INPUT BAR - True Transparent (Figma Exact)
   /// ═══════════════════════════════════════════════════════════════
-  Widget _buildMainContainer(bool canSend, bool hasText) {
+  Widget _buildGlassInputBar(bool canSend, bool hasText) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(999), // Pill shape
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
+        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           decoration: BoxDecoration(
-            // Yükseltilmiş yüzey rengi - #1B202C
-            color: const Color(0xFF1B202C),
-            borderRadius: BorderRadius.circular(999), // Pill shape
-            // Premium quality stroke - daha net ve belirgin
+            // Sadece çok hafif tint - tamamen transparan
+            color: Colors.white.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withOpacity(0.12), // Biraz daha belirgin
-              width: 1.0,
+              color: Colors.white.withOpacity(0.15),
+              width: 1,
             ),
-            // Daha kaliteli shadow - depth ekler
             boxShadow: [
-              // Ana shadow - derinlik
               BoxShadow(
-                color: Colors.black.withOpacity(0.25),
+                color: Colors.black.withOpacity(0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 4),
-                spreadRadius: 0,
-              ),
-              // İkincil subtle shadow - daha yumuşak
-              BoxShadow(
-                color: Colors.black.withOpacity(0.12),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-                spreadRadius: -1,
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Inner highlight gradient (üstte parlak çizgi) - daha belirgin
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 1.5, // Biraz daha ince
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(999),
+          // Stack kaldırıldı - siyah overlay yok artık
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Plus icon - sol
+                _buildIconButton(
+                  iconPath: 'assets/icons/plus.svg',
+                  onTap: widget.onAttachmentTap,
+                ),
+                const SizedBox(width: 6),
+                // Camera icon
+                _buildIconButton(
+                  iconPath: 'assets/icons/camera.svg',
+                  onTap: widget.onCameraTap ?? () {},
+                ),
+                const SizedBox(width: 10),
+                // TextField - genişleyen
+                Expanded(
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    enabled: !widget.isSending,
+                    maxLines: 1,
+                    onChanged: (_) => widget.onTextChanged(),
+                    style: const TextStyle(
+                      color: Color(0xFFCFCFCF),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
                     ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withOpacity(0.15), // Daha parlak
-                        Colors.transparent,
-                      ],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: EdgeInsets.zero,
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      hintText: 'SYRA\'ya sor…',
+                      hintStyle: TextStyle(
+                        color: const Color(0xFFCFCFCF).withOpacity(0.60),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
+                    onSubmitted: (_) {
+                      if (canSend) {
+                        HapticFeedback.mediumImpact();
+                        widget.onSendMessage();
+                      }
+                    },
                   ),
                 ),
-              ),
-              // Main content
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Input field row
-                  _buildInputRow(canSend, hasText),
-                  // Bottom action row
-                  _buildActionRow(canSend),
+                const SizedBox(width: 10),
+                // Mic veya Send - sağ
+                if (canSend) ...[
+                  _buildSendButton(),
+                ] else ...[
+                  if (widget.isListening)
+                    _buildVoiceWaveButton()
+                  else
+                    _buildIconButton(
+                      iconPath: 'assets/icons/mic.svg',
+                      onTap: widget.onVoiceInputTap,
+                    ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// ═══════════════════════════════════════════════════════════════
-  /// INPUT ROW - Clean TextField (NO inner container/pill)
-  /// ═══════════════════════════════════════════════════════════════
-  Widget _buildInputRow(bool canSend, bool hasText) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Text field - CLEAN with no background/border
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              focusNode: widget.focusNode,
-              enabled: !widget.isSending,
-              maxLines: 5,
-              minLines: 1,
-              onChanged: (_) => widget.onTextChanged(),
-              style: const TextStyle(
-                color: Color(0xFFE0E6ED), // textPrimary - Kırık beyaz
-                fontSize: 16,
-                height: 1.4,
-                fontWeight: FontWeight.w400,
-              ),
-              decoration: const InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                hintText: 'SYRA\'ya sor',
-                hintStyle: TextStyle(
-                  color: Color(0xFF8F9BB3), // textMuted - İkincil metin
-                  fontSize: 16,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              onSubmitted: (_) {
-                if (canSend) {
-                  HapticFeedback.mediumImpact();
-                  widget.onSendMessage();
-                }
-              },
+              ],
             ),
           ),
-          const SizedBox(width: 8),
-          // Mic or Send button
-          _buildInputAction(canSend),
-        ],
-      ),
-    );
-  }
-
-  /// ═══════════════════════════════════════════════════════════════
-  /// INPUT ACTION - Mic or Send button
-  /// ═══════════════════════════════════════════════════════════════
-  Widget _buildInputAction(bool canSend) {
-    // Voice wave when listening
-    if (widget.isListening) {
-      return _buildVoiceWaveButton();
-    }
-
-    // Send button when can send
-    if (canSend) {
-      return _TapScale(
-        onTap: () {
-          HapticFeedback.mediumImpact();
-          widget.onSendMessage();
-        },
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            color: const Color(0xFF33B5E5), // Tech Blue accent
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF33B5E5).withOpacity(0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.arrow_upward_rounded,
-            size: 20,
-            color: Colors.white,
-          ),
-        ),
-      );
-    }
-
-    // Mic button default
-    return _TapScale(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        widget.onVoiceInputTap();
-      },
-      child: Container(
-        width: 36,
-        height: 36,
-        child: const Icon(
-          Icons.mic_none_rounded,
-          size: 22,
-          color: Color(0xFF8F9BB3), // iconMuted
         ),
       ),
     );
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// ACTION ROW - Bottom buttons
+  /// ICON BUTTON - 24×24 SVG with tap area
   /// ═══════════════════════════════════════════════════════════════
-  Widget _buildActionRow(bool canSend) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-      child: Row(
-        children: [
-          // Plus button
-          _buildActionButton(
-            icon: Icons.add_rounded,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              widget.onAttachmentTap();
-            },
-          ),
-          const SizedBox(width: 6),
-          // Camera button
-          _buildActionButton(
-            icon: Icons.camera_alt_outlined,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (widget.onCameraTap != null) {
-                widget.onCameraTap!();
-              }
-            },
-          ),
-          const SizedBox(width: 6),
-          // Gallery button
-          _buildActionButton(
-            icon: Icons.image_outlined,
-            onTap: () {
-              HapticFeedback.lightImpact();
-              if (widget.onGalleryTap != null) {
-                widget.onGalleryTap!();
-              }
-            },
-          ),
-          const Spacer(),
-          // Pro dropdown (if exists)
-          if (widget.onModeTap != null) ...[
-            _buildProDropdown(),
-          ],
-        ],
-      ),
-    );
-  }
-
-  /// ═══════════════════════════════════════════════════════════════
-  /// ACTION BUTTON - Glass style
-  /// ═══════════════════════════════════════════════════════════════
-  Widget _buildActionButton({
-    required IconData icon,
+  Widget _buildIconButton({
+    required String iconPath,
     required VoidCallback onTap,
   }) {
     return _TapScale(
-      onTap: onTap,
-      child: Container(
-        width: 36,
-        height: 36,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04), // Daha subtle
-          borderRadius: BorderRadius.circular(10),
-          // Border yok - temiz görünüm
-        ),
-        child: Icon(
-          icon,
-          size: 20,
-          color: const Color(0xFF8F9BB3).withOpacity(0.7), // textMuted
-        ),
-      ),
-    );
-  }
-
-  /// ═══════════════════════════════════════════════════════════════
-  /// PRO DROPDOWN BUTTON
-  /// ═══════════════════════════════════════════════════════════════
-  Widget _buildProDropdown() {
-    String modeLabel;
-    switch (widget.currentMode) {
-      case 'deep':
-        modeLabel = 'Derin';
-        break;
-      case 'mentor':
-        modeLabel = 'Mentor';
-        break;
-      default:
-        modeLabel = 'Normal';
-    }
-
-    return _TapScale(
       onTap: () {
         HapticFeedback.lightImpact();
-        if (widget.onModeTap != null) {
-          widget.onModeTap!();
-        }
+        onTap();
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.04), // Daha subtle
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              modeLabel,
-              style: const TextStyle(
-                color: Color(0xFF8F9BB3), // textSecondary
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-              ),
+      child: SizedBox(
+        width: 28,
+        height: 28,
+        child: Center(
+          child: SvgPicture.asset(
+            iconPath,
+            width: 24,
+            height: 24,
+            colorFilter: ColorFilter.mode(
+              Colors.white.withOpacity(0.8),
+              BlendMode.srcIn,
             ),
-            const SizedBox(width: 4),
-            const Icon(
-              Icons.expand_more_rounded,
-              size: 16,
-              color: Color(0xFF8F9BB3), // textMuted
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// VOICE WAVE BUTTON
+  /// SEND BUTTON - 33×33 white circle with arrow_up
+  /// ═══════════════════════════════════════════════════════════════
+  Widget _buildSendButton() {
+    return _TapScale(
+      onTap: () {
+        HapticFeedback.mediumImpact();
+        widget.onSendMessage();
+      },
+      child: Container(
+        width: 33,
+        height: 33,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+        child: Center(
+          child: SvgPicture.asset(
+            'assets/icons/arrow_up.svg',
+            width: 18,
+            height: 18,
+            colorFilter: const ColorFilter.mode(
+              Colors.black,
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ═══════════════════════════════════════════════════════════════
+  /// VOICE WAVE BUTTON - Shows while listening
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildVoiceWaveButton() {
     return _TapScale(
@@ -424,10 +272,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onVoiceInputTap();
       },
       child: Container(
-        width: 36,
-        height: 36,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: const Color(0xFF33B5E5).withOpacity(0.15),
           shape: BoxShape.circle,
         ),
         child: const Center(
@@ -444,7 +292,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xCC1B202C), // surfaceElevated with 80% opacity
+        color: const Color(0x1A33B5E5), // accent with 10% opacity
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: const Color(0x4D33B5E5), // accent with 30% opacity
@@ -609,7 +457,7 @@ class _VoiceWaveAnimationState extends State<_VoiceWaveAnimation>
       animation: _controller,
       builder: (context, child) {
         return CustomPaint(
-          size: const Size(24, 24),
+          size: const Size(18, 18),
           painter: _VoiceWavePainter(_controller.value),
         );
       },
@@ -625,18 +473,18 @@ class _VoiceWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF1E2128)
-      ..strokeWidth = 2.5
+      ..color = const Color(0xFF33B5E5)
+      ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
 
     final centerY = size.height / 2;
-    const barWidth = 2.5;
-    const spacing = 3.5;
-    const bars = 5;
+    const barWidth = 2.0;
+    const spacing = 3.0;
+    const bars = 4;
 
     for (int i = 0; i < bars; i++) {
       final offset = (progress + i / bars) % 1.0;
-      final height = sin(offset * pi * 2) * (size.height / 2 - 4) + 6;
+      final height = sin(offset * pi * 2) * (size.height / 2 - 3) + 4;
       final x = (size.width - (bars - 1) * (barWidth + spacing)) / 2 +
           i * (barWidth + spacing);
 
@@ -681,7 +529,7 @@ class _TapScaleState extends State<_TapScale>
       vsync: this,
       duration: const Duration(milliseconds: 100),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.92).animate(
       CurvedAnimation(
         parent: _controller,
         curve: Curves.easeOut,

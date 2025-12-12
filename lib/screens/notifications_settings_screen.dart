@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -277,7 +276,7 @@ class _NotificationsSettingsScreenState
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: const Color(0xFF00D4FF),
+            activeThumbColor: const Color(0xFF00D4FF),
             activeTrackColor: const Color(0xFF00D4FF).withValues(alpha: 0.3),
             inactiveThumbColor: Colors.white.withValues(alpha: 0.5),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.1),

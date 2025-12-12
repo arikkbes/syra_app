@@ -3,6 +3,7 @@
 /// ═══════════════════════════════════════════════════════════════
 /// Model for WhatsApp chat analysis results
 /// ═══════════════════════════════════════════════════════════════
+library;
 
 class RelationshipAnalysisResult {
   final int totalMessages;

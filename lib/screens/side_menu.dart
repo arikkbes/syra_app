@@ -1,10 +1,8 @@
 // lib/screens/side_menu.dart
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme/syra_theme.dart';
-import '../theme/syra_glass.dart';
 import '../theme/syra_animations.dart';
 import '../models/chat_session.dart';
 import 'kim_daha_cok_screen.dart';
@@ -475,7 +473,7 @@ class _SyraDrawerItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.isActive = false,
+    this.isActive = false, // ✅ FIX: default değer verildi
   });
 
   @override

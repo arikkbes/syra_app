@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'dart:io';
-import 'dart:math'; // max fonksiyonu için
+// max fonksiyonu için
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
@@ -10,7 +10,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import '../services/chat_service.dart';
 import '../services/chat_service_streaming.dart'; // ← STREAMING SUPPORT
-import '../services/firestore_user.dart';
 import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
 import '../services/relationship_analysis_service.dart';
@@ -18,19 +17,15 @@ import '../services/relationship_memory_service.dart';
 import '../models/chat_session.dart';
 import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
-import '../theme/syra_theme.dart';
 import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
-import '../widgets/mode_switch_sheet.dart';
 import '../widgets/syra_bottom_panel.dart';
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
 import 'side_menu.dart';
-import 'relationship_analysis_screen.dart';
 import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
-import 'tactical_moves_screen.dart';
 import 'premium_management_screen.dart';
 import 'tarot_mode_screen.dart';
 // New extracted widgets
@@ -2222,7 +2217,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
               ),
               value: _isActive,
               onChanged: _isUpdating ? null : _handleToggle,
-              activeColor: SyraTokens.accent,
+              activeThumbColor: SyraTokens.accent,
             ),
           ),
           const SizedBox(height: 20),

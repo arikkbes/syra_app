@@ -3,6 +3,7 @@
 /// ═══════════════════════════════════════════════════════════════
 /// Model for stored relationship memory data
 /// ═══════════════════════════════════════════════════════════════
+library;
 
 class RelationshipMemory {
   final int? totalMessages;
