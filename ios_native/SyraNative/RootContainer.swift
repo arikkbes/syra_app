@@ -1,5 +1,5 @@
 // RootContainer.swift
-// iOS-FULL-2: Main container with AppState integration
+// iOS-FULL-2.5: Main container with premium native menu slide animation
 
 import SwiftUI
 
@@ -13,7 +13,8 @@ struct RootContainer: View {
                 // MARK: - Main Content (Chat View)
                 ChatView(
                     onMenuTap: {
-                        withAnimation(SyraAnimations.menuSlide) {
+                        SyraHaptics.light()
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             isMenuOpen.toggle()
                         }
                     },
@@ -37,7 +38,7 @@ struct RootContainer: View {
                 
                 // MARK: - Overlay (tap to close menu)
                 if isMenuOpen {
-                    Color.black.opacity(0.3)
+                    Color.black.opacity(0.2)
                         .ignoresSafeArea()
                         .offset(x: 340)
                         .onTapGesture {
@@ -50,7 +51,8 @@ struct RootContainer: View {
     }
     
     private func closeMenu() {
-        withAnimation(SyraAnimations.menuSlide) {
+        SyraHaptics.light()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             isMenuOpen = false
         }
     }

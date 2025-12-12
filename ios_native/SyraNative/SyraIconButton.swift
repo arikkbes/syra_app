@@ -1,5 +1,5 @@
 // SyraIconButton.swift
-// iOS-FULL-2: Icon button with haptics and press feedback
+// iOS-FULL-2.5: Premium icon button with perfect hit area and micro-interactions
 
 import SwiftUI
 
@@ -8,11 +8,9 @@ struct SyraIconButton: View {
     let size: CGFloat
     let onTap: () -> Void
     
-    @State private var isPressed = false
-    
     init(
         icon: String,
-        size: CGFloat = 44, // Apple HIG recommended minimum tap target
+        size: CGFloat = 44, // Apple HIG recommended minimum (unchanged)
         onTap: @escaping () -> Void
     ) {
         self.icon = icon
@@ -29,20 +27,24 @@ struct SyraIconButton: View {
                 .font(.system(size: 18, weight: .medium))
                 .foregroundColor(SyraTokens.Colors.textPrimary)
                 .frame(width: size, height: size)
-                .contentShape(Rectangle())
+                .contentShape(Rectangle()) // Perfect hit area
         }
-        .buttonStyle(SyraButtonPressStyle())
+        .buttonStyle(PremiumIconPressStyle())
     }
 }
 
-// MARK: - Button Press Style
-/// Custom button style for press feedback
-struct SyraButtonPressStyle: ButtonStyle {
+/// Premium icon button press style - subtle highlight on press
+struct PremiumIconPressStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? 0.92 : 1.0)
-            .opacity(configuration.isPressed ? SyraTokens.Opacity.pressed : 1.0)
-            .animation(SyraAnimations.buttonPress, value: configuration.isPressed)
+            .opacity(configuration.isPressed ? 0.7 : 1.0)
+            .background(
+                Circle()
+                    .fill(SyraTokens.Colors.textPrimary.opacity(configuration.isPressed ? 0.08 : 0))
+                    .frame(width: 44, height: 44)
+            )
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

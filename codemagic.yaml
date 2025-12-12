@@ -1,24 +1,52 @@
 workflows:
-  ios_syra_simulator:
-    name: SYRA iOS Native (Simulator) - Quick Test
+  ios_native_simulator:
+    name: SYRA iOS Native (Simulator compile)
     max_build_duration: 30
     instance_type: mac_mini_m2
-
     environment:
-      xcode: latest
-
+      xcode: 26.1
     scripts:
-      - name: Build iOS Native for Simulator (no signing)
+      - name: Build (simulator)
         script: |
-          set -e
+          set -euo pipefail
           cd ios_native
-          xcodebuild \
-            -project SyraNative.xcodeproj \
-            -scheme SyraNative \
-            -configuration Release \
-            -sdk iphonesimulator \
-            -destination 'generic/platform=iOS Simulator'\
-            clean build
-
+          xcodebuild             -project SyraNative.xcodeproj             -scheme SyraNative             -configuration Release             -sdk iphonesimulator             -destination 'generic/platform=iOS Simulator'             -derivedDataPath "$CM_BUILD_DIR/DerivedData"             clean build
     artifacts:
-      - ios_native/**/Logs/**/*
+      - $CM_BUILD_DIR/DerivedData/Build/Products/Release-iphonesimulator/*.app
+      - $CM_BUILD_DIR/DerivedData/Logs/Build/*.xcactivitylog
+
+  ios_native_testflight:
+    name: SYRA iOS Native (TestFlight)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      xcode: 26.1
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.ariksoftware.syra
+    scripts:
+      - name: Set build number
+        script: |
+          set -euo pipefail
+          cd ios_native
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" Info.plist ||           /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUMBER" Info.plist
+
+      - name: Archive
+        script: |
+          set -euo pipefail
+          cd ios_native
+          xcodebuild             -project SyraNative.xcodeproj             -scheme SyraNative             -configuration Release             -sdk iphoneos             -destination 'generic/platform=iOS'             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive"             clean archive
+
+      - name: Export IPA
+        script: |
+          set -euo pipefail
+          cd ios_native
+          xcodebuild -exportArchive             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive"             -exportPath "$CM_BUILD_DIR/export"             -exportOptionsPlist "ExportOptions.plist"
+    artifacts:
+      - $CM_BUILD_DIR/export/*.ipa
+      - $CM_BUILD_DIR/SyraNative.xcarchive
+      - $CM_BUILD_DIR/export/*.dSYM.zip
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

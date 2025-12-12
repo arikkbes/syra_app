@@ -1,30 +1,60 @@
 // SyraGlassSurface.swift
-// iOS-FULL-2: Premium glass effect using SwiftUI materials
+// iOS-FULL-2.5: SYRA Glass Standard - Claude/ChatGPT iOS premium vibe
 
 import SwiftUI
 
+/// Premium iOS glass component with material blur, highlights, and realistic depth
 struct SyraGlassSurface: View {
     let cornerRadius: CGFloat
-    let borderOpacity: CGFloat
+    let blurIntensity: SyraGlassStyle.BlurIntensity
+    let tint: Color?
     
     init(
         cornerRadius: CGFloat = SyraTokens.Radius.card,
-        borderOpacity: CGFloat = 0.15
+        blurIntensity: SyraGlassStyle.BlurIntensity = .standard,
+        tint: Color? = nil
     ) {
         self.cornerRadius = cornerRadius
-        self.borderOpacity = borderOpacity
+        self.blurIntensity = blurIntensity
+        self.tint = tint
     }
     
     var body: some View {
         RoundedRectangle(cornerRadius: cornerRadius)
-            .fill(.ultraThinMaterial) // iOS native material
+            // Base material layer
+            .fill(blurIntensity.material)
+            // Optional subtle tint
+            .overlay(
+                Group {
+                    if let tint = tint {
+                        RoundedRectangle(cornerRadius: cornerRadius)
+                            .fill(tint.opacity(0.03))
+                    }
+                }
+            )
+            // Top highlight (premium touch)
             .overlay(
                 RoundedRectangle(cornerRadius: cornerRadius)
-                    .stroke(
+                    .fill(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(borderOpacity),
-                                Color.white.opacity(borderOpacity * 0.5)
+                                Color.white.opacity(0.12),
+                                Color.white.opacity(0.05),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .center
+                        )
+                    )
+            )
+            // Inner stroke (1px white subtle)
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.2),
+                                Color.white.opacity(0.08)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -32,12 +62,39 @@ struct SyraGlassSurface: View {
                         lineWidth: 1
                     )
             )
+            // Outer shadow (very soft, realistic depth)
             .shadow(
-                color: SyraTokens.Shadow.medium.color,
-                radius: SyraTokens.Shadow.medium.radius,
-                x: SyraTokens.Shadow.medium.x,
-                y: SyraTokens.Shadow.medium.y
+                color: Color.black.opacity(0.04),
+                radius: 2,
+                x: 0,
+                y: 1
             )
+            .shadow(
+                color: Color.black.opacity(0.06),
+                radius: 8,
+                x: 0,
+                y: 4
+            )
+    }
+}
+
+/// Glass style configuration helper
+enum SyraGlassStyle {
+    enum BlurIntensity {
+        case ultraLight
+        case standard
+        case heavy
+        
+        var material: Material {
+            switch self {
+            case .ultraLight:
+                return .ultraThinMaterial
+            case .standard:
+                return .thinMaterial
+            case .heavy:
+                return .regularMaterial
+            }
+        }
     }
 }
 

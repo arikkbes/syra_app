@@ -1,5 +1,5 @@
 // SyraTopBar.swift
-// iOS-FULL-2: Reusable top navigation bar with design tokens
+// iOS-FULL-2.5: Premium top navigation bar - clean and sophisticated
 
 import SwiftUI
 
@@ -20,12 +20,15 @@ struct SyraTopBar: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            // Left button (Menu)
+            // Left button (Menu) - perfect 44x44 hit area
             SyraIconButton(
                 icon: "line.3.horizontal",
-                onTap: onLeftTap
+                onTap: {
+                    SyraHaptics.light()
+                    onLeftTap()
+                }
             )
-            .padding(.leading, SyraTokens.Spacing.sm)
+            .padding(.leading, 8)
             
             Spacer()
             
@@ -36,21 +39,25 @@ struct SyraTopBar: View {
             
             Spacer()
             
-            // Right button (Action placeholder)
+            // Right button (Action placeholder) - perfect 44x44 hit area
             SyraIconButton(
                 icon: "ellipsis.circle",
-                onTap: onRightTap
+                onTap: {
+                    SyraHaptics.light()
+                    onRightTap()
+                }
             )
-            .padding(.trailing, SyraTokens.Spacing.sm)
+            .padding(.trailing, 8)
         }
         .frame(height: 56)
         .background(
             SyraTokens.Colors.background
+                // Soft, realistic shadow (no harsh borders)
                 .shadow(
-                    color: SyraTokens.Shadow.small.color,
-                    radius: SyraTokens.Shadow.small.radius,
-                    x: SyraTokens.Shadow.small.x,
-                    y: SyraTokens.Shadow.small.y
+                    color: Color.black.opacity(0.03),
+                    radius: 1,
+                    x: 0,
+                    y: 1
                 )
         )
     }

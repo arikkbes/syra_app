@@ -1,5 +1,5 @@
 // ChatComposer.swift
-// iOS-FULL-2: Chat input bar with glass effect
+// iOS-FULL-2.5: Premium chat composer - Claude/ChatGPT iOS vibe
 
 import SwiftUI
 
@@ -9,68 +9,110 @@ struct ChatComposer: View {
     let onPlusAction: () -> Void
     
     @FocusState private var isFocused: Bool
+    @State private var isSending = false
     
     var canSend: Bool {
         !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
     
     var body: some View {
-        HStack(spacing: SyraTokens.Spacing.md) {
-            // Plus button
+        HStack(spacing: 10) {
+            // Plus button (pixel-perfect)
             Button(action: {
                 SyraHaptics.light()
                 onPlusAction()
             }) {
                 Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24))
+                    .font(.system(size: 26, weight: .medium))
                     .foregroundColor(SyraTokens.Colors.primary)
+                    .frame(width: 44, height: 44)
             }
-            .buttonStyle(SyraButtonPressStyle())
+            .buttonStyle(PremiumPressStyle())
             
-            // Text field container
-            HStack(spacing: SyraTokens.Spacing.sm) {
+            // Text field container (pill shape)
+            HStack(spacing: 12) {
                 TextField("Mesajınızı yazın...", text: $text, axis: .vertical)
                     .font(SyraTokens.Typography.bodyMedium)
+                    .foregroundColor(SyraTokens.Colors.textPrimary)
                     .focused($isFocused)
                     .lineLimit(1...5)
                     .submitLabel(.send)
                     .onSubmit {
                         if canSend {
-                            onSend()
+                            sendWithAnimation()
                         }
                     }
+                    // Baseline alignment fix
+                    .alignmentGuide(.firstTextBaseline) { d in
+                        d[.firstTextBaseline]
+                    }
             }
-            .padding(.horizontal, SyraTokens.Spacing.lg)
-            .padding(.vertical, SyraTokens.Spacing.md)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .frame(minHeight: 44) // Ensure proper height
             .background(
-                ZStack {
-                    SyraGlassSurface(
-                        cornerRadius: SyraTokens.Radius.xl,
-                        borderOpacity: 0.1
-                    )
-                }
+                SyraGlassSurface(
+                    cornerRadius: 22, // Perfect pill
+                    blurIntensity: .ultraLight
+                )
             )
             
-            // Send button
+            // Send button (premium states + glow)
             Button(action: {
                 if canSend {
-                    SyraHaptics.success()
-                    onSend()
+                    sendWithAnimation()
                 }
             }) {
-                Image(systemName: "arrow.up.circle.fill")
-                    .font(.system(size: 32))
-                    .foregroundColor(canSend ? SyraTokens.Colors.primary : SyraTokens.Colors.textTertiary)
+                ZStack {
+                    // Glow effect when enabled
+                    if canSend {
+                        Circle()
+                            .fill(SyraTokens.Colors.primary.opacity(0.2))
+                            .frame(width: 44, height: 44)
+                            .blur(radius: 8)
+                    }
+                    
+                    // Button icon
+                    Image(systemName: "arrow.up.circle.fill")
+                        .font(.system(size: 32, weight: .semibold))
+                        .foregroundColor(canSend ? SyraTokens.Colors.primary : SyraTokens.Colors.textTertiary)
+                        .frame(width: 44, height: 44)
+                }
             }
-            .buttonStyle(SyraButtonPressStyle())
+            .buttonStyle(PremiumPressStyle())
             .disabled(!canSend)
+            .animation(.easeOut(duration: 0.2), value: canSend)
         }
-        .padding(.horizontal, SyraTokens.Spacing.screenEdge)
-        .padding(.vertical, SyraTokens.Spacing.md)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
         .background(
             SyraTokens.Colors.background
                 .ignoresSafeArea(edges: .bottom)
         )
+    }
+    
+    private func sendWithAnimation() {
+        guard !isSending else { return }
+        isSending = true
+        SyraHaptics.success()
+        
+        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+            onSend()
+        }
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            isSending = false
+        }
+    }
+}
+
+/// Premium press style with scale + opacity feedback
+struct PremiumPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1.0)
+            .opacity(configuration.isPressed ? 0.85 : 1.0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
     }
 }
 

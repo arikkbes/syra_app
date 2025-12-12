@@ -16,24 +16,31 @@ struct SideMenuView: View {
             
             VStack(spacing: 0) {
                 // MARK: - Header (Search + Compose)
-                HStack(spacing: SyraTokens.Spacing.md) {
-                    // Search bar placeholder
-                    HStack {
+                HStack(spacing: 12) {
+                    // Search bar with glass effect
+                    HStack(spacing: 10) {
                         Image(systemName: "magnifyingglass")
+                            .font(.system(size: 15, weight: .medium))
                             .foregroundColor(SyraTokens.Colors.textSecondary)
                         Text("Ara...")
+                            .font(SyraTokens.Typography.bodyMedium)
                             .foregroundColor(SyraTokens.Colors.textSecondary)
                         Spacer()
                     }
-                    .padding(.horizontal, SyraTokens.Spacing.md)
-                    .frame(height: 40)
-                    .background(SyraTokens.Colors.backgroundSecondary)
-                    .cornerRadius(SyraTokens.Radius.md)
+                    .padding(.horizontal, 14)
+                    .frame(height: 44)
+                    .background(
+                        SyraGlassSurface(
+                            cornerRadius: 12,
+                            blurIntensity: .ultraLight
+                        )
+                    )
                     
                     // Compose button
                     SyraIconButton(
                         icon: "square.and.pencil",
                         onTap: {
+                            SyraHaptics.light()
                             appState.createNewChat()
                             onClose()
                         }
@@ -175,10 +182,13 @@ struct SideMenuItem: View {
     let onTap: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            SyraHaptics.light()
+            onTap()
+        }) {
             HStack(spacing: SyraTokens.Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 18))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(SyraTokens.Colors.textPrimary)
                     .frame(width: 24)
                 
@@ -189,10 +199,22 @@ struct SideMenuItem: View {
                 Spacer()
             }
             .padding(.horizontal, SyraTokens.Spacing.screenEdge)
-            .padding(.vertical, SyraTokens.Spacing.md)
+            .padding(.vertical, 12)
             .contentShape(Rectangle())
         }
-        .buttonStyle(SyraButtonPressStyle())
+        .buttonStyle(PremiumListItemStyle())
+    }
+}
+
+/// Premium list item press style with tap highlight
+struct PremiumListItemStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .background(
+                SyraTokens.Colors.textPrimary
+                    .opacity(configuration.isPressed ? 0.05 : 0)
+            )
+            .animation(.easeOut(duration: 0.15), value: configuration.isPressed)
     }
 }
 
@@ -204,10 +226,13 @@ struct ChatListItem: View {
     let onDelete: () -> Void
     
     var body: some View {
-        Button(action: onTap) {
+        Button(action: {
+            SyraHaptics.light()
+            onTap()
+        }) {
             HStack(spacing: SyraTokens.Spacing.md) {
                 Image(systemName: "message")
-                    .font(.system(size: 16))
+                    .font(.system(size: 16, weight: .medium))
                     .foregroundColor(isSelected ? SyraTokens.Colors.primary : SyraTokens.Colors.textSecondary)
                     .frame(width: 24)
                 
@@ -226,13 +251,24 @@ struct ChatListItem: View {
                 Spacer()
             }
             .padding(.horizontal, SyraTokens.Spacing.screenEdge)
-            .padding(.vertical, SyraTokens.Spacing.md)
+            .padding(.vertical, 10)
             .background(
-                isSelected ? SyraTokens.Colors.backgroundSecondary : Color.clear
+                Group {
+                    if isSelected {
+                        // Glass selection highlight
+                        SyraGlassSurface(
+                            cornerRadius: 10,
+                            blurIntensity: .ultraLight,
+                            tint: SyraTokens.Colors.primary
+                        )
+                    } else {
+                        Color.clear
+                    }
+                }
             )
             .contentShape(Rectangle())
         }
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(PremiumListItemStyle())
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
                 Label("Sil", systemImage: "trash")
