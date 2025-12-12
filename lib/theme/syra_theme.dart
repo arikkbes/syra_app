@@ -4,41 +4,47 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-///  SYRA DESIGN SYSTEM v4.0
-///  Premium AI relationship coach aesthetic
-///  Background: #0B0E14 (deep dark with blue undertone)
-///  Accent: #66E0FF (premium cyan)
+///  SYRA DESIGN SYSTEM v5.0 - Dark Mode 2.0: Rich Tech
+///  Sophisticated, literary, and serene user experience
+///  Background: #11131A (Gece Mavisi - Brand Identity)
+///  Accent: #33B5E5 (Tech Blue - Trust & Technology)
 /// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-// COLORS
+// COLORS - Dark Mode 2.0: Rich Tech
 // ═══════════════════════════════════════════════════════════════
 class SyraColors {
   SyraColors._();
 
-  // ─── Background ───
-  static const Color background = Color(0xFF0B0E14);
-  static const Color surface = Color(0xFF11131A);
-  static const Color surfaceLight = Color(0xFF16181F);
-  static const Color surfaceDark = Color(0xFF0C0F15);
+  // ─── Background (Marka Rengi Korundu) ───
+  static const Color background = Color(0xFF11131A); // Ana BG - RGB(17, 19, 26)
+  static const Color surface = Color(0xFF11131A); // Ana BG ile aynı
+  static const Color surfaceElevated =
+      Color(0xFF1B202C); // Yükseltilmiş yüzey - RGB(27, 32, 44)
+  static const Color surfaceLight =
+      Color(0xFF1B202C); // Input bar, kartlar için
+  static const Color surfaceDark = Color(0xFF0C0F15); // Eski değer korundu
 
-  // ─── Borders & Dividers ───
+  // ─── Borders & Dividers (Subtle) ───
   static const Color border = Color(0xFF1A1E24);
   static const Color divider = Color(0xFF1A1E24);
 
-  // ─── Text ───
-  static const Color textPrimary = Color(0xFFEDEDED);
-  static const Color textSecondary = Color(0xFF9AA0A6);
-  static const Color textMuted = Color(0xFF5A5F66);
-  static const Color textHint = Color(0xFF5A5F66);
+  // ─── Text (Kırık Beyaz - Gözü Yormaz) ───
+  static const Color textPrimary =
+      Color(0xFFE0E6ED); // RGB(224, 230, 237) - Soğuk tonlu
+  static const Color textSecondary =
+      Color(0xFF8F9BB3); // RGB(143, 155, 179) - İkincil metin
+  static const Color textMuted = Color(0xFF8F9BB3); // Placeholder & ipuçları
+  static const Color textHint = Color(0xFF8F9BB3);
 
-  // ─── Accent ───
-  static const Color accent = Color(0xFF66E0FF);
-  static const Color accentLight = Color(0xFF8AEAFF);
-  static const Color accentMuted = Color(0x3366E0FF);
+  // ─── Accent (Tech Blue - Güven & Teknoloji) ───
+  static const Color accent =
+      Color(0xFF33B5E5); // RGB(51, 181, 229) - Parlak mavi
+  static const Color accentLight = Color(0xFF5AC8F5);
+  static const Color accentMuted = Color(0x3333B5E5);
 
   // ─── Icons ───
-  static const Color iconStroke = Color(0xFFCFCFCF);
+  static const Color iconStroke = Color(0xFFE0E6ED);
   static const Color iconActive = textPrimary;
   static const Color iconMuted = textSecondary;
 
@@ -50,21 +56,21 @@ class SyraColors {
   // ─── Glass Effect ───
   static const Color glassBg = Color(0x3311131A);
   static const Color glassBorder = divider;
-  static const Color glassHighlight = Color(0x1AEDEDED);
+  static const Color glassHighlight = Color(0x1AE0E6ED);
 
   // ─── Chat Bubbles ───
-  static const Color syraBubbleBg = surface;
-  static const Color userBubbleBg = Color(0xFF16181F);
+  static const Color syraBubbleBg = surfaceElevated;
+  static const Color userBubbleBg = Color(0xFF1B202C);
   static const Color syraBubbleGlow = accent;
 
-  // ─── Neon Colors (backward compatibility) ───
+  // ─── Backward Compatibility ───
   static const Color neonPink = accent;
   static const Color neonCyan = accent;
   static const Color neonPinkLight = accentLight;
   static const Color neonCyanLight = accentLight;
-  static const Color neonPinkDark = Color(0xFF4DC4E0);
-  static const Color neonCyanDark = Color(0xFF4DC4E0);
-  static const Color neonViolet = Color(0xFF7AC7E0);
+  static const Color neonPinkDark = Color(0xFF2A9DC5);
+  static const Color neonCyanDark = Color(0xFF2A9DC5);
+  static const Color neonViolet = Color(0xFF5AC8F5);
 
   // ─── Gradients ───
   static const LinearGradient backgroundGradient = LinearGradient(
@@ -156,7 +162,7 @@ class SyraRadius {
   static const double md = 16.0;
   static const double lg = 24.0;
   static const double xl = 32.0;
-  static const double full = 999.0;
+  static const double full = 999.0; // Pill shape
 
   // Component-specific
   static const double card = md;
@@ -184,7 +190,7 @@ class SyraAnimation {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TYPOGRAPHY
+// TYPOGRAPHY - Dark Mode 2.0: Literary & Sophisticated
 // ═══════════════════════════════════════════════════════════════
 class SyraTextStyles {
   SyraTextStyles._();
@@ -192,24 +198,27 @@ class SyraTextStyles {
   // Base font family using Google Fonts
   static String get _fontFamily => GoogleFonts.inter().fontFamily!;
 
-  // ─── Display & Headings ───
-  static TextStyle get displayLarge => GoogleFonts.inter(
+  // Serif font for headings (Literary feel)
+  static String get _serifFamily => GoogleFonts.lora().fontFamily!;
+
+  // ─── Display & Headings (SERIF - Entelektüel Hava) ───
+  static TextStyle get displayLarge => GoogleFonts.lora(
         fontSize: 32,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         letterSpacing: -0.5,
         color: SyraColors.textPrimary,
         height: 1.2,
       );
 
-  static TextStyle get displayMedium => GoogleFonts.inter(
+  static TextStyle get displayMedium => GoogleFonts.lora(
         fontSize: 28,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w600,
         letterSpacing: -0.5,
         color: SyraColors.textPrimary,
         height: 1.2,
       );
 
-  static TextStyle get headingLarge => GoogleFonts.inter(
+  static TextStyle get headingLarge => GoogleFonts.lora(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.3,
@@ -217,7 +226,7 @@ class SyraTextStyles {
         height: 1.3,
       );
 
-  static TextStyle get headingMedium => GoogleFonts.inter(
+  static TextStyle get headingMedium => GoogleFonts.lora(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.3,
@@ -225,14 +234,14 @@ class SyraTextStyles {
         height: 1.3,
       );
 
-  static TextStyle get headingSmall => GoogleFonts.inter(
+  static TextStyle get headingSmall => GoogleFonts.lora(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: SyraColors.textPrimary,
         height: 1.4,
       );
 
-  // ─── Body Text ───
+  // ─── Body Text (SANS-SERIF - Okunabilirlik) ───
   static TextStyle get bodyLarge => GoogleFonts.inter(
         fontSize: 16,
         fontWeight: FontWeight.w400,
@@ -254,12 +263,13 @@ class SyraTextStyles {
         fontWeight: FontWeight.w400,
         color: SyraColors.textSecondary,
         height: 1.5,
+        letterSpacing: 0.1,
       );
 
   // ─── Labels & Captions ───
   static TextStyle get labelLarge => GoogleFonts.inter(
         fontSize: 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         color: SyraColors.textPrimary,
         letterSpacing: 0.1,
       );
@@ -267,15 +277,15 @@ class SyraTextStyles {
   static TextStyle get labelMedium => GoogleFonts.inter(
         fontSize: 13,
         fontWeight: FontWeight.w500,
-        color: SyraColors.textSecondary,
-        letterSpacing: 0.1,
+        color: SyraColors.textPrimary,
+        letterSpacing: 0.15,
       );
 
   static TextStyle get labelSmall => GoogleFonts.inter(
-        fontSize: 11,
+        fontSize: 12,
         fontWeight: FontWeight.w500,
-        color: SyraColors.textMuted,
-        letterSpacing: 0.5,
+        color: SyraColors.textSecondary,
+        letterSpacing: 0.2,
       );
 
   static TextStyle get caption => GoogleFonts.inter(
@@ -283,10 +293,8 @@ class SyraTextStyles {
         fontWeight: FontWeight.w400,
         color: SyraColors.textMuted,
         letterSpacing: 0.2,
-        height: 1.4,
       );
 
-  // ─── Special ───
   static TextStyle get button => GoogleFonts.inter(
         fontSize: 15,
         fontWeight: FontWeight.w600,
@@ -326,12 +334,12 @@ class SyraTypography {
   static TextStyle get caption => SyraTextStyles.caption;
   static TextStyle get overline => SyraTextStyles.overline;
   static TextStyle get button => SyraTextStyles.button;
-  
+
   // Message bubble specific styles
   static TextStyle get messageText => SyraTextStyles.bodyMedium;
   static TextStyle get timeText => SyraTextStyles.caption;
-  
-  static TextStyle logoStyle({double fontSize = 20}) => 
+
+  static TextStyle logoStyle({double fontSize = 20}) =>
       SyraTextStyles.logoStyle(fontSize: fontSize);
 }
 
@@ -352,7 +360,7 @@ class SyraTheme {
           primary: SyraColors.accent,
           secondary: SyraColors.accentLight,
           surface: SyraColors.surface,
-          surfaceContainer: SyraColors.surface,
+          surfaceContainer: SyraColors.surfaceElevated,
           onPrimary: Colors.white,
           onSecondary: Colors.white,
           onSurface: SyraColors.textPrimary,
@@ -374,7 +382,7 @@ class SyraTheme {
 
         // ─── Card ───
         cardTheme: CardThemeData(
-          color: SyraColors.surface,
+          color: SyraColors.surfaceElevated,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(SyraRadius.card),
@@ -427,24 +435,18 @@ class SyraTheme {
         // ─── Input ───
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
-          fillColor: SyraColors.surface,
+          fillColor: SyraColors.surfaceElevated,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: SyraSpacing.md,
             vertical: 14,
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(SyraRadius.md),
-            borderSide: const BorderSide(
-              color: SyraColors.border,
-              width: 1,
-            ),
+            borderSide: BorderSide.none, // Border kaldırıldı
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(SyraRadius.md),
-            borderSide: const BorderSide(
-              color: SyraColors.border,
-              width: 1,
-            ),
+            borderSide: BorderSide.none,
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(SyraRadius.md),
@@ -482,8 +484,8 @@ class SyraTheme {
 
         // ─── Bottom Sheet ───
         bottomSheetTheme: BottomSheetThemeData(
-          backgroundColor: SyraColors.surface,
-          modalBackgroundColor: SyraColors.surface,
+          backgroundColor: SyraColors.surfaceElevated,
+          modalBackgroundColor: SyraColors.surfaceElevated,
           elevation: 0,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.vertical(
@@ -494,7 +496,7 @@ class SyraTheme {
 
         // ─── SnackBar ───
         snackBarTheme: SnackBarThemeData(
-          backgroundColor: SyraColors.surface,
+          backgroundColor: SyraColors.surfaceElevated,
           contentTextStyle: SyraTextStyles.bodySmall.copyWith(
             color: SyraColors.textPrimary,
           ),

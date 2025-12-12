@@ -101,47 +101,75 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// MAIN GLASS CONTAINER - SINGLE CAPSULE (no inner pill)
+  /// MAIN GLASS CONTAINER - Premium Pill Shape with Quality Borders
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildMainContainer(bool canSend, bool hasText) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(28),
+      borderRadius: BorderRadius.circular(999), // Pill shape
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 50, sigmaY: 50),
         child: Container(
           decoration: BoxDecoration(
-            // SYRA-style background gradient
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xE111131A), // SyraColors.surface with 88% opacity
-                Color(0xF20C0F15), // SyraColors.surfaceDark with 95% opacity
-              ],
-            ),
-            borderRadius: BorderRadius.circular(28),
-            // Border with SYRA's divider color
+            // Yükseltilmiş yüzey rengi - #1B202C
+            color: const Color(0xFF1B202C),
+            borderRadius: BorderRadius.circular(999), // Pill shape
+            // Premium quality stroke - daha net ve belirgin
             border: Border.all(
-              color: const Color(
-                  0x991A1E24), // SyraColors.divider with 60% opacity
-              width: 1,
+              color: Colors.white.withOpacity(0.12), // Biraz daha belirgin
+              width: 1.0,
             ),
-            // Soft shadow
+            // Daha kaliteli shadow - depth ekler
             boxShadow: [
+              // Ana shadow - derinlik
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 24,
+                color: Colors.black.withOpacity(0.25),
+                blurRadius: 20,
                 offset: const Offset(0, 4),
+                spreadRadius: 0,
+              ),
+              // İkincil subtle shadow - daha yumuşak
+              BoxShadow(
+                color: Colors.black.withOpacity(0.12),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+                spreadRadius: -1,
               ),
             ],
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          child: Stack(
             children: [
-              // Input field row
-              _buildInputRow(canSend, hasText),
-              // Bottom action row
-              _buildActionRow(canSend),
+              // Inner highlight gradient (üstte parlak çizgi) - daha belirgin
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 1.5, // Biraz daha ince
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(999),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withOpacity(0.15), // Daha parlak
+                        Colors.transparent,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              // Main content
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Input field row
+                  _buildInputRow(canSend, hasText),
+                  // Bottom action row
+                  _buildActionRow(canSend),
+                ],
+              ),
             ],
           ),
         ),
@@ -168,7 +196,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               minLines: 1,
               onChanged: (_) => widget.onTextChanged(),
               style: const TextStyle(
-                color: Color(0xFFEDEDED), // textPrimary
+                color: Color(0xFFE0E6ED), // textPrimary - Kırık beyaz
                 fontSize: 16,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
@@ -182,7 +210,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 filled: false,
                 hintText: 'SYRA\'ya sor',
                 hintStyle: TextStyle(
-                  color: Color(0xFF5A5F66), // textMuted
+                  color: Color(0xFF8F9BB3), // textMuted - İkincil metin
                   fontSize: 16,
                   fontWeight: FontWeight.w400,
                 ),
@@ -223,11 +251,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
           width: 36,
           height: 36,
           decoration: BoxDecoration(
-            color: const Color(0xFF66E0FF), // SYRA accent cyan
+            color: const Color(0xFF33B5E5), // Tech Blue accent
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF66E0FF).withOpacity(0.3),
+                color: const Color(0xFF33B5E5).withOpacity(0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -236,7 +264,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
           child: const Icon(
             Icons.arrow_upward_rounded,
             size: 20,
-            color: Color(0xFF0B0E14), // Dark background color
+            color: Colors.white,
           ),
         ),
       );
@@ -254,7 +282,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: const Icon(
           Icons.mic_none_rounded,
           size: 22,
-          color: Color(0xFF9AA0A6), // iconMuted
+          color: Color(0xFF8F9BB3), // iconMuted
         ),
       ),
     );
@@ -321,17 +349,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: const Color(0x8016181F), // surfaceLight with 50% opacity
+          color: Colors.white.withOpacity(0.04), // Daha subtle
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0x801A1E24), // divider with 50% opacity
-            width: 0.5,
-          ),
+          // Border yok - temiz görünüm
         ),
         child: Icon(
           icon,
           size: 20,
-          color: const Color(0xFF9AA0A6), // iconMuted
+          color: const Color(0xFF8F9BB3).withOpacity(0.7), // textMuted
         ),
       ),
     );
@@ -363,12 +388,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: const Color(0x8016181F), // surfaceLight with 50% opacity
+          color: Colors.white.withOpacity(0.04), // Daha subtle
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: const Color(0x801A1E24), // divider with 50% opacity
-            width: 0.5,
-          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -376,7 +397,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             Text(
               modeLabel,
               style: const TextStyle(
-                color: Color(0xFF9AA0A6), // textSecondary
+                color: Color(0xFF8F9BB3), // textSecondary
                 fontSize: 13,
                 fontWeight: FontWeight.w500,
               ),
@@ -385,7 +406,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             const Icon(
               Icons.expand_more_rounded,
               size: 16,
-              color: Color(0xFF5A5F66), // textMuted
+              color: Color(0xFF8F9BB3), // textMuted
             ),
           ],
         ),
@@ -423,10 +444,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xCC2A2D35), // with 80% opacity
+        color: const Color(0xCC1B202C), // surfaceElevated with 80% opacity
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0x4D66E0FF), // accent with 30% opacity
+          color: const Color(0x4D33B5E5), // accent with 30% opacity
           width: 1,
         ),
       ),
@@ -436,7 +457,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF66E0FF), // accent
+              color: const Color(0xFF33B5E5), // accent
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -448,7 +469,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 const Text(
                   'Yanıtlanıyor',
                   style: TextStyle(
-                    color: Color(0xFF66E0FF), // accent
+                    color: Color(0xFF33B5E5), // accent
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -491,7 +512,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xCC2A2D35), // with 80% opacity
+        color: const Color(0xCC1B202C), // surfaceElevated with 80% opacity
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -515,7 +536,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation(Color(0xFF66E0FF)),
+                                AlwaysStoppedAnimation(Color(0xFF33B5E5)),
                           ),
                         ),
                       ),
