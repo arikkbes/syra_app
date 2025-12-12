@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Development build (telefonuna test için) -->
+    <key>method</key>
+    <string>development</string>
+    
+    <!-- Apple Developer Team ID -->
+    <key>teamID</key>
+    <string>4NK7SA2722</string>
+    
+    <!-- Otomatik code signing (Codemagic halleder) -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+    
+    <!-- Certificate type -->
+    <key>signingCertificate</key>
+    <string>Apple Development</string>
+    
+    <!-- Bitcode (modern iOS için kapalı) -->
+    <key>uploadBitcode</key>
+    <false/>
+    
+    <key>compileBitcode</key>
+    <false/>
+    
+    <!-- Symbols (crash raporları için) -->
+    <key>uploadSymbols</key>
+    <true/>
+    
+    <!-- Bundle ID için provisioning profile mapping -->
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>com.ariksoftware.syra</key>
+        <string>match Development com.ariksoftware.syra</string>
+    </dict>
+    
+    <!-- iCloud environment -->
+    <key>iCloudContainerEnvironment</key>
+    <string>Development</string>
+    
+    <!-- Thinning (cihaza özel optimize) -->
+    <key>thinning</key>
+    <string>&lt;none&gt;</string>
+</dict>
+</plist>
