@@ -38,8 +38,18 @@ workflows:
         bundle_identifier: com.ariksoftware.syra
       vars:
         TEAM_ID: 4NK7SA2722
+        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
+        XCODE_SCHEME: "SyraNative"
 
     scripts:
+      - name: Set up keychain and provisioning profiles
+        script: |
+          set -euo pipefail
+          # Codemagic otomatik olarak keychain ve provisioning profile'ları ayarlar
+          # Ama manuel kontrol için:
+          echo "📱 Checking provisioning profiles..."
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || echo "No profiles found yet - Codemagic will auto-generate"
+          
       - name: Set build number (CFBundleVersion)
         script: |
           set -euo pipefail
@@ -51,6 +61,11 @@ workflows:
         script: |
           set -euo pipefail
           cd ios_native
+          
+          echo "🔨 Building archive for TestFlight..."
+          echo "Bundle ID: com.ariksoftware.syra"
+          echo "Team ID: $TEAM_ID"
+          
           xcodebuild \
             -project SyraNative.xcodeproj \
             -scheme SyraNative \
@@ -61,17 +76,36 @@ workflows:
             DEVELOPMENT_TEAM=$TEAM_ID \
             CODE_SIGN_STYLE=Automatic \
             -allowProvisioningUpdates \
-            clean archive
+            clean archive | xcpretty || true
+            
+          # Archive başarılı mı kontrol et
+          if [ ! -d "$CM_BUILD_DIR/SyraNative.xcarchive" ]; then
+            echo "❌ Archive failed!"
+            exit 1
+          fi
+          echo "✅ Archive created successfully"
 
       - name: Export IPA (App Store)
         script: |
           set -euo pipefail
           cd ios_native
+          
+          echo "📦 Exporting IPA for TestFlight..."
+          
           xcodebuild -exportArchive \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             -exportPath "$CM_BUILD_DIR/export" \
             -exportOptionsPlist "ExportOptions_AppStore.plist" \
-            -allowProvisioningUpdates
+            -allowProvisioningUpdates | xcpretty || true
+            
+          # IPA oluştu mu kontrol et
+          if [ ! -f "$CM_BUILD_DIR/export/SyraNative.ipa" ]; then
+            echo "❌ IPA export failed!"
+            ls -la "$CM_BUILD_DIR/export/" || true
+            exit 1
+          fi
+          echo "✅ IPA exported successfully"
+          ls -lh "$CM_BUILD_DIR/export/SyraNative.ipa"
 
     artifacts:
       - $CM_BUILD_DIR/export/*.ipa
