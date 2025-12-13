@@ -34,6 +34,7 @@ workflows:
     environment:
       xcode: latest
 
+      # ✅ MANUAL SIGNING: sadece cert + provisioning profile
       ios_signing:
         certificates:
           - syra_appstore_dist_2025_12_13
@@ -43,8 +44,6 @@ workflows:
       vars:
         TEAM_ID: 4NK7SA2722
         BUNDLE_ID: com.ariksoftware.syra
-        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
-        XCODE_SCHEME: "SyraNative"
 
     scripts:
       - name: Install tools (codemagic-cli-tools + xcpretty)
@@ -82,6 +81,7 @@ workflows:
             echo "Info.plist not found in ios_native/. Skipping PlistBuddy step."
           fi
 
+      # ✅ DEBUG ARCHIVE: asıl hatayı gösterecek
       - name: Archive (Release)
         script: |
           set -euo pipefail
@@ -98,9 +98,11 @@ workflows:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
-            DEVELOPMENT_TEAM=$TEAM_ID \
-            CODE_SIGN_STYLE=Automatic \
-            clean archive | xcpretty
+            clean archive \
+            | tee "$CM_BUILD_DIR/archive.log"
+
+          echo "================= LAST 200 LINES ================="
+          tail -n 200 "$CM_BUILD_DIR/archive.log" || true
 
           if [ ! -d "$CM_BUILD_DIR/SyraNative.xcarchive" ]; then
             echo "❌ Archive not found!"
@@ -135,10 +137,9 @@ workflows:
       - $CM_BUILD_DIR/export/*.ipa
       - $CM_BUILD_DIR/export/*.dSYM.zip
       - $CM_BUILD_DIR/SyraNative.xcarchive
+      - $CM_BUILD_DIR/archive.log
 
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # beta_groups:
-        #   - Internal Testers
