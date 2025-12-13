@@ -33,33 +33,34 @@ workflows:
     environment:
       xcode: latest
 
-      # ✅ Burada isim değil: dağıtım türü + bundle id ile eşleşen cert/profile çekilir
+      # ✅ iOS tarafında reference name’i tek tek yazmak yerine
+      # Codemagic bu iki bilgiyle "eşleşen" certificate + profile’ları otomatik çeker. :contentReference[oaicite:3]{index=3}
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.ariksoftware.syra
 
       vars:
         TEAM_ID: 4NK7SA2722
-        XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
         XCODE_SCHEME: "SyraNative"
 
     scripts:
-      - name: Install tools
+      - name: Install Codemagic CLI tools
         script: |
           set -euo pipefail
-          gem install xcpretty --no-document || true
-
-      - name: Set build number (CFBundleVersion)
-        script: |
-          set -euo pipefail
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" ios_native/Info.plist \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" ios_native/Info.plist
+          pip3 install codemagic-cli-tools -q || true
 
       - name: Apply provisioning profiles to Xcode project
         script: |
           set -euo pipefail
           cd ios_native
           xcode-project use-profiles
+
+      - name: Set build number (CFBundleVersion)
+        script: |
+          set -euo pipefail
+          cd ios_native
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" Info.plist
 
       - name: Archive (Release)
         script: |
@@ -68,32 +69,25 @@ workflows:
 
           xcodebuild \
             -project SyraNative.xcodeproj \
-            -scheme SyraNative \
+            -scheme "$XCODE_SCHEME" \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
-            DEVELOPMENT_TEAM=$TEAM_ID \
-            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             clean archive | xcpretty
-
-          test -d "$CM_BUILD_DIR/SyraNative.xcarchive"
 
       - name: Export IPA (App Store)
         script: |
           set -euo pipefail
-          cd ios_native
 
           xcodebuild -exportArchive \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             -exportPath "$CM_BUILD_DIR/export" \
-            -exportOptionsPlist "ExportOptions_AppStore.plist" \
+            -exportOptionsPlist "ios_native/ExportOptions_AppStore.plist" \
             | xcpretty
 
           ls -la "$CM_BUILD_DIR/export/" || true
-          IPA_PATH="$(ls -1 "$CM_BUILD_DIR/export/"*.ipa 2>/dev/null | head -n 1 || true)"
-          test -n "$IPA_PATH"
-          ls -lh "$IPA_PATH"
 
     artifacts:
       - $CM_BUILD_DIR/export/*.ipa
