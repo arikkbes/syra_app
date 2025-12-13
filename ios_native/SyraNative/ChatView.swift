@@ -70,15 +70,21 @@ struct ChatView: View {
             Spacer()
             
             VStack(spacing: 28) {
-                // SYRA Logo - Matches Flutter exactly
+                // SYRA Logo - Inline Canvas implementation
                 ZStack {
                     // Subtle glow behind logo
-                    SyraLogoView(size: 100, color: SyraTokens.Colors.primary)
-                        .blur(radius: 20)
-                        .opacity(0.3)
+                    Canvas { context, size in
+                        drawSyraLogo(context: context, size: size, color: SyraTokens.Colors.primary)
+                    }
+                    .frame(width: 100, height: 100)
+                    .blur(radius: 20)
+                    .opacity(0.3)
                     
                     // Main logo
-                    SyraLogoView(size: 100, color: SyraTokens.Colors.primary)
+                    Canvas { context, size in
+                        drawSyraLogo(context: context, size: size, color: SyraTokens.Colors.primary)
+                    }
+                    .frame(width: 100, height: 100)
                 }
                 .padding(.bottom, 8)
                 
@@ -108,6 +114,47 @@ struct ChatView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .transition(.opacity.combined(with: .scale(scale: 0.95)))
+    }
+    
+    // Helper function to draw SYRA logo
+    private func drawSyraLogo(context: GraphicsContext, size: CGSize, color: Color) {
+        let lineWidth: CGFloat = 8
+        var path = Path()
+        
+        // Left vertical line
+        path.move(to: CGPoint(x: size.width * 0.2, y: size.height * 0.2))
+        path.addLine(to: CGPoint(x: size.width * 0.2, y: size.height * 0.8))
+        
+        // Center S-curve (flowing)
+        path.move(to: CGPoint(x: size.width * 0.35, y: size.height * 0.3))
+        path.addQuadCurve(
+            to: CGPoint(x: size.width * 0.55, y: size.height * 0.5),
+            control: CGPoint(x: size.width * 0.35, y: size.height * 0.4)
+        )
+        path.addQuadCurve(
+            to: CGPoint(x: size.width * 0.35, y: size.height * 0.7),
+            control: CGPoint(x: size.width * 0.55, y: size.height * 0.6)
+        )
+        
+        // Right horizontal lines
+        path.move(to: CGPoint(x: size.width * 0.65, y: size.height * 0.3))
+        path.addLine(to: CGPoint(x: size.width * 0.85, y: size.height * 0.3))
+        
+        path.move(to: CGPoint(x: size.width * 0.65, y: size.height * 0.45))
+        path.addLine(to: CGPoint(x: size.width * 0.8, y: size.height * 0.45))
+        
+        // Bottom P-like shape
+        path.move(to: CGPoint(x: size.width * 0.7, y: size.height * 0.6))
+        path.addLine(to: CGPoint(x: size.width * 0.7, y: size.height * 0.8))
+        path.addArc(
+            center: CGPoint(x: size.width * 0.75, y: size.height * 0.65),
+            radius: size.width * 0.08,
+            startAngle: .degrees(90),
+            endAngle: .degrees(270),
+            clockwise: false
+        )
+        
+        context.stroke(path, with: .color(color), lineWidth: lineWidth)
     }
     
     // MARK: - Actions
