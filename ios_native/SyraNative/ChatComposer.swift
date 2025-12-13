@@ -17,21 +17,32 @@ struct ChatComposer: View {
     
     var body: some View {
         HStack(spacing: 10) {
-            // Plus button (pixel-perfect)
+            // Plus button (attachment) - subtle
             Button(action: {
                 SyraHaptics.light()
                 onPlusAction()
             }) {
                 Image(systemName: "plus.circle.fill")
                     .font(.system(size: 26, weight: .medium))
-                    .foregroundColor(SyraTokens.Colors.primary)
+                    .foregroundColor(SyraTokens.Colors.textSecondary)
                     .frame(width: 44, height: 44)
             }
             .buttonStyle(PremiumPressStyle())
             
-            // Text field container (pill shape)
-            HStack(spacing: 12) {
-                TextField("Mesajınızı yazın...", text: $text, axis: .vertical)
+            // Text field container (premium glass pill)
+            HStack(spacing: 8) {
+                // Optional: photo icon
+                Button(action: {
+                    SyraHaptics.light()
+                }) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(SyraTokens.Colors.textSecondary.opacity(0.6))
+                }
+                .buttonStyle(PremiumPressStyle())
+                
+                // Text input
+                TextField("SYRA'ya sor", text: $text, axis: .vertical)
                     .font(SyraTokens.Typography.bodyMedium)
                     .foregroundColor(SyraTokens.Colors.textPrimary)
                     .focused($isFocused)
@@ -42,19 +53,44 @@ struct ChatComposer: View {
                             sendWithAnimation()
                         }
                     }
-                    // Baseline alignment fix
-                    .alignmentGuide(.firstTextBaseline) { d in
-                        d[.firstTextBaseline]
-                    }
+                    // Placeholder color override
+                    .accentColor(SyraTokens.Colors.primary)
+                
+                // Mic icon
+                Button(action: {
+                    SyraHaptics.light()
+                }) {
+                    Image(systemName: "mic.fill")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(SyraTokens.Colors.textSecondary.opacity(0.6))
+                }
+                .buttonStyle(PremiumPressStyle())
             }
-            .padding(.horizontal, 16)
+            .padding(.horizontal, 14)
             .padding(.vertical, 10)
-            .frame(minHeight: 44) // Ensure proper height
+            .frame(minHeight: 44)
             .background(
-                SyraGlassSurface(
-                    cornerRadius: 22, // Perfect pill
-                    blurIntensity: .ultraLight
-                )
+                RoundedRectangle(cornerRadius: 22)
+                    .fill(.ultraThinMaterial)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .fill(SyraTokens.Colors.backgroundSecondary.opacity(0.3))
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .strokeBorder(
+                                LinearGradient(
+                                    colors: [
+                                        Color.white.opacity(0.15),
+                                        Color.white.opacity(0.05)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                ),
+                                lineWidth: 1
+                            )
+                    )
+                    .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
             )
             
             // Send button (premium states + glow)
@@ -67,24 +103,24 @@ struct ChatComposer: View {
                     // Glow effect when enabled
                     if canSend {
                         Circle()
-                            .fill(SyraTokens.Colors.primary.opacity(0.2))
+                            .fill(SyraTokens.Colors.primary.opacity(0.25))
                             .frame(width: 44, height: 44)
-                            .blur(radius: 8)
+                            .blur(radius: 10)
                     }
                     
                     // Button icon
                     Image(systemName: "arrow.up.circle.fill")
                         .font(.system(size: 32, weight: .semibold))
-                        .foregroundColor(canSend ? SyraTokens.Colors.primary : SyraTokens.Colors.textTertiary)
+                        .foregroundColor(canSend ? SyraTokens.Colors.primary : SyraTokens.Colors.textSecondary.opacity(0.4))
                         .frame(width: 44, height: 44)
                 }
             }
             .buttonStyle(PremiumPressStyle())
             .disabled(!canSend)
-            .animation(.easeOut(duration: 0.2), value: canSend)
+            .animation(.easeOut(duration: 0.25), value: canSend)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
         .background(
             SyraTokens.Colors.background
                 .ignoresSafeArea(edges: .bottom)

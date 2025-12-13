@@ -9,19 +9,19 @@ enum SyraTokens {
     
     // MARK: - Colors
     enum Colors {
-        // Primary brand colors
-        static let primary = Color(hex: "8B5CF6") // Purple
-        static let primaryDark = Color(hex: "7C3AED")
+        // SYRA Brand Colors - Flutter Reference
+        static let primary = Color(hex: "33B5E5") // Accent/Primary - Cyan
+        static let primaryDark = Color(hex: "2DA5D5")
         
-        // Background hierarchy
-        static let background = Color(uiColor: .systemBackground)
-        static let backgroundSecondary = Color(uiColor: .secondarySystemBackground)
-        static let backgroundTertiary = Color(uiColor: .tertiarySystemBackground)
+        // Background hierarchy - Fixed Brand Colors
+        static let background = Color(hex: "11131A") // Main background
+        static let backgroundSecondary = Color(hex: "1B202C") // Surface elevated
+        static let backgroundTertiary = Color(hex: "1A1E24") // Divider/Border level
         
-        // Text hierarchy
-        static let textPrimary = Color.primary
-        static let textSecondary = Color.secondary
-        static let textTertiary = Color(uiColor: .tertiaryLabel)
+        // Text hierarchy - Fixed Brand Colors
+        static let textPrimary = Color(hex: "E0E6ED") // Primary text
+        static let textSecondary = Color(hex: "8F9BB3") // Secondary/Muted text
+        static let textTertiary = Color(hex: "8F9BB3").opacity(0.6) // Tertiary text
         
         // Semantic colors
         static let success = Color.green
@@ -32,9 +32,9 @@ enum SyraTokens {
         static let glassOverlay = Color.white.opacity(0.05)
         static let glassBorder = Color.white.opacity(0.15)
         
-        // Divider
-        static let divider = Color(uiColor: .separator)
-        static let dividerSubtle = Color(uiColor: .separator).opacity(0.5)
+        // Divider - Fixed Brand Color
+        static let divider = Color(hex: "1A1E24") // Divider/Border
+        static let dividerSubtle = Color(hex: "1A1E24").opacity(0.5)
     }
     
     // MARK: - Spacing

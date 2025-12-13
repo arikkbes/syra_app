@@ -20,7 +20,7 @@ struct SyraTopBar: View {
     
     var body: some View {
         HStack(spacing: 0) {
-            // Left button (Menu) - perfect 44x44 hit area
+            // Left button (Hamburger Menu) - perfect 44x44 hit area
             SyraIconButton(
                 icon: "line.3.horizontal",
                 onTap: {
@@ -32,16 +32,32 @@ struct SyraTopBar: View {
             
             Spacer()
             
-            // Center title
-            Text(title)
-                .font(SyraTokens.Typography.titleSmall)
-                .foregroundColor(SyraTokens.Colors.textPrimary)
+            // Center: SYRA • Normal ˅
+            HStack(spacing: 6) {
+                Text("SYRA")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(SyraTokens.Colors.textPrimary)
+                
+                // Dot separator
+                Text("•")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(SyraTokens.Colors.textSecondary.opacity(0.5))
+                
+                Text("Normal")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(SyraTokens.Colors.textSecondary)
+                
+                // Chevron down
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(SyraTokens.Colors.textSecondary)
+            }
             
             Spacer()
             
-            // Right button (Action placeholder) - perfect 44x44 hit area
+            // Right button (Profile) - perfect 44x44 hit area
             SyraIconButton(
-                icon: "ellipsis.circle",
+                icon: "person.circle",
                 onTap: {
                     SyraHaptics.light()
                     onRightTap()
@@ -51,14 +67,14 @@ struct SyraTopBar: View {
         }
         .frame(height: 56)
         .background(
-            SyraTokens.Colors.background
-                // Soft, realistic shadow (no harsh borders)
-                .shadow(
-                    color: Color.black.opacity(0.03),
-                    radius: 1,
-                    x: 0,
-                    y: 1
-                )
+            VStack(spacing: 0) {
+                SyraTokens.Colors.background
+                
+                // Subtle bottom divider
+                Rectangle()
+                    .fill(SyraTokens.Colors.divider.opacity(0.2))
+                    .frame(height: 0.5)
+            }
         )
     }
 }
