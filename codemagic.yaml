@@ -22,7 +22,6 @@ workflows:
       - $CM_BUILD_DIR/DerivedData/Build/Products/Release-iphonesimulator/*.app
       - $CM_BUILD_DIR/DerivedData/Logs/Build/*.xcactivitylog
 
-
   ios-syra-testflight:
     name: SYRA iOS Native (TestFlight)
     max_build_duration: 60
@@ -34,7 +33,7 @@ workflows:
     environment:
       xcode: latest
 
-      # ✅ MANUAL SIGNING: sadece cert + provisioning profile
+      # ✅ MANUAL SIGNING: tek yöntem (cert + provisioning profile)
       ios_signing:
         certificates:
           - syra_appstore_dist_2025_12_13
@@ -71,17 +70,35 @@ workflows:
           set -euo pipefail
           cd ios_native
 
-          BUILD_NUM="${CM_BUILD_NUMBER:-1}"
-          echo "Using build number: $BUILD_NUM"
+          # ✅ Codemagic'te bazen CM_BUILD_NUMBER gelmiyor.
+          # ✅ Bu yüzden sağlam fallback: BUILD_NUMBER / CM_BUILD_ID / unix timestamp
+          BUILD_NUM="${CM_BUILD_NUMBER:-${BUILD_NUMBER:-${CM_BUILD_ID:-$(date +%s)}}}"
+          echo "✅ Using build number: $BUILD_NUM"
 
-          if [ -f "Info.plist" ]; then
-            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" Info.plist \
-              || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" Info.plist
-          else
-            echo "Info.plist not found in ios_native/. Skipping PlistBuddy step."
+          # Projede Info.plist nerede? En yaygın 3 ihtimali dene:
+          CANDIDATES=("Info.plist" "info.plist" "SyraNative/Info.plist" "SyraNative/info.plist")
+          PLIST_PATH=""
+
+          for p in "${CANDIDATES[@]}"; do
+            if [ -f "$p" ]; then
+              PLIST_PATH="$p"
+              break
+            fi
+          done
+
+          if [ -z "$PLIST_PATH" ]; then
+            echo "❌ Info.plist not found in ios_native/. (checked: ${CANDIDATES[*]})"
+            exit 1
           fi
 
-      # ✅ DEBUG ARCHIVE: asıl hatayı gösterecek
+          echo "✅ Updating CFBundleVersion in: $PLIST_PATH"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST_PATH" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$PLIST_PATH"
+
+          echo "✅ Current versions:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST_PATH" || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST_PATH" || true
+
       - name: Archive (Release)
         script: |
           set -euo pipefail
@@ -98,6 +115,7 @@ workflows:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             clean archive \
             | tee "$CM_BUILD_DIR/archive.log"
 
