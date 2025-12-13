@@ -33,6 +33,20 @@ workflows:
 
     environment:
       xcode: latest
+
+      # ✅ YAML modunda UI ayarları yok sayılır, burada signing'i net söyleyeceğiz
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.ariksoftware.syra
+
+        # ✅ Codemagic'te oluşturduğun / yüklediğin P12’nin "Reference name"i
+        certificates:
+          - syra_appstore_dist_2025_12_13
+
+        # Eğer provisioning profile'ı da "Reference name" ile seçebiliyorsan aç:
+        # provisioning_profiles:
+        #   - syra_appstore_profile_2025_12_13
+
       vars:
         TEAM_ID: 4NK7SA2722
         BUNDLE_ID: com.ariksoftware.syra
@@ -45,19 +59,15 @@ workflows:
           set -euo pipefail
           pip3 install codemagic-cli-tools -q || true
 
-      - name: Fetch signing files + apply profiles
+      - name: Verify signing identities + apply profiles
         script: |
           set -euo pipefail
 
-          echo "🔐 Initializing keychain..."
-          keychain initialize
+          echo "🔎 Code signing identities in keychain:"
+          security find-identity -v -p codesigning || true
 
-          echo "📥 Fetching App Store signing files for: $BUNDLE_ID"
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-          echo "🧩 Applying profiles to Xcode project..."
+          echo "🧩 Applying provisioning profiles to Xcode project..."
+          cd ios_native
           xcode-project use-profiles
 
           echo "📱 Installed provisioning profiles:"
@@ -88,6 +98,7 @@ workflows:
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_STYLE=Automatic \
             clean archive | xcpretty
 
           if [ ! -d "$CM_BUILD_DIR/SyraNative.xcarchive" ]; then
