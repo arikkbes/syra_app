@@ -23,17 +23,18 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 
+    <!-- ✅ Version (App Store) -->
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.0.4</string>
 
+    <!-- ✅ Build Number -->
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>8</string>
 
-    <!-- ✅ ZORUNLU: Asset Catalog ikon adı -->
+    <!-- ✅ Required for Asset Catalog AppIcon -->
     <key>CFBundleIconName</key>
     <string>AppIcon</string>
 
-    <!-- ✅ İsteğe bağlı ama sağlam: ikon mapping -->
     <key>CFBundleIcons</key>
     <dict>
         <key>CFBundlePrimaryIcon</key>
