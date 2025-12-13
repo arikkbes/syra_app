@@ -34,18 +34,17 @@ workflows:
     environment:
       xcode: latest
 
-      # ✅ YAML modunda UI ayarları yok sayılır, burada signing'i net söyleyeceğiz
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.ariksoftware.syra
 
-        # ✅ Codemagic'te oluşturduğun / yüklediğin P12’nin "Reference name"i
+        # ✅ Codemagic’te generate ettiğin cert reference name
         certificates:
           - syra_appstore_dist_2025_12_13
 
-        # Eğer provisioning profile'ı da "Reference name" ile seçebiliyorsan aç:
-        # provisioning_profiles:
-        #   - syra_appstore_profile_2025_12_13
+        # ✅ ŞU AN DOĞRU OLAN PROFİL: com.ariksoftware.syra + yeşil cert
+        provisioning_profiles:
+          - syra_appstore_profile
 
       vars:
         TEAM_ID: 4NK7SA2722
@@ -54,10 +53,11 @@ workflows:
         XCODE_SCHEME: "SyraNative"
 
     scripts:
-      - name: Install Codemagic CLI tools
+      - name: Install tools (codemagic-cli-tools + xcpretty)
         script: |
           set -euo pipefail
           pip3 install codemagic-cli-tools -q || true
+          sudo gem install xcpretty -N || true
 
       - name: Verify signing identities + apply profiles
         script: |
