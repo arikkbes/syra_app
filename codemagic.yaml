@@ -33,7 +33,6 @@ workflows:
     environment:
       xcode: latest
 
-      # ✅ MANUAL SIGNING: tek yöntem (cert + provisioning profile)
       ios_signing:
         certificates:
           - syra_appstore_dist_2025_12_13
@@ -43,7 +42,7 @@ workflows:
       vars:
         TEAM_ID: 4NK7SA2722
         BUNDLE_ID: com.ariksoftware.syra
-        MARKETING_VERSION: "1.0.0"
+        MARKETING_VERSION: "1.0.4"
 
     scripts:
       - name: Install tools (codemagic-cli-tools + xcpretty)
@@ -55,7 +54,6 @@ workflows:
       - name: Verify signing identities + apply profiles
         script: |
           set -euo pipefail
-
           echo "🔎 Code signing identities in keychain:"
           security find-identity -v -p codesigning || true
 
@@ -66,12 +64,54 @@ workflows:
           echo "📱 Installed provisioning profiles:"
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
 
-      - name: Archive (Release) + force build number
+      - name: Sync Info.plist version + build (force)
         script: |
           set -euo pipefail
           cd ios_native
 
-          # ✅ Sağlam build number: CM_BUILD_NUMBER yoksa timestamp
+          BUILD_NUM="${CM_BUILD_NUMBER:-${BUILD_NUMBER:-${CM_BUILD_ID:-$(date +%s)}}}"
+          echo "✅ Will publish version: $MARKETING_VERSION"
+          echo "✅ Will publish build:   $BUILD_NUM"
+
+          # Xcode’un gerçekten kullandığı Info.plist yolunu bul
+          PLIST_REL="$(xcodebuild -project SyraNative.xcodeproj -scheme SyraNative -showBuildSettings \
+            | awk -F= '/INFOPLIST_FILE/ {print $2; exit}' | xargs || true)"
+
+          if [ -z "$PLIST_REL" ]; then
+            echo "❌ INFOPLIST_FILE not found from build settings!"
+            exit 1
+          fi
+
+          # INFOPLIST_FILE bazen "$(SRCROOT)/..." gelir; biz ios_native içindeyiz.
+          PLIST_PATH="${PLIST_REL/\$(SRCROOT)\//}"
+          if [ ! -f "$PLIST_PATH" ]; then
+            echo "❌ Info.plist not found at: $PLIST_PATH (from INFOPLIST_FILE=$PLIST_REL)"
+            ls -la
+            exit 1
+          fi
+
+          echo "🧾 Using Info.plist: $PLIST_PATH"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $MARKETING_VERSION" "$PLIST_PATH" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $MARKETING_VERSION" "$PLIST_PATH"
+
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST_PATH" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$PLIST_PATH"
+
+          # ikon hatası yememek için (zaten eklemiştin ama garanti)
+          /usr/libexec/PlistBuddy -c "Set :CFBundleIconName AppIcon" "$PLIST_PATH" \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleIconName string AppIcon" "$PLIST_PATH"
+
+          echo "✅ Final plist values:"
+          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST_PATH" || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST_PATH" || true
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIconName" "$PLIST_PATH" || true
+
+      - name: Archive (Release)
+        script: |
+          set -euo pipefail
+          cd ios_native
+
           BUILD_NUM="${CM_BUILD_NUMBER:-${BUILD_NUMBER:-${CM_BUILD_ID:-$(date +%s)}}}"
 
           echo "🔨 Archiving for TestFlight..."
@@ -106,8 +146,8 @@ workflows:
       - name: Export IPA (App Store Connect)
         script: |
           set -euo pipefail
-
           echo "📦 Exporting IPA..."
+
           xcodebuild -exportArchive \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             -exportPath "$CM_BUILD_DIR/export" \
