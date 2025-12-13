@@ -1,4 +1,27 @@
 workflows:
+  ios-syra-simulator:
+    name: SYRA iOS Native (Simulator)
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Build (simulator)
+        script: |
+          set -euo pipefail
+          cd ios_native
+          xcodebuild \
+            -project SyraNative.xcodeproj \
+            -scheme SyraNative \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$CM_BUILD_DIR/DerivedData" \
+            clean build
+    artifacts:
+      - $CM_BUILD_DIR/DerivedData/Build/Products/Release-iphonesimulator/*.app
+      - $CM_BUILD_DIR/DerivedData/Logs/Build/*.xcactivitylog
+
   ios-syra-testflight:
     name: SYRA iOS Native (TestFlight)
     max_build_duration: 60
@@ -9,58 +32,49 @@ workflows:
 
     environment:
       xcode: latest
+
+      # ✅ Burada isim değil: dağıtım türü + bundle id ile eşleşen cert/profile çekilir
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.ariksoftware.syra
+
       vars:
         TEAM_ID: 4NK7SA2722
-        BUNDLE_ID: com.ariksoftware.syra
         XCODE_PROJECT: "ios_native/SyraNative.xcodeproj"
         XCODE_SCHEME: "SyraNative"
 
     scripts:
-      - name: Install Codemagic CLI tools
+      - name: Install tools
         script: |
           set -euo pipefail
-          pip3 install codemagic-cli-tools -q || true
-
-      - name: Fetch signing files + apply profiles
-        script: |
-          set -euo pipefail
-
-          echo "🔐 Initializing keychain..."
-          keychain initialize
-
-          echo "📥 Fetching App Store signing files for: $BUNDLE_ID"
-          app-store-connect fetch-signing-files "$BUNDLE_ID" \
-            --type IOS_APP_STORE \
-            --create
-
-          echo "🧩 Applying profiles to the correct Xcode project..."
-          xcode-project use-profiles --project "$XCODE_PROJECT"
-
-          echo "📱 Installed provisioning profiles:"
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
+          gem install xcpretty --no-document || true
 
       - name: Set build number (CFBundleVersion)
         script: |
           set -euo pipefail
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" ios_native/Info.plist \
+            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" ios_native/Info.plist
+
+      - name: Apply provisioning profiles to Xcode project
+        script: |
+          set -euo pipefail
           cd ios_native
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" Info.plist \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" Info.plist
+          xcode-project use-profiles
 
       - name: Archive (Release)
         script: |
           set -euo pipefail
+          cd ios_native
 
-          echo "🔨 Archiving for TestFlight..."
           xcodebuild \
-            -project "$XCODE_PROJECT" \
-            -scheme "$XCODE_SCHEME" \
+            -project SyraNative.xcodeproj \
+            -scheme SyraNative \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
-            DEVELOPMENT_TEAM="$TEAM_ID" \
+            DEVELOPMENT_TEAM=$TEAM_ID \
             CODE_SIGN_STYLE=Automatic \
-            -allowProvisioningUpdates \
             clean archive | xcpretty
 
           test -d "$CM_BUILD_DIR/SyraNative.xcarchive"
@@ -68,14 +82,18 @@ workflows:
       - name: Export IPA (App Store)
         script: |
           set -euo pipefail
+          cd ios_native
+
           xcodebuild -exportArchive \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             -exportPath "$CM_BUILD_DIR/export" \
-            -exportOptionsPlist "ios_native/ExportOptions_AppStore.plist" \
-            -allowProvisioningUpdates | xcpretty
+            -exportOptionsPlist "ExportOptions_AppStore.plist" \
+            | xcpretty
 
           ls -la "$CM_BUILD_DIR/export/" || true
-          test -n "$(ls -1 "$CM_BUILD_DIR/export/"*.ipa 2>/dev/null | head -n 1)"
+          IPA_PATH="$(ls -1 "$CM_BUILD_DIR/export/"*.ipa 2>/dev/null | head -n 1 || true)"
+          test -n "$IPA_PATH"
+          ls -lh "$IPA_PATH"
 
     artifacts:
       - $CM_BUILD_DIR/export/*.ipa
