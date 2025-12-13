@@ -34,7 +34,6 @@ workflows:
     environment:
       xcode: latest
 
-      # ✅ MANUAL SIGNING: sadece cert + provisioning profile (tek yöntem)
       ios_signing:
         certificates:
           - syra_appstore_dist_2025_12_13
@@ -73,8 +72,15 @@ workflows:
           set -euo pipefail
           cd ios_native
 
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $CM_BUILD_NUMBER" Info.plist \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $CM_BUILD_NUMBER" Info.plist
+          BUILD_NUM="${CM_BUILD_NUMBER:-1}"
+          echo "Using build number: $BUILD_NUM"
+
+          if [ -f "Info.plist" ]; then
+            /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" Info.plist \
+              || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" Info.plist
+          else
+            echo "Info.plist not found in ios_native/. Skipping PlistBuddy step."
+          fi
 
       - name: Archive (Release)
         script: |
