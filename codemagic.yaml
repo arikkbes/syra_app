@@ -34,15 +34,10 @@ workflows:
     environment:
       xcode: latest
 
+      # ✅ MANUAL SIGNING: sadece cert + provisioning profile (tek yöntem)
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.ariksoftware.syra
-
-        # ✅ Codemagic’te generate ettiğin cert reference name
         certificates:
           - syra_appstore_dist_2025_12_13
-
-        # ✅ ŞU AN DOĞRU OLAN PROFİL: com.ariksoftware.syra + yeşil cert
         provisioning_profiles:
           - syra_appstore_profile
 
