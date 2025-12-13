@@ -43,6 +43,7 @@ workflows:
       vars:
         TEAM_ID: 4NK7SA2722
         BUNDLE_ID: com.ariksoftware.syra
+        MARKETING_VERSION: "1.0.0"
 
     scripts:
       - name: Install tools (codemagic-cli-tools + xcpretty)
@@ -65,48 +66,19 @@ workflows:
           echo "📱 Installed provisioning profiles:"
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
 
-      - name: Set build number (CFBundleVersion)
+      - name: Archive (Release) + force build number
         script: |
           set -euo pipefail
           cd ios_native
 
-          # ✅ Codemagic'te bazen CM_BUILD_NUMBER gelmiyor.
-          # ✅ Bu yüzden sağlam fallback: BUILD_NUMBER / CM_BUILD_ID / unix timestamp
+          # ✅ Sağlam build number: CM_BUILD_NUMBER yoksa timestamp
           BUILD_NUM="${CM_BUILD_NUMBER:-${BUILD_NUMBER:-${CM_BUILD_ID:-$(date +%s)}}}"
-          echo "✅ Using build number: $BUILD_NUM"
-
-          # Projede Info.plist nerede? En yaygın 3 ihtimali dene:
-          CANDIDATES=("Info.plist" "info.plist" "SyraNative/Info.plist" "SyraNative/info.plist")
-          PLIST_PATH=""
-
-          for p in "${CANDIDATES[@]}"; do
-            if [ -f "$p" ]; then
-              PLIST_PATH="$p"
-              break
-            fi
-          done
-
-          if [ -z "$PLIST_PATH" ]; then
-            echo "❌ Info.plist not found in ios_native/. (checked: ${CANDIDATES[*]})"
-            exit 1
-          fi
-
-          echo "✅ Updating CFBundleVersion in: $PLIST_PATH"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUM" "$PLIST_PATH" \
-            || /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $BUILD_NUM" "$PLIST_PATH"
-
-          echo "✅ Current versions:"
-          /usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST_PATH" || true
-          /usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST_PATH" || true
-
-      - name: Archive (Release)
-        script: |
-          set -euo pipefail
-          cd ios_native
 
           echo "🔨 Archiving for TestFlight..."
           echo "Bundle ID: $BUNDLE_ID"
           echo "Team ID: $TEAM_ID"
+          echo "✅ Build number: $BUILD_NUM"
+          echo "✅ Marketing version: $MARKETING_VERSION"
 
           xcodebuild \
             -project SyraNative.xcodeproj \
@@ -116,6 +88,9 @@ workflows:
             -destination 'generic/platform=iOS' \
             -archivePath "$CM_BUILD_DIR/SyraNative.xcarchive" \
             DEVELOPMENT_TEAM="$TEAM_ID" \
+            PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            CURRENT_PROJECT_VERSION="$BUILD_NUM" \
+            MARKETING_VERSION="$MARKETING_VERSION" \
             clean archive \
             | tee "$CM_BUILD_DIR/archive.log"
 
@@ -128,7 +103,7 @@ workflows:
           fi
           echo "✅ Archive created: $CM_BUILD_DIR/SyraNative.xcarchive"
 
-      - name: Export IPA (App Store)
+      - name: Export IPA (App Store Connect)
         script: |
           set -euo pipefail
 
