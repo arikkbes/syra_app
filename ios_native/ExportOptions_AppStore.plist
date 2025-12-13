@@ -2,24 +2,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <!-- TestFlight / App Store dağıtımı -->
+  <!-- ✅ TestFlight / App Store Connect -->
   <key>method</key>
-  <string>app-store</string>
+  <string>app-store-connect</string>
 
-  <!-- Otomatik imzalama -->
-  <key>signingStyle</key>
-  <string>automatic</string>
-
-  <!-- Apple Team ID -->
+  <!-- ✅ Apple Team ID -->
   <key>teamID</key>
   <string>4NK7SA2722</string>
 
-  <!-- dSYM upload (Crash raporları için) -->
+  <!-- ✅ Manual export: Xcode'a hangi profile'ı kullanacağını söyle -->
+  <key>signingStyle</key>
+  <string>manual</string>
+
+  <!-- ✅ Bundle ID -> Provisioning Profile NAME -->
+  <key>provisioningProfiles</key>
+  <dict>
+    <key>com.ariksoftware.syra</key>
+    <string>syra_appstore_profile</string>
+  </dict>
+
+  <!-- ✅ dSYM / symbol upload -->
   <key>uploadSymbols</key>
   <true/>
 
-  <!-- Bitcode artık kullanılmıyor; Xcode sürümüne göre opsiyonel.
-       Bazı ortamlarda gereksiz anahtarlar sorun çıkartabiliyor,
-       o yüzden temiz bırakıyorum. -->
+  <!-- Bitcode artık gerekmiyor -->
+  <key>compileBitcode</key>
+  <false/>
+
+  <key>stripSwiftSymbols</key>
+  <true/>
 </dict>
 </plist>
