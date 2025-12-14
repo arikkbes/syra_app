@@ -1,10 +1,9 @@
 // Glass Refraction Shader
 // Gerçek cam fiziği simülasyonu
-
-#version 460 core
-
 #include <flutter/runtime_effect.glsl>
 
+
+precision mediump float;
 // Uniforms
 uniform vec2 uSize;
 uniform sampler2D uTexture;
@@ -13,8 +12,6 @@ uniform float uRefractiveIndex; // Kırılma indeksi (1.0-2.0)
 uniform float uBlur;           // Blur miktarı
 
 // Input
-in vec2 fragCoord;
-
 // Output
 out vec4 fragColor;
 
@@ -37,7 +34,8 @@ vec4 blur(sampler2D image, vec2 uv, float blurAmount) {
 }
 
 void main() {
-    // Normalize coordinates
+    vec2 fragCoord = FlutterFragCoord().xy;
+// Normalize coordinates
     vec2 uv = fragCoord / uSize;
     
     // Center point
