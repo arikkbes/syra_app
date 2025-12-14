@@ -1,28 +1,30 @@
 // lib/theme/syra_glass.dart
 
+export 'syra_glass_tokens.dart';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'syra_theme.dart';
+import 'syra_glass_tokens.dart';
+
+export 'syra_glass_tokens.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA GLASS COMPONENTS
 /// Unified glass/frosted UI system for premium look
 /// ═══════════════════════════════════════════════════════════════
+/// UPDATED: Now uses SyraGlassSpec from syra_glass_tokens.dart
+/// All glass effects are Figma-matched with no conflicting gradients
+/// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
-// GLASS TOKENS
+// LEGACY GLASS TOKENS (deprecated - use SyraGlassSpec instead)
 // ═══════════════════════════════════════════════════════════════
 class SyraGlass {
   SyraGlass._();
 
-  // ─── Colors ───
+  // Colors
   static const Color base = Color(0xFF1A1D26);
   static const Color overlay = Color(0x331A1D26);
-
-  // Figma-derived chat bar colors
-  static const Color chatBarBlack = Color(0xFF000000);
-  static const Color chatBarGray45 = Color(0x73333333);
-  static const Color chatBarGray30 = Color(0x4D999999);
 
   // White opacity variants
   static const Color white100 = Color(0xFFFFFFFF);
@@ -32,87 +34,30 @@ class SyraGlass {
   static const Color white8 = Color(0x14FFFFFF);
   static const Color white1 = Color(0x03FFFFFF);
 
-  // ─── Blur Levels ───
+  // Blur Levels
   static const double blurSubtle = 8.0;
   static const double blurMedium = 16.0;
   static const double blurStrong = 24.0;
 
-  // ─── Dimensions ───
+  // Dimensions
   static const double buttonSize = 48.0;
   static const double barHeight = 48.0;
   static const double cardPadding = 16.0;
 
-  // ─── Gradients ───
-  static LinearGradient get glassGradient => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          white20,
-          base.withOpacity(0.6),
-          base.withOpacity(0.8),
-        ],
-        stops: const [0.0, 0.4, 1.0],
-      );
-
-  static LinearGradient get liquidGlassGradient => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          chatBarGray30,
-          chatBarGray45,
-          chatBarBlack.withOpacity(0.85),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      );
-
-  static LinearGradient get innerGlowGradient => LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          white1,
-          Colors.transparent,
-        ],
-      );
-
-  static LinearGradient get highlightGradient => LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          white12,
-          white1,
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.4, 1.0],
-      );
-
-  // ─── Shadows ───
-  static List<BoxShadow> get glassShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.65),
-          blurRadius: 22,
-          offset: const Offset(0, 10),
-        ),
-      ];
-
-  static List<BoxShadow> get subtleShadow => [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.3),
-          blurRadius: 12,
-          offset: const Offset(0, 4),
-        ),
-      ];
-
+  // Shadows
+  static List<BoxShadow> get glassShadow => [SyraGlassSpec.defaultShadow];
+  static List<BoxShadow> get subtleShadow => [SyraGlassSpec.defaultShadow];
   static List<BoxShadow> get lightShadow => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.2),
-          blurRadius: 8,
-          offset: const Offset(0, 2),
+          color: Colors.black.withValues(alpha: 0.08),
+          blurRadius: 12,
+          offset: const Offset(0, 3),
         ),
       ];
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BASE GLASS CONTAINER
+// BASE GLASS CONTAINER (Refactored to use SyraLiquidGlass)
 // ═══════════════════════════════════════════════════════════════
 class SyraGlassContainer extends StatelessWidget {
   final Widget child;
@@ -139,16 +84,33 @@ class SyraGlassContainer extends StatelessWidget {
     this.boxShadow,
     this.width,
     this.height,
-    this.enableHighlight = true,
+    this.enableHighlight = false, // Changed default to false
   });
 
   @override
   Widget build(BuildContext context) {
+    // If custom parameters provided, build legacy way
+    if (gradient != null || color != null || enableHighlight) {
+      return _buildLegacyGlass(context);
+    }
+    
+    // Otherwise use clean liquid glass
+    return SyraLiquidGlass(
+      borderRadius: borderRadius,
+      blur: blur,
+      width: width,
+      height: height,
+      padding: padding,
+      child: child,
+    );
+  }
+
+  Widget _buildLegacyGlass(BuildContext context) {
     final effectiveRadius = borderRadius ?? SyraRadius.md;
     final effectiveBorder = border ??
         Border.all(
-          color: SyraGlass.white12,
-          width: 0.5,
+          color: SyraGlassSpec.strokeColor,
+          width: SyraGlassSpec.strokeWidth,
         );
 
     return Container(
@@ -156,7 +118,7 @@ class SyraGlassContainer extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
-        boxShadow: boxShadow ?? SyraGlass.subtleShadow,
+        boxShadow: boxShadow ?? [SyraGlassSpec.defaultShadow],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(effectiveRadius),
@@ -165,21 +127,26 @@ class SyraGlassContainer extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: color,
-              gradient: gradient ?? SyraGlass.glassGradient,
+              gradient: gradient,
               borderRadius: BorderRadius.circular(effectiveRadius),
               border: effectiveBorder,
             ),
             child: Stack(
               children: [
-                // Optional highlight overlay
                 if (enableHighlight)
                   Container(
                     decoration: BoxDecoration(
-                      gradient: SyraGlass.highlightGradient,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.08),
+                          Colors.transparent,
+                        ],
+                      ),
                       borderRadius: BorderRadius.circular(effectiveRadius),
                     ),
                   ),
-                // Content
                 Padding(
                   padding: padding ?? EdgeInsets.zero,
                   child: child,
@@ -214,9 +181,9 @@ class SyraGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final card = SyraGlassContainer(
-      borderRadius: borderRadius ?? SyraRadius.card,
-      padding: padding ?? const EdgeInsets.all(SyraGlass.cardPadding),
+    final card = SyraLiquidGlass(
+      borderRadius: borderRadius ?? SyraGlassSpec.radiusCard,
+      padding: padding ?? const EdgeInsets.all(16),
       child: child,
     );
 
@@ -225,7 +192,7 @@ class SyraGlassCard extends StatelessWidget {
         padding: margin ?? EdgeInsets.zero,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(borderRadius ?? SyraRadius.card),
+          borderRadius: BorderRadius.circular(borderRadius ?? SyraGlassSpec.radiusCard),
           child: card,
         ),
       );
@@ -255,72 +222,18 @@ class SyraGlassBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveHeight = height ?? SyraGlass.barHeight;
+    final effectiveHeight = height ?? 48.0;
     final effectiveRadius = effectiveHeight / 2;
 
-    return SyraGlassContainer(
+    return SyraLiquidGlass(
       height: effectiveHeight,
       borderRadius: effectiveRadius,
-      gradient: SyraGlass.liquidGlassGradient,
-      blur: SyraGlass.blurStrong,
-      padding: padding ??
-          const EdgeInsets.symmetric(
-            horizontal: 14.0,
-          ),
+      blur: SyraGlassSpec.blurSigma,
+      padding: padding ?? const EdgeInsets.symmetric(horizontal: 14.0),
       child: child,
     );
   }
 }
-
-// ═══════════════════════════════════════════════════════════════
-// GLASS BUTTON (Circular)
-// ═══════════════════════════════════════════════════════════════
-// NOTE: SyraGlassButton moved to lib/widgets/syra_glass_button.dart
-// This version is deprecated. Use: import '../../widgets/syra_glass_button.dart';
-/*
-class SyraGlassButton extends StatelessWidget {
-  final Widget icon;
-  final VoidCallback? onPressed;
-  final double? size;
-  final Color? color;
-
-  const SyraGlassButton({
-    super.key,
-    required this.icon,
-    this.onPressed,
-    this.size,
-    this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveSize = size ?? SyraGlass.buttonSize;
-
-    return SyraGlassContainer(
-      width: effectiveSize,
-      height: effectiveSize,
-      borderRadius: effectiveSize / 2,
-      blur: SyraGlass.blurMedium,
-      gradient: color != null
-          ? LinearGradient(
-              colors: [
-                color!.withOpacity(0.3),
-                color!.withOpacity(0.1),
-              ],
-            )
-          : null,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onPressed,
-          borderRadius: BorderRadius.circular(effectiveSize / 2),
-          child: Center(child: icon),
-        ),
-      ),
-    );
-  }
-}
-*/
 
 // ═══════════════════════════════════════════════════════════════
 // GLASS PILL (Compact tag/badge style)
@@ -341,26 +254,18 @@ class SyraGlassPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SyraGlassContainer(
-      borderRadius: SyraRadius.full,
+    return SyraLiquidGlass(
+      borderRadius: SyraGlassSpec.radiusPill,
       padding: EdgeInsets.symmetric(
         horizontal: icon != null ? 10 : 12,
         vertical: 6,
       ),
-      blur: SyraGlass.blurSubtle,
-      gradient: color != null
-          ? LinearGradient(
-              colors: [
-                color!.withOpacity(0.2),
-                color!.withOpacity(0.05),
-              ],
-            )
-          : null,
+      blur: SyraGlassSpec.blurSubtle,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(SyraRadius.full),
+          borderRadius: BorderRadius.circular(SyraGlassSpec.radiusPill),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

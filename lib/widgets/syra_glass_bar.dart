@@ -28,29 +28,29 @@ class SyraGlassBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveHeight = height ?? SyraGlassTokens.barHeight;
+    final effectiveHeight = height ?? SyraGlassSpec.barHeight;
     final effectiveRadius = effectiveHeight / 2;
 
     return Container(
       height: effectiveHeight,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(effectiveRadius),
-        boxShadow: SyraGlassTokens.glassShadow,
+        boxShadow: [SyraGlassSpec.defaultShadow],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(effectiveRadius),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: SyraGlassTokens.blurSigma,
-            sigmaY: SyraGlassTokens.blurSigma,
+            sigmaX: SyraGlassSpec.blurSigma,
+            sigmaY: SyraGlassSpec.blurSigma,
           ),
           child: Container(
             decoration: BoxDecoration(
-              gradient: SyraGlassTokens.glassGradient,
+              gradient: SyraGlassSpec.glassGradient,
               borderRadius: BorderRadius.circular(effectiveRadius),
               border: Border.all(
-                color: SyraGlassTokens.borderColor,
-                width: SyraGlassTokens.borderWidth,
+                color: SyraGlassSpec.borderColor,
+                width: SyraGlassSpec.borderWidth,
               ),
             ),
             child: Stack(
@@ -58,7 +58,7 @@ class SyraGlassBar extends StatelessWidget {
                 // Inner glow
                 Container(
                   decoration: BoxDecoration(
-                    gradient: SyraGlassTokens.innerGlowGradient,
+                    gradient: SyraGlassSpec.innerGlowGradient,
                     borderRadius: BorderRadius.circular(effectiveRadius),
                   ),
                 ),
@@ -66,7 +66,7 @@ class SyraGlassBar extends StatelessWidget {
                 Padding(
                   padding: padding ??
                       EdgeInsets.symmetric(
-                        horizontal: SyraGlassTokens.barPaddingHorizontal,
+                        horizontal: SyraGlassSpec.barPaddingHorizontal,
                       ),
                   child: child,
                 ),

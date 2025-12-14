@@ -34,7 +34,7 @@ class SyraSuggestionChip extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             // Yumuşak, silik dolgu - border yok
-            color: SyraColors.surfaceElevated.withOpacity(0.7),
+            color: SyraColors.surfaceElevated.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(SyraRadius.full),
           ),
           child: Text(

@@ -3,11 +3,11 @@ import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// SYRA BACKGROUND v3.0 — Premium Glass-Ready
+/// SYRA BACKGROUND v2.0 — ChatGPT 2025 Style
 /// ═══════════════════════════════════════════════════════════════
-/// - Subtle radial gradient for depth
-/// - Optional noise texture overlay
-/// - Optimized for liquid glass refraction
+/// - Solid deep blue background (#072233)
+/// - No gradients, no particles, no orb reflections
+/// - Clean, minimal, modern
 /// ═══════════════════════════════════════════════════════════════
 
 class SyraBackground extends StatelessWidget {
@@ -17,56 +17,19 @@ class SyraBackground extends StatelessWidget {
 
   const SyraBackground({
     super.key,
-    this.enableParticles = false,
-    this.enableGrain = true, // Enable grain for glass refraction
+    this.enableParticles = false, // Disabled by default
+    this.enableGrain = false,
     this.particleOpacity = 0.0,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        // Subtle radial gradient for depth
-        gradient: RadialGradient(
-          center: Alignment.topCenter,
-          radius: 1.5,
-          colors: [
-            SyraColors.background.withValues(alpha: 0.95),
-            SyraColors.background,
-            Color(0xFF000000),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        ),
+      decoration: const BoxDecoration(
+        color: SyraColors.background,
       ),
-      child: enableGrain
-          ? CustomPaint(
-              painter: _NoisePainter(),
-              child: Container(),
-            )
-          : null,
     );
   }
-}
-
-/// Subtle noise texture painter
-class _NoisePainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.015)
-      ..style = PaintingStyle.fill;
-
-    // Create subtle noise pattern
-    for (int i = 0; i < 500; i++) {
-      final x = (i * 123.456) % size.width;
-      final y = (i * 789.012) % size.height;
-      final radius = (i % 3) * 0.5;
-      canvas.drawCircle(Offset(x, y), radius, paint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 // ═══════════════════════════════════════════════════════════════

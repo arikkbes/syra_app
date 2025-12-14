@@ -62,7 +62,7 @@ class ChatMessageList extends StatelessWidget {
               'assets/icon/syra.png',
               width: 120,
               height: 120,
-              color: SyraColors.accent.withOpacity(0.3),
+              color: SyraColors.accent.withValues(alpha: 0.3),
               colorBlendMode: BlendMode.srcIn,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
@@ -72,15 +72,15 @@ class ChatMessageList extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       colors: [
-                        SyraColors.accent.withOpacity(0.2),
-                        SyraColors.accent.withOpacity(0.1),
+                        SyraColors.accent.withValues(alpha: 0.2),
+                        SyraColors.accent.withValues(alpha: 0.1),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: SyraColors.accent.withOpacity(0.2),
+                        color: SyraColors.accent.withValues(alpha: 0.2),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -92,7 +92,7 @@ class ChatMessageList extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 56,
                         fontWeight: FontWeight.w300,
-                        color: SyraColors.accent.withOpacity(0.5),
+                        color: SyraColors.accent.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -163,10 +163,10 @@ class ChatMessageList extends StatelessWidget {
             vertical: 10,
           ),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withOpacity(0.5),
+            color: SyraColors.surface.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: SyraColors.divider.withOpacity(0.3),
+              color: SyraColors.divider.withValues(alpha: 0.3),
               width: 1,
             ),
           ),

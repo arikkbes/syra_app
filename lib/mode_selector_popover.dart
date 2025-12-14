@@ -4,8 +4,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
-import '../theme/syra_animations.dart';
 import '../theme/syra_glass_tokens.dart';
+import '../theme/syra_animations.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM MODE SELECTOR POPOVER
@@ -42,13 +42,13 @@ class ModeSelectorPopover extends StatelessWidget {
             width: 320,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white.withValues(alpha: 0.07),
-                Colors.black.withValues(alpha: 0.08),
-              ],
-            ),
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          SyraGlassSpec.whiteOverlay,
+          SyraGlassSpec.blackOverlay,
+        ],
+      ),
               borderRadius: BorderRadius.circular(SyraRadius.lg),
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.12),

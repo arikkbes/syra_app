@@ -127,10 +127,10 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: SyraColors.surface.withOpacity(0.5),
+                color: SyraColors.surface.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: SyraColors.border.withOpacity(0.3),
+                  color: SyraColors.border.withValues(alpha: 0.3),
                 ),
               ),
               child: const Icon(
@@ -193,8 +193,8 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    SyraColors.accent.withOpacity(0.2),
-                    SyraColors.accent.withOpacity(0.1),
+                    SyraColors.accent.withValues(alpha: 0.2),
+                    SyraColors.accent.withValues(alpha: 0.1),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(20),
@@ -221,7 +221,7 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
                   ? _errorMessage!
                   : 'Bu modu kullanmak için önce Relationship Upload ile bir sohbet yüklemen gerekiyor.',
               style: TextStyle(
-                color: SyraColors.textSecondary.withOpacity(0.9),
+                color: SyraColors.textSecondary.withValues(alpha: 0.9),
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -303,10 +303,10 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withOpacity(0.7),
+            color: SyraColors.surface.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: SyraColors.border.withOpacity(0.3),
+              color: SyraColors.border.withValues(alpha: 0.3),
             ),
           ),
           child: Column(
@@ -334,7 +334,7 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
               Text(
                 _summary ?? '',
                 style: TextStyle(
-                  color: SyraColors.textSecondary.withOpacity(0.9),
+                  color: SyraColors.textSecondary.withValues(alpha: 0.9),
                   fontSize: 14,
                   height: 1.5,
                 ),
@@ -344,7 +344,7 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
                 Text(
                   '$_startDate - $_endDate',
                   style: TextStyle(
-                    color: SyraColors.textSecondary.withOpacity(0.7),
+                    color: SyraColors.textSecondary.withValues(alpha: 0.7),
                     fontSize: 12,
                   ),
                 ),
@@ -371,10 +371,10 @@ class _KimDahaCokScreenState extends State<KimDahaCokScreen> {
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withOpacity(0.7),
+            color: SyraColors.surface.withValues(alpha: 0.7),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: SyraColors.border.withOpacity(0.3),
+              color: SyraColors.border.withValues(alpha: 0.3),
             ),
           ),
           child: Row(

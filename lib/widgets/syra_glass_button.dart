@@ -40,15 +40,15 @@ class _SyraGlassButtonState extends State<SyraGlassButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: SyraGlassTokens.animationDuration,
+      duration: const Duration(milliseconds: 200),
     );
     _scaleAnimation = Tween<double>(
-      begin: SyraGlassTokens.scaleUp,
-      end: SyraGlassTokens.scaleDown,
+      begin: 1.05,
+      end: SyraGlassSpec.scaleDown,
     ).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: SyraGlassTokens.animationCurve,
+        curve: SyraGlassSpec.animationCurve,
       ),
     );
   }
@@ -87,26 +87,26 @@ class _SyraGlassButtonState extends State<SyraGlassButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: Container(
-          width: SyraGlassTokens.buttonSize,
-          height: SyraGlassTokens.buttonSize,
+          width: SyraGlassSpec.buttonSize,
+          height: SyraGlassSpec.buttonSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            boxShadow: SyraGlassTokens.glassShadow,
+            boxShadow: [SyraGlassSpec.defaultShadow],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(SyraGlassTokens.buttonRadius),
+            borderRadius: BorderRadius.circular(SyraGlassSpec.buttonRadius),
             child: BackdropFilter(
               filter: ImageFilter.blur(
-                sigmaX: SyraGlassTokens.blurSigma,
-                sigmaY: SyraGlassTokens.blurSigma,
+                sigmaX: SyraGlassSpec.blurSigma,
+                sigmaY: SyraGlassSpec.blurSigma,
               ),
               child: Container(
                 decoration: BoxDecoration(
-                  gradient: SyraGlassTokens.glassGradient,
+                  gradient: SyraGlassSpec.glassGradient,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: SyraGlassTokens.borderColor,
-                    width: SyraGlassTokens.borderWidth,
+                    color: SyraGlassSpec.borderColor,
+                    width: SyraGlassSpec.borderWidth,
                   ),
                 ),
                 child: Stack(
@@ -114,7 +114,7 @@ class _SyraGlassButtonState extends State<SyraGlassButton>
                     // Inner glow
                     Container(
                       decoration: BoxDecoration(
-                        gradient: SyraGlassTokens.innerGlowGradient,
+                        gradient: SyraGlassSpec.innerGlowGradient,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -122,8 +122,8 @@ class _SyraGlassButtonState extends State<SyraGlassButton>
                     Center(
                       child: IconTheme(
                         data: IconThemeData(
-                          color: SyraGlassTokens.white100.withOpacity(0.9),
-                          size: SyraGlassTokens.iconSize,
+                          color: Colors.white.withValues(alpha: 0.90),
+                          size: SyraGlassSpec.iconSize,
                         ),
                         child: widget.child,
                       ),

@@ -6,16 +6,18 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:syra/widgets/glass_refraction.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM GLASSMORPHISM CHAT INPUT BAR
+/// IOS LIQUID GLASS CHAT INPUT BAR
 /// ═══════════════════════════════════════════════════════════════
-/// Updated to match Figma design:
-/// - Height: ~90px
-/// - Border radius: 24px
-/// - Glass effects: white 0.07 + black overlay 0.08
-/// - Backdrop blur with clean layout
-/// - SVG icons: plus, camera, mic, arrow_up (send)
+/// Perfect iOS-style liquid glass with:
+/// - No gradients/shine overlays
+/// - Subtle 1px inner highlight at top edge (white 6-10%)
+/// - Blur sigma 24
+/// - Overlays: white 7% + black 8%
+/// - Shadow: black 12%, blur 20, offset (0,8)
+/// - Radius 24, border 1px white 10%
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatInputBar extends StatefulWidget {
@@ -94,8 +96,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
               _buildImagePreview(),
               const SizedBox(height: 8),
             ],
-            // Main glassmorphism input container
-            _buildGlassInputBar(canSend, hasText),
+            // iOS Liquid Glass Input Bar
+            _buildIOSLiquidGlassInputBar(canSend, hasText),
           ],
         ),
       ),
@@ -103,98 +105,132 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - True Transparent (Figma Exact)
+  /// IOS GLASS INPUT BAR - Real Refraction Shader
   /// ═══════════════════════════════════════════════════════════════
-  Widget _buildGlassInputBar(bool canSend, bool hasText) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+  Widget _buildIOSLiquidGlassInputBar(bool canSend, bool hasText) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        // Soft shadow
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.12),
+            blurRadius: 20,
+            offset: const Offset(0, 8),
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: GlassRefraction(
+        thickness: 0.15,
+        refractiveIndex: 1.25,
+        blur: 24.0,
+        borderRadius: BorderRadius.circular(24),
         child: Container(
           decoration: BoxDecoration(
-            // Sadece çok hafif tint - tamamen transparan
-            color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.15),
-              width: 1,
+            // Base overlay
+            color: Color.alphaBlend(
+              Colors.white.withValues(alpha: 0.07),
+              Colors.black.withValues(alpha: 0.08),
             ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
-              ),
-            ],
+            borderRadius: BorderRadius.circular(24),
+            // Border
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.10),
+              width: 1.0,
+            ),
           ),
-          // Stack kaldırıldı - siyah overlay yok artık
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // Plus icon - sol
-                _buildIconButton(
-                  iconPath: 'assets/icons/plus.svg',
-                  onTap: widget.onAttachmentTap,
-                ),
-                const SizedBox(width: 6),
-                // Camera icon
-                _buildIconButton(
-                  iconPath: 'assets/icons/camera.svg',
-                  onTap: widget.onCameraTap ?? () {},
-                ),
-                const SizedBox(width: 10),
-                // TextField - genişleyen
-                Expanded(
-                  child: TextField(
-                    controller: widget.controller,
-                    focusNode: widget.focusNode,
-                    enabled: !widget.isSending,
-                    maxLines: 1,
-                    onChanged: (_) => widget.onTextChanged(),
-                    style: const TextStyle(
-                      color: Color(0xFFCFCFCF),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
+          child: Stack(
+            children: [
+              // Top highlight
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 1,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.white.withValues(alpha: 0.06),
+                        Colors.white.withValues(alpha: 0.10),
+                        Colors.white.withValues(alpha: 0.06),
+                      ],
+                      stops: const [0.0, 0.5, 1.0],
                     ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      filled: false,
-                      hintText: 'SYRA\'ya sor…',
-                      hintStyle: TextStyle(
-                        color: const Color(0xFFCFCFCF).withOpacity(0.60),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                    onSubmitted: (_) {
-                      if (canSend) {
-                        HapticFeedback.mediumImpact();
-                        widget.onSendMessage();
-                      }
-                    },
                   ),
                 ),
-                const SizedBox(width: 10),
-                // Mic veya Send - sağ
-                if (canSend) ...[
-                  _buildSendButton(),
-                ] else ...[
-                  if (widget.isListening)
-                    _buildVoiceWaveButton()
-                  else
+              ),
+              // Content
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
                     _buildIconButton(
-                      iconPath: 'assets/icons/mic.svg',
-                      onTap: widget.onVoiceInputTap,
+                      iconPath: 'assets/icons/plus.svg',
+                      onTap: widget.onAttachmentTap,
                     ),
-                ],
-              ],
-            ),
+                    const SizedBox(width: 6),
+                    _buildIconButton(
+                      iconPath: 'assets/icons/camera.svg',
+                      onTap: widget.onCameraTap ?? () {},
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: widget.focusNode,
+                        enabled: !widget.isSending,
+                        maxLines: 1,
+                        onChanged: (_) => widget.onTextChanged(),
+                        style: const TextStyle(
+                          color: Color(0xFFCFCFCF),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          filled: false,
+                          hintText: 'SYRA\'ya sor…',
+                          hintStyle: TextStyle(
+                            color:
+                                const Color(0xFFCFCFCF).withValues(alpha: 0.60),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                        onSubmitted: (_) {
+                          if (canSend) {
+                            HapticFeedback.mediumImpact();
+                            widget.onSendMessage();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    if (canSend) ...[
+                      _buildSendButton(),
+                    ] else ...[
+                      if (widget.isListening)
+                        _buildVoiceWaveButton()
+                      else
+                        _buildIconButton(
+                          iconPath: 'assets/icons/mic.svg',
+                          onTap: widget.onVoiceInputTap,
+                        ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -202,7 +238,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// ICON BUTTON - 24×24 SVG with tap area
+  /// ICON BUTTON
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildIconButton({
     required String iconPath,
@@ -222,7 +258,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 24,
             height: 24,
             colorFilter: ColorFilter.mode(
-              Colors.white.withOpacity(0.8),
+              Colors.white.withValues(alpha: 0.8),
               BlendMode.srcIn,
             ),
           ),
@@ -232,7 +268,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// SEND BUTTON - 33×33 white circle with arrow_up
+  /// SEND BUTTON
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildSendButton() {
     return _TapScale(
@@ -263,24 +299,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// VOICE WAVE BUTTON - Shows while listening
+  /// VOICE WAVE BUTTON
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildVoiceWaveButton() {
-    return _TapScale(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        widget.onVoiceInputTap();
-      },
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: const Color(0xFF33B5E5).withOpacity(0.15),
-          shape: BoxShape.circle,
-        ),
-        child: const Center(
-          child: _VoiceWaveAnimation(),
-        ),
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: const Color(0x1A33B5E5),
+        shape: BoxShape.circle,
+      ),
+      child: const Center(
+        child: _VoiceWaveAnimation(),
       ),
     );
   }
@@ -292,10 +322,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0x1A33B5E5), // accent with 10% opacity
+        color: const Color(0x1A33B5E5),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: const Color(0x4D33B5E5), // accent with 30% opacity
+          color: const Color(0x4D33B5E5),
           width: 1,
         ),
       ),
@@ -305,7 +335,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF33B5E5), // accent
+              color: const Color(0xFF33B5E5),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -317,7 +347,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 const Text(
                   'Yanıtlanıyor',
                   style: TextStyle(
-                    color: Color(0xFF33B5E5), // accent
+                    color: Color(0xFF33B5E5),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -328,7 +358,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
@@ -343,7 +373,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Icon(
               Icons.close_rounded,
               size: 20,
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -360,7 +390,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xCC1B202C), // surfaceElevated with 80% opacity
+        color: const Color(0xCC1B202C),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
@@ -376,7 +406,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   Image.file(widget.pendingImage!, fit: BoxFit.cover),
                   if (isUploading)
                     Container(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       child: const Center(
                         child: SizedBox(
                           width: 22,
@@ -398,7 +428,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Text(
               isUploading ? 'Yükleniyor...' : 'Resim hazır',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -412,7 +442,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               child: Icon(
                 Icons.close_rounded,
                 size: 20,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
         ],

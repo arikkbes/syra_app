@@ -150,24 +150,24 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white.withOpacity(0.15),
-                Colors.white.withOpacity(0.08),
-                const Color(0xFF66E0FF).withOpacity(0.05),
+                Colors.white.withValues(alpha: 0.15),
+                Colors.white.withValues(alpha: 0.08),
+                const Color(0xFF66E0FF).withValues(alpha: 0.05),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: Colors.white.withOpacity(0.2),
+              color: Colors.white.withValues(alpha: 0.2),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 25,
                 offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: const Color(0xFF66E0FF).withOpacity(0.1),
+                color: const Color(0xFF66E0FF).withValues(alpha: 0.1),
                 blurRadius: 20,
                 spreadRadius: -5,
               ),
@@ -184,7 +184,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                     Text(
                       'Konuşma Modu',
                       style: SyraTextStyles.bodyMedium.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.3,
@@ -197,13 +197,13 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.close_rounded,
                           size: 16,
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                         ),
                       ),
                     ),
@@ -215,7 +215,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
               Container(
                 height: 1,
                 margin: const EdgeInsets.symmetric(horizontal: 12),
-                color: Colors.white.withOpacity(0.1),
+                color: Colors.white.withValues(alpha: 0.1),
               ),
 
               // Mode items - compact
@@ -286,7 +286,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
           color:
-              isSelected ? Colors.white.withOpacity(0.12) : Colors.transparent,
+              isSelected ? Colors.white.withValues(alpha: 0.12) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color:
@@ -305,8 +305,8 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                   colors: isSelected
                       ? gradient
                       : [
-                          Colors.white.withOpacity(0.1),
-                          Colors.white.withOpacity(0.05),
+                          Colors.white.withValues(alpha: 0.1),
+                          Colors.white.withValues(alpha: 0.05),
                         ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -317,7 +317,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                 icon,
                 size: 18,
                 color:
-                    isSelected ? Colors.white : Colors.white.withOpacity(0.5),
+                    isSelected ? Colors.white : Colors.white.withValues(alpha: 0.5),
               ),
             ),
             const SizedBox(width: 12),
@@ -332,7 +332,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                     style: SyraTextStyles.bodySmall.copyWith(
                       color: isSelected
                           ? Colors.white
-                          : Colors.white.withOpacity(0.8),
+                          : Colors.white.withValues(alpha: 0.8),
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -340,7 +340,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                   Text(
                     description,
                     style: SyraTextStyles.caption.copyWith(
-                      color: Colors.white.withOpacity(0.45),
+                      color: Colors.white.withValues(alpha: 0.45),
                       fontSize: 11,
                     ),
                   ),

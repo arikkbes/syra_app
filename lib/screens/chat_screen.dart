@@ -1189,7 +1189,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           ? BoxDecoration(
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
+                                  color: Colors.black.withValues(alpha: 0.2),
                                   blurRadius: 32,
                                   offset: const Offset(-8, 0),
                                 ),
@@ -1287,7 +1287,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       color: _menuOpen
-                          ? Colors.black.withOpacity(0.5)
+                          ? Colors.black.withValues(alpha: 0.5)
                           : Colors.transparent,
                     ),
                   ),
@@ -1354,7 +1354,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               // Loading overlay for relationship upload
               if (_isUploadingRelationshipFile)
                 Container(
-                  color: Colors.black.withOpacity(0.7),
+                  color: Colors.black.withValues(alpha: 0.7),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1367,7 +1367,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         Text(
                           'Sohbet analiz ediliyor...',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1376,7 +1376,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         Text(
                           'Bu işlem 10-30 saniye sürebilir',
                           style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
+                            color: Colors.white.withValues(alpha: 0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -2486,7 +2486,7 @@ class SyraMessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

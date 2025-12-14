@@ -134,7 +134,7 @@ class SyraTokens {
   /// Subtle shadow for cards
   static List<BoxShadow> get shadowSubtle => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           blurRadius: 8,
           offset: const Offset(0, 2),
         ),
@@ -143,7 +143,7 @@ class SyraTokens {
   /// Medium shadow for elevated elements
   static List<BoxShadow> get shadowMedium => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.15),
+          color: Colors.black.withValues(alpha: 0.15),
           blurRadius: 16,
           offset: const Offset(0, 4),
         ),
@@ -152,7 +152,7 @@ class SyraTokens {
   /// Large shadow for sheets and modals
   static List<BoxShadow> get shadowLarge => [
         BoxShadow(
-          color: Colors.black.withOpacity(0.25),
+          color: Colors.black.withValues(alpha: 0.25),
           blurRadius: 32,
           offset: const Offset(0, 8),
         ),

@@ -269,7 +269,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             height: 52,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color(0xFFFFD54F).withOpacity(0.15),
+              color: const Color(0xFFFFD54F).withValues(alpha: 0.15),
             ),
             child: const Icon(
               Icons.workspace_premium_rounded,

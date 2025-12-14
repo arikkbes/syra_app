@@ -77,13 +77,13 @@ class SyraContextMenu extends StatelessWidget {
                 // Very subtle shadow for depth
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.12),
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                     spreadRadius: 0,
                   ),
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
+                    color: Colors.black.withValues(alpha: 0.08),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                     spreadRadius: 0,
