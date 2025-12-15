@@ -67,9 +67,9 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
 
     return Container(
       padding: EdgeInsets.fromLTRB(
-        14.0,
+        SyraGlassTokens.chatBarPaddingHorizontal,
         8,
-        14.0,
+        SyraGlassTokens.chatBarPaddingHorizontal,
         max(8.0, MediaQuery.of(context).padding.bottom - 20),
       ),
       decoration: BoxDecoration(
@@ -91,36 +91,29 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
   Widget _buildLiquidGlassChatBar(bool canSend, bool hasText, bool hasPendingImage) {
     return Container(
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(SyraGlassSpec.radius),
-        boxShadow: [SyraGlassSpec.defaultShadow],
+        borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
+        boxShadow: SyraGlassTokens.glassShadow,
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(SyraGlassSpec.radius),
+        borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: SyraGlassSpec.blurSigma,
-            sigmaY: SyraGlassSpec.blurSigma,
+            sigmaX: SyraGlassTokens.chatBarBlur,
+            sigmaY: SyraGlassTokens.chatBarBlur,
           ),
           child: Container(
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          SyraGlassSpec.whiteOverlay,
-          SyraGlassSpec.blackOverlay,
-        ],
-      ),
-              borderRadius: BorderRadius.circular(SyraGlassSpec.radius),
+              gradient: SyraGlassTokens.chatBarGradient,
+              borderRadius: BorderRadius.circular(SyraGlassTokens.chatBarRadius),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.021),
+                color: SyraGlassTokens.white20.withOpacity(0.3),
                 width: 0.5,
               ),
-              boxShadow: [],
+              boxShadow: SyraGlassTokens.chatBarInnerShadows,
             ),
             padding: EdgeInsets.symmetric(
-              horizontal: 8.0,
-              vertical: 12.0,
+              horizontal: SyraGlassTokens.chatBarIconSpacing,
+              vertical: SyraGlassTokens.chatBarPaddingVertical,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -131,7 +124,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                   onTap: onAttachmentTap,
                 ),
                 
-                SizedBox(width: 8.0),
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
                 // Text input field
                 Expanded(
@@ -156,7 +149,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                       border: InputBorder.none,
                       hintText: "Message",
                       hintStyle: TextStyle(
-                        color: SyraTokens.textMuted.withValues(alpha: 0.6),
+                        color: SyraTokens.textMuted.withOpacity(0.6),
                         fontSize: 15,
                       ),
                     ),
@@ -164,7 +157,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                   ),
                 ),
 
-                SizedBox(width: 8.0),
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
                 // Mic icon (voice input)
                 _GlassIconButton(
@@ -173,7 +166,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                   color: isListening ? SyraTokens.accent : null,
                 ),
 
-                SizedBox(width: 8.0),
+                SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
 
                 // Send button
                 _GlassSendButton(
@@ -383,15 +376,15 @@ class _GlassIconButtonState extends State<_GlassIconButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: SyraGlassTokens.animationDuration,
     );
     _scaleAnimation = Tween<double>(
-      begin: 1.05,
-      end: SyraGlassSpec.scaleDown,
+      begin: SyraGlassTokens.scaleUp,
+      end: SyraGlassTokens.scaleDown,
     ).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: SyraGlassSpec.animationCurve,
+        curve: SyraGlassTokens.animationCurve,
       ),
     );
   }
@@ -432,7 +425,7 @@ class _GlassIconButtonState extends State<_GlassIconButton>
           ),
           child: Icon(
             widget.icon,
-            size: SyraGlassSpec.chatBarIconSize,
+            size: SyraGlassTokens.chatBarIconSize,
             color: widget.color ?? SyraTokens.textSecondary,
           ),
         ),
@@ -468,15 +461,15 @@ class _GlassSendButtonState extends State<_GlassSendButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 200),
+      duration: SyraGlassTokens.animationDuration,
     );
     _scaleAnimation = Tween<double>(
-      begin: 1.05,
-      end: SyraGlassSpec.scaleDown,
+      begin: SyraGlassTokens.scaleUp,
+      end: SyraGlassTokens.scaleDown,
     ).animate(
       CurvedAnimation(
         parent: _controller,
-        curve: SyraGlassSpec.animationCurve,
+        curve: SyraGlassTokens.animationCurve,
       ),
     );
   }
@@ -515,19 +508,19 @@ class _GlassSendButtonState extends State<_GlassSendButton>
       child: ScaleTransition(
         scale: _scaleAnimation,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: SyraGlassSpec.animationCurve,
+          duration: SyraGlassTokens.animationDuration,
+          curve: SyraGlassTokens.animationCurve,
           width: 40,
           height: 40,
           decoration: BoxDecoration(
             color: widget.canSend
                 ? SyraTokens.textPrimary
-                : SyraTokens.textMuted.withValues(alpha: 0.25),
+                : SyraTokens.textMuted.withOpacity(0.25),
             shape: BoxShape.circle,
             boxShadow: widget.canSend
                 ? [
                     BoxShadow(
-                      color: SyraTokens.textPrimary.withValues(alpha: 0.3),
+                      color: SyraTokens.textPrimary.withOpacity(0.3),
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -548,7 +541,7 @@ class _GlassSendButtonState extends State<_GlassSendButton>
                   Icons.arrow_upward_rounded,
                   color: widget.canSend
                       ? SyraColors.background
-                      : SyraColors.background.withValues(alpha: 0.4),
+                      : SyraColors.background.withOpacity(0.4),
                   size: 20,
                 ),
         ),

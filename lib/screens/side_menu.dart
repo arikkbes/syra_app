@@ -157,7 +157,7 @@ class SideMenu extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
                 child: Container(
                   height: 1,
-                  color: SyraColors.divider.withValues(alpha: 0.5),
+                  color: SyraColors.divider.withOpacity(0.5),
                 ),
               ),
 
@@ -216,7 +216,7 @@ class SideMenu extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: SyraSpacing.md),
                 child: Container(
                   height: 1,
-                  color: SyraColors.divider.withValues(alpha: 0.5),
+                  color: SyraColors.divider.withOpacity(0.5),
                 ),
               ),
 
@@ -253,10 +253,10 @@ class SideMenu extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.06),
+            color: Colors.white.withOpacity(0.06),
             borderRadius: BorderRadius.circular(24),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.09),
+              color: Colors.white.withOpacity(0.09),
               width: 1,
             ),
           ),
@@ -283,7 +283,7 @@ class SideMenu extends StatelessWidget {
           children: [
             Icon(
               Icons.chat_bubble_outline,
-              color: SyraColors.iconMuted.withValues(alpha: 0.5),
+              color: SyraColors.iconMuted.withOpacity(0.5),
               size: 40,
             ),
             const SizedBox(height: SyraSpacing.md),
@@ -415,10 +415,10 @@ class _SyraDrawerSearch extends StatelessWidget {
     return Container(
       height: 48,
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: Colors.white.withValues(alpha: 0.09),
+          color: Colors.white.withOpacity(0.09),
           width: 1,
         ),
       ),
@@ -428,7 +428,7 @@ class _SyraDrawerSearch extends StatelessWidget {
           Icon(
             Icons.search,
             size: 20,
-            color: SyraColors.textMuted.withValues(alpha: 0.7),
+            color: SyraColors.textMuted.withOpacity(0.7),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -441,7 +441,7 @@ class _SyraDrawerSearch extends StatelessWidget {
                 hintText: 'Ara',
                 hintStyle: SyraTextStyles.bodyMedium.copyWith(
                   fontSize: 16,
-                  color: SyraColors.textMuted.withValues(alpha: 0.55),
+                  color: SyraColors.textMuted.withOpacity(0.55),
                 ),
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,
@@ -496,7 +496,7 @@ class _SyraDrawerItem extends StatelessWidget {
                   )
                 : null,
             color: isActive
-                ? SyraColors.surfaceLight.withValues(alpha: 0.3)
+                ? SyraColors.surfaceLight.withOpacity(0.3)
                 : Colors.transparent,
           ),
           child: Row(
@@ -557,7 +557,7 @@ class _SyraChatListItem extends StatelessWidget {
               Icon(
                 Icons.chat_bubble_outline,
                 size: 16,
-                color: SyraColors.iconMuted.withValues(alpha: 0.6),
+                color: SyraColors.iconMuted.withOpacity(0.6),
               ),
               const SizedBox(width: SyraSpacing.sm),
               Expanded(
@@ -575,7 +575,7 @@ class _SyraChatListItem extends StatelessWidget {
                 icon: Icon(
                   Icons.more_horiz,
                   size: 16,
-                  color: SyraColors.iconMuted.withValues(alpha: 0.5),
+                  color: SyraColors.iconMuted.withOpacity(0.5),
                 ),
                 color: SyraColors.surface,
                 shape: RoundedRectangleBorder(

@@ -65,7 +65,7 @@ extension SyraAnimateExtensions on Widget {
     return animate(onPlay: (controller) => controller.repeat())
         .shimmer(
           duration: duration ?? const Duration(milliseconds: 1200),
-          color: color ?? SyraColors.accent.withValues(alpha: 0.3),
+          color: color ?? SyraColors.accent.withOpacity(0.3),
         );
   }
 

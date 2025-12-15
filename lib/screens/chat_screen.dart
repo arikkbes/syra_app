@@ -98,6 +98,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // This anchors the mode selector popover to the mode label in the app bar
   final LayerLink _modeAnchorLink = LayerLink();
 
+  // GlobalKey for RepaintBoundary (Liquid Glass background capture)
+  final GlobalKey _chatBackgroundKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
@@ -1173,6 +1176,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
               // ═══════════════════════════════════════════════════════════════
               // MAIN CHAT CONTENT - Centered with max width + sliding animation
+              // Wrapped in RepaintBoundary for Liquid Glass background capture
               // ═══════════════════════════════════════════════════════════════
               SafeArea(
                 child: Align(
@@ -1189,7 +1193,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           ? BoxDecoration(
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.2),
+                                  color: Colors.black.withOpacity(0.2),
                                   blurRadius: 32,
                                   offset: const Offset(-8, 0),
                                 ),
@@ -1205,45 +1209,49 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             onModeTap: _handleModeSelection,
                             onDocumentUpload: _handleDocumentUpload,
                           ),
+                          // RepaintBoundary wraps message list and background
                           Expanded(
-                            child: ChatMessageList(
-                              isEmpty: _messages.isEmpty,
-                              isTarotMode: _isTarotMode,
-                              isAITyping:
-                                  _isAITyping, // ← STREAMING: typing indicator
-                              onSuggestionTap: (text) {
-                                setState(() {
-                                  _controller.text = text;
-                                });
-                                _inputFocusNode.requestFocus();
-                                _controller.selection =
-                                    TextSelection.fromPosition(
-                                  TextPosition(offset: _controller.text.length),
-                                );
-                              },
-                              messages: _messages,
-                              scrollController: _scrollController,
-                              isTyping: _isTyping,
-                              swipedMessageId: _swipedMessageId,
-                              swipeOffset: _swipeOffset,
-                              onMessageLongPress: (msg) =>
-                                  _showMessageMenu(context, msg),
-                              onSwipeUpdate: (msg, delta) {
-                                setState(() {
-                                  _swipedMessageId = msg["id"];
-                                  _swipeOffset =
-                                      (_swipeOffset + delta).clamp(0, 30);
-                                });
-                              },
-                              onSwipeEnd: (msg, shouldReply) {
-                                if (shouldReply) {
-                                  setState(() => _replyingTo = msg);
-                                }
-                                setState(() {
-                                  _swipeOffset = 0;
-                                  _swipedMessageId = null;
-                                });
-                              },
+                            child: RepaintBoundary(
+                              key: _chatBackgroundKey,
+                              child: ChatMessageList(
+                                isEmpty: _messages.isEmpty,
+                                isTarotMode: _isTarotMode,
+                                isAITyping:
+                                    _isAITyping, // ← STREAMING: typing indicator
+                                onSuggestionTap: (text) {
+                                  setState(() {
+                                    _controller.text = text;
+                                  });
+                                  _inputFocusNode.requestFocus();
+                                  _controller.selection =
+                                      TextSelection.fromPosition(
+                                    TextPosition(offset: _controller.text.length),
+                                  );
+                                },
+                                messages: _messages,
+                                scrollController: _scrollController,
+                                isTyping: _isTyping,
+                                swipedMessageId: _swipedMessageId,
+                                swipeOffset: _swipeOffset,
+                                onMessageLongPress: (msg) =>
+                                    _showMessageMenu(context, msg),
+                                onSwipeUpdate: (msg, delta) {
+                                  setState(() {
+                                    _swipedMessageId = msg["id"];
+                                    _swipeOffset =
+                                        (_swipeOffset + delta).clamp(0, 30);
+                                  });
+                                },
+                                onSwipeEnd: (msg, shouldReply) {
+                                  if (shouldReply) {
+                                    setState(() => _replyingTo = msg);
+                                  }
+                                  setState(() {
+                                    _swipeOffset = 0;
+                                    _swipedMessageId = null;
+                                  });
+                                },
+                              ),
                             ),
                           ),
                           ChatInputBar(
@@ -1268,6 +1276,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 _pickImageForPreview(ImageSource.gallery),
                             onModeTap: _handleModeSelection,
                             currentMode: _getModeDisplayName(),
+                            chatBackgroundKey: _chatBackgroundKey, // ← Pass the key
                           ),
                         ],
                       ),
@@ -1287,7 +1296,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       color: _menuOpen
-                          ? Colors.black.withValues(alpha: 0.5)
+                          ? Colors.black.withOpacity(0.5)
                           : Colors.transparent,
                     ),
                   ),
@@ -1354,7 +1363,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               // Loading overlay for relationship upload
               if (_isUploadingRelationshipFile)
                 Container(
-                  color: Colors.black.withValues(alpha: 0.7),
+                  color: Colors.black.withOpacity(0.7),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
@@ -1367,7 +1376,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         Text(
                           'Sohbet analiz ediliyor...',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.9),
+                            color: Colors.white.withOpacity(0.9),
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -1376,7 +1385,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                         Text(
                           'Bu işlem 10-30 saniye sürebilir',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.6),
+                            color: Colors.white.withOpacity(0.6),
                             fontSize: 13,
                           ),
                         ),
@@ -2486,7 +2495,7 @@ class SyraMessageBubble extends StatelessWidget {
                 padding: const EdgeInsets.all(8),
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: Colors.black.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(

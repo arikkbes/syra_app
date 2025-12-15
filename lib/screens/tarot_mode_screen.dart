@@ -188,9 +188,9 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withValues(alpha: 0.5),
+            color: SyraColors.surface.withOpacity(0.5),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: SyraColors.border.withValues(alpha: 0.3)),
+            border: Border.all(color: SyraColors.border.withOpacity(0.3)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -201,7 +201,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
                 child: Text(
                   text,
                   style: TextStyle(
-                    color: SyraColors.textSecondary.withValues(alpha: 0.9),
+                    color: SyraColors.textSecondary.withOpacity(0.9),
                     fontSize: 14,
                     height: 1.5,
                   ),
@@ -335,10 +335,10 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
                   return Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
-                      color: SyraColors.accent.withValues(alpha: 0.1),
+                      color: SyraColors.accent.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: SyraColors.accent.withValues(alpha: 0.3),
+                        color: SyraColors.accent.withOpacity(0.3),
                       ),
                     ),
                     child: Text(
@@ -361,11 +361,11 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
               color: SyraColors.surface,
               borderRadius: BorderRadius.circular(16),
               border: Border.all(
-                color: SyraColors.accent.withValues(alpha: 0.2),
+                color: SyraColors.accent.withOpacity(0.2),
               ),
               boxShadow: [
                 BoxShadow(
-                  color: SyraColors.accent.withValues(alpha: 0.05),
+                  color: SyraColors.accent.withOpacity(0.05),
                   blurRadius: 16,
                   offset: const Offset(0, 4),
                 ),
@@ -374,7 +374,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
             child: Text(
               message.text!,
               style: TextStyle(
-                color: SyraColors.textPrimary.withValues(alpha: 0.95),
+                color: SyraColors.textPrimary.withOpacity(0.95),
                 fontSize: 15,
                 height: 1.7,
                 letterSpacing: 0.2,
@@ -394,10 +394,10 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           decoration: BoxDecoration(
-            color: SyraColors.accent.withValues(alpha: 0.15),
+            color: SyraColors.accent.withOpacity(0.15),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: SyraColors.accent.withValues(alpha: 0.3),
+              color: SyraColors.accent.withOpacity(0.3),
             ),
           ),
           child: Text(
@@ -428,7 +428,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
           child: Text(
             text,
             style: TextStyle(
-              color: SyraColors.textPrimary.withValues(alpha: 0.95),
+              color: SyraColors.textPrimary.withOpacity(0.95),
               fontSize: 15,
               height: 1.6,
             ),
@@ -458,14 +458,14 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(SyraColors.accent.withValues(alpha: 0.6)),
+                  valueColor: AlwaysStoppedAnimation(SyraColors.accent.withOpacity(0.6)),
                 ),
               ),
               const SizedBox(width: 12),
               Text(
                 'Yazıyor...',
                 style: TextStyle(
-                  color: SyraColors.textMuted.withValues(alpha: 0.8),
+                  color: SyraColors.textMuted.withOpacity(0.8),
                   fontSize: 14,
                   fontStyle: FontStyle.italic,
                 ),
@@ -506,7 +506,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
                   decoration: InputDecoration(
                     hintText: 'Bu okuma hakkında bir şey sor...',
                     hintStyle: TextStyle(
-                      color: SyraColors.textMuted.withValues(alpha: 0.6),
+                      color: SyraColors.textMuted.withOpacity(0.6),
                       fontSize: 15,
                     ),
                     border: InputBorder.none,

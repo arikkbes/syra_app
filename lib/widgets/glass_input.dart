@@ -145,7 +145,7 @@ class _GlassInputBarState extends State<GlassInputBar> {
               decoration: BoxDecoration(
                 color: _hasText && !widget.isLoading
                     ? SyraColors.textPrimary
-                    : SyraColors.textMuted.withValues(alpha: 0.3),
+                    : SyraColors.textMuted.withOpacity(0.3),
                 shape: BoxShape.circle,
               ),
               child: widget.isLoading

@@ -524,7 +524,7 @@ class _LoginScreenState extends State<LoginScreen>
   // ─────────────────────────────────────────────────────────────
   Widget _buildLoadingOverlay() {
     return Container(
-      color: Colors.black.withValues(alpha: 0.6),
+      color: Colors.black.withOpacity(0.6),
       child: const Center(
         child: CircularProgressIndicator(
           valueColor: AlwaysStoppedAnimation<Color>(SyraColors.accent),

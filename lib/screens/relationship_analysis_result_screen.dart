@@ -67,7 +67,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
           decoration: BoxDecoration(
-            color: SyraColors.background.withValues(alpha: 0.8),
+            color: SyraColors.background.withOpacity(0.8),
             border: Border(
               bottom: BorderSide(
                 color: SyraColors.divider,
@@ -136,8 +136,8 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withOpacity(0.2),
+                      SyraColors.accent.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -225,8 +225,8 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withOpacity(0.2),
+                      SyraColors.accent.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -275,8 +275,8 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withOpacity(0.2),
+                      SyraColors.accent.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -361,7 +361,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 Text(
                   point.description!,
                   style: TextStyle(
-                    color: SyraColors.textSecondary.withValues(alpha: 0.8),
+                    color: SyraColors.textSecondary.withOpacity(0.8),
                     fontSize: 13,
                     height: 1.4,
                   ),
@@ -387,8 +387,8 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraColors.accent.withValues(alpha: 0.2),
-                      SyraColors.accent.withValues(alpha: 0.2),
+                      SyraColors.accent.withOpacity(0.2),
+                      SyraColors.accent.withOpacity(0.2),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -426,10 +426,10 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: SyraColors.surface.withValues(alpha: 0.5),
+        color: SyraColors.surface.withOpacity(0.5),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: SyraColors.border.withValues(alpha: 0.3),
+          color: SyraColors.border.withOpacity(0.3),
           width: 0.5,
         ),
       ),
@@ -448,7 +448,7 @@ class RelationshipAnalysisResultScreen extends StatelessWidget {
           Text(
             moment.description,
             style: TextStyle(
-              color: SyraColors.textSecondary.withValues(alpha: 0.9),
+              color: SyraColors.textSecondary.withOpacity(0.9),
               fontSize: 13,
               height: 1.5,
             ),
@@ -499,10 +499,10 @@ class GlassCard extends StatelessWidget {
         child: Container(
           padding: padding ?? const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: SyraColors.surface.withValues(alpha: 0.6),
+            color: SyraColors.surface.withOpacity(0.6),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: SyraColors.border.withValues(alpha: 0.5),
+              color: SyraColors.border.withOpacity(0.5),
               width: 0.5,
             ),
           ),

@@ -1,177 +1,206 @@
 // lib/theme/syra_glass_tokens.dart
-// ═══════════════════════════════════════════════════════════════
-// SYRA GLASS SYSTEM - UNIFIED FIGMA-MATCHED PRESET
-// ═══════════════════════════════════════════════════════════════
-// Single source of truth for all glass effects
-// Figma values: radius=24, blur=24, 
-// white=7.000000000000001%, black=8.0%
-// ═══════════════════════════════════════════════════════════════
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
-/// Unified glass specification matching Figma design
-class SyraGlassSpec {
-  SyraGlassSpec._();
+/// Liquid Glass design tokens for SYRA
+/// Based on Figma "Liquid Glass button iOS 26 – Bold variant"
+/// Adapted to SYRA's dark theme (#11131A background)
+class SyraGlassTokens {
+  SyraGlassTokens._();
 
-
-  // ─── LEGACY COLOR CONSTANTS (for backward compatibility) ───
-  static final Color white20 = Colors.white.withValues(alpha: 0.20);
-  static final Color white12 = Colors.white.withValues(alpha: 0.12);
-  static final Color white8 = Colors.white.withValues(alpha: 0.08);
-  static final Color white1 = Colors.white.withValues(alpha: 0.01);
-
-  // ─── FIGMA-MATCHED VALUES ───
-  static const double radius = 24;
-  static const double blurSigma = 24;
+  // ===== BASE COLORS =====
   
-  // Overlay colors (white + black tint)
-  static final Color whiteOverlay = Colors.white.withValues(alpha: 0.07);
-  static final Color blackOverlay = Colors.black.withValues(alpha: 0.08);
+  /// Base glass color - adapted from Figma #1D1D1D to fit SYRA's #11131A
+  /// Slightly lighter than the background for the glass effect
+  static const Color glassBase = Color(0xFF1A1D26);
   
-  // Stroke
-  static final Color strokeColor = Colors.white.withValues(alpha: 0.1);
-  static const double strokeWidth = 1.0;
+  /// Glass overlay - 20% opacity layer
+  static const Color glassOverlay = Color(0x331A1D26);
   
-  // Shadow
-  static final BoxShadow defaultShadow = BoxShadow(
-    color: Colors.black.withValues(alpha: 0.12),
-    blurRadius: 20,
-    offset: const Offset(0, 8),
-    spreadRadius: 0,
-  );
-
-  // ─── VARIANT RADII (for different components) ───
-  static const double radiusCard = 16.0;
-  static const double radiusPill = 999.0;
-  static const double radiusButton = 999.0;
+  // ===== FIGMA CHAT BAR COLORS =====
+  // Extracted from Figma Liquid Glass Chat Bar design
   
-  // ─── BLUR VARIANTS ───
-  static const double blurSubtle = 16.0;
-  static const double blurStrong = 28.0;
+  /// Black base - 100% opacity
+  static const Color chatBarBlack100 = Color(0xFF000000);
   
-  // ─── DIMENSIONS ───
-  static const double barHeight = 48.0;
+  /// Dark gray - 45% opacity (#333333)
+  static const Color chatBarGray45 = Color(0x73333333);
+  
+  /// Light gray - 30% opacity (#999999)
+  static const Color chatBarGray30 = Color(0x4D999999);
+  
+  // ===== WHITE OPACITY VARIANTS =====
+  
+  /// White at 100% - for brightest highlights
+  static const Color white100 = Color(0xFFFFFFFF);
+  
+  /// White at 40% - for main glass gradient
+  static const Color white40 = Color(0x66FFFFFF);
+  
+  /// White at 20% - for borders and subtle effects
+  static const Color white20 = Color(0x33FFFFFF);
+  
+  /// White at 1-2% - for very subtle inner glow
+  static const Color white1 = Color(0x05FFFFFF);
+  
+  // ===== GLASS GRADIENTS =====
+  
+  /// Main glass gradient for button surfaces
+  /// Combines dark base with white highlights
+  static LinearGradient get glassGradient => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          white20, // Top-left highlight
+          glassBase.withOpacity(0.6), // Center
+          glassBase.withOpacity(0.8), // Bottom-right
+        ],
+        stops: const [0.0, 0.4, 1.0],
+      );
+  
+  /// Chat bar gradient - Figma-derived layered fills
+  /// Creates depth with black, dark gray, and light gray layers
+  static LinearGradient get chatBarGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          chatBarGray30, // Top: Light gray highlight
+          chatBarGray45, // Middle: Dark gray body
+          chatBarBlack100.withOpacity(0.85), // Bottom: Black depth
+        ],
+        stops: const [0.0, 0.5, 1.0],
+      );
+  
+  /// Subtle inner glow gradient
+  static LinearGradient get innerGlowGradient => LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [
+          white1,
+          Colors.transparent,
+        ],
+      );
+  
+  // ===== BORDERS =====
+  
+  /// Glass border width
+  static const double borderWidth = 1.2;
+  
+  /// Glass border color (white at 20%)
+  static Color get borderColor => white20;
+  
+  // ===== SHADOWS =====
+  
+  /// Soft shadow for glass elements
+  /// Positioned below the element for depth
+  static List<BoxShadow> get glassShadow => [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.65),
+          blurRadius: 22,
+          offset: const Offset(0, 10),
+          spreadRadius: 0,
+        ),
+      ];
+  
+  /// Inner shadows for chat bar - creates depth and bevel effect
+  /// Stack of multiple shadows to simulate Figma's layered inner shadows
+  static List<BoxShadow> get chatBarInnerShadows => [
+        // Top highlight
+        BoxShadow(
+          color: Colors.white.withOpacity(0.12),
+          blurRadius: 3,
+          offset: const Offset(0, 1),
+          spreadRadius: -1,
+        ),
+        // Bottom depth
+        BoxShadow(
+          color: Colors.black.withOpacity(0.3),
+          blurRadius: 6,
+          offset: const Offset(0, -2),
+          spreadRadius: -2,
+        ),
+        // Side depth left
+        BoxShadow(
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 4,
+          offset: const Offset(1, 0),
+          spreadRadius: -1,
+        ),
+        // Side depth right
+        BoxShadow(
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 4,
+          offset: const Offset(-1, 0),
+          spreadRadius: -1,
+        ),
+      ];
+  
+  /// Subtle inner shadow for depth (original)
+  static List<BoxShadow> get innerShadow => [
+        BoxShadow(
+          color: Colors.white.withOpacity(0.08),
+          blurRadius: 4,
+          offset: const Offset(0, 1),
+          spreadRadius: -2,
+        ),
+      ];
+  
+  // ===== BLUR VALUES =====
+  
+  /// Backdrop filter blur amount (default)
+  static const double blurSigma = 16.0;
+  
+  /// Chat bar blur - Figma Gaussian blur (20-28 range)
+  static const double chatBarBlur = 24.0;
+  
+  // ===== DIMENSIONS =====
+  
+  /// Circular button size (Bold variant)
   static const double buttonSize = 48.0;
   
-  // ─── PADDING ───
-  static const double barPaddingHorizontal = 14.0;
-  static const double barPaddingVertical = 12.0;
-  
-  // ─── BORDERS ───
-  static final Color borderColor = strokeColor; // Alias for compatibility
-  static const double borderWidth = strokeWidth; // Alias for compatibility
-  
-  // ─── CHAT BAR SPECIFIC (legacy compatibility) ───
-  static const double chatBarPaddingHorizontal = 14.0;
-  static const double chatBarPaddingVertical = 12.0;
-  static const double chatBarRadius = radius; // Same as default
-  static const double chatBarBlur = blurSigma; // Same as default
-  static const double chatBarIconSpacing = 8.0;
-  
-  // ─── ANIMATION ───
-  static const Duration animationDuration = Duration(milliseconds: 200);
-  static const double scaleUp = 1.05;
-  
-  // ─── GRADIENTS (for legacy components) ───
-  static final LinearGradient glassGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [whiteOverlay, blackOverlay],
-  );
-  
-  static final LinearGradient chatBarGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [whiteOverlay, blackOverlay],
-  );
-  
-  static final LinearGradient innerGlowGradient = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [
-      Colors.white.withValues(alpha: 0.02),
-      Colors.transparent,
-    ],
-  );
-  
-  // ─── SHADOWS (legacy) ───
-  static final List<BoxShadow> glassShadow = [defaultShadow];
-  static const List<BoxShadow> chatBarInnerShadows = [];
-
-
-  // ─── ANIMATION & INTERACTION ───
-  static const double scaleDown = 0.92;
-  static const Curve animationCurve = Curves.easeOut;
-
-  // ─── ICON SIZES ───
-  static const double iconSize = 24.0;
-  static const double chatBarIconSize = 24.0;
-  // TODO: Define animationCurve
-  // TODO: Define iconSize
-  // TODO: Define chatBarIconSize
-  // TODO: Define scaleDown
+  /// Circular button radius (perfect circle)
   static const double buttonRadius = 24.0;
-
-}
-
-/// Clean liquid glass container - NO gradients, NO highlights
-/// Uses only: blur + white/black overlays + stroke + shadow
-class SyraLiquidGlass extends StatelessWidget {
-  final Widget child;
-  final EdgeInsetsGeometry? padding;
-  final double? borderRadius;
-  final double? blur;
-  final double? height;
-  final double? width;
-
-  const SyraLiquidGlass({
-    super.key,
-    required this.child,
-    this.padding,
-    this.borderRadius,
-    this.blur,
-    this.height,
-    this.width,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final effectiveRadius = borderRadius ?? SyraGlassSpec.radius;
-    final effectiveBlur = blur ?? SyraGlassSpec.blurSigma;
-
-    return Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(effectiveRadius),
-        boxShadow: [SyraGlassSpec.defaultShadow],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(effectiveRadius),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: effectiveBlur,
-            sigmaY: effectiveBlur,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              // Simple color blend: white + black overlays only
-              color: Color.alphaBlend(
-                SyraGlassSpec.whiteOverlay,
-                SyraGlassSpec.blackOverlay,
-              ),
-              borderRadius: BorderRadius.circular(effectiveRadius),
-              border: Border.all(
-                color: SyraGlassSpec.strokeColor,
-                width: SyraGlassSpec.strokeWidth,
-              ),
-            ),
-            padding: padding ?? EdgeInsets.zero,
-            child: child,
-          ),
-        ),
-      ),
-    );
-  }
+  
+  /// Icon size in circular button
+  static const double iconSize = 20.0;
+  
+  /// Glass bar height (pill shape)
+  static const double barHeight = 48.0;
+  
+  /// Glass bar radius (pill = height / 2)
+  static const double barRadius = 24.0;
+  
+  /// Glass bar horizontal padding
+  static const double barPaddingHorizontal = 14.0;
+  
+  // ===== CHAT BAR DIMENSIONS (Figma-derived) =====
+  
+  /// Chat bar corner radius - Figma value 54.99 (rounded to 55)
+  static const double chatBarRadius = 55.0;
+  
+  /// Chat bar icon size - Material 3 standard (24×24)
+  static const double chatBarIconSize = 24.0;
+  
+  /// Space between chat bar icons
+  static const double chatBarIconSpacing = 12.0;
+  
+  /// Chat bar vertical padding
+  static const double chatBarPaddingVertical = 10.0;
+  
+  /// Chat bar horizontal padding
+  static const double chatBarPaddingHorizontal = 16.0;
+  
+  // ===== ANIMATION =====
+  
+  /// Scale animation duration
+  static const Duration animationDuration = Duration(milliseconds: 200);
+  
+  /// Scale animation curve
+  static const Curve animationCurve = Curves.easeOutCubic;
+  
+  /// Scale down value on press (elevated animation)
+  static const double scaleDown = 0.92;
+  
+  /// Scale up value (normal)
+  static const double scaleUp = 1.0;
 }

@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
 import '../theme/syra_animations.dart';
-import '../theme/syra_glass_tokens.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM MODE SELECTOR POPOVER
@@ -35,23 +34,16 @@ class ModeSelectorPopover extends StatelessWidget {
         borderRadius: BorderRadius.circular(SyraRadius.lg),
         child: BackdropFilter(
           filter: ImageFilter.blur(
-            sigmaX: SyraGlassSpec.blurSubtle,
-            sigmaY: SyraGlassSpec.blurSubtle,
+            sigmaX: SyraGlass.blurMedium,
+            sigmaY: SyraGlass.blurMedium,
           ),
           child: Container(
             width: 320,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white.withValues(alpha: 0.07),
-                Colors.black.withValues(alpha: 0.08),
-              ],
-            ),
+              gradient: SyraGlass.liquidGlassGradient,
               borderRadius: BorderRadius.circular(SyraRadius.lg),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.12),
+                color: SyraGlass.white12,
                 width: 1,
               ),
               boxShadow: [
