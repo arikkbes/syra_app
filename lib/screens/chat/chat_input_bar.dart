@@ -6,7 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:syra/widgets/glass_refraction.dart';
+import '../../theme/syra_glass_tokens.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// IOS LIQUID GLASS CHAT INPUT BAR
@@ -105,13 +105,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// IOS GLASS INPUT BAR - Real Refraction Shader
+  /// IOS LIQUID GLASS INPUT BAR - Perfect Implementation
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildIOSLiquidGlassInputBar(bool canSend, bool hasText) {
     return Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
-        // Soft shadow
+        // Soft shadow: black 12%, blur 20, offset (0,8)
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.12),
@@ -121,116 +121,119 @@ class _ChatInputBarState extends State<ChatInputBar> {
           ),
         ],
       ),
-      child: GlassRefraction(
-        thickness: 0.15,
-        refractiveIndex: 1.25,
-        blur: 24.0,
+      child: ClipRRect(
         borderRadius: BorderRadius.circular(24),
-        child: Container(
-          decoration: BoxDecoration(
-            // Base overlay
-            color: Color.alphaBlend(
-              Colors.white.withValues(alpha: 0.07),
-              Colors.black.withValues(alpha: 0.08),
+        child: BackdropFilter(
+          // Blur sigma 24
+          filter: ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+          child: Container(
+            decoration: BoxDecoration(
+              // Overlays: white 7% + black 8% (blended)
+              color: Color.alphaBlend(
+                Colors.white.withValues(alpha: 0.07),
+                Colors.black.withValues(alpha: 0.08),
+              ),
+              borderRadius: BorderRadius.circular(24),
+              // Border: 1px white 10%
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+                width: 1.0,
+              ),
             ),
-            borderRadius: BorderRadius.circular(24),
-            // Border
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.10),
-              width: 1.0,
-            ),
-          ),
-          child: Stack(
-            children: [
-              // Top highlight
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 1,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.06),
-                        Colors.white.withValues(alpha: 0.10),
-                        Colors.white.withValues(alpha: 0.06),
-                      ],
-                      stops: const [0.0, 0.5, 1.0],
+            child: Stack(
+              children: [
+                // Subtle 1px inner highlight at top edge (white 6-10%)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: Container(
+                    height: 1,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.white.withValues(alpha: 0.06),
+                          Colors.white.withValues(alpha: 0.10),
+                          Colors.white.withValues(alpha: 0.06),
+                        ],
+                        stops: const [0.0, 0.5, 1.0],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              // Content
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    _buildIconButton(
-                      iconPath: 'assets/icons/plus.svg',
-                      onTap: widget.onAttachmentTap,
-                    ),
-                    const SizedBox(width: 6),
-                    _buildIconButton(
-                      iconPath: 'assets/icons/camera.svg',
-                      onTap: widget.onCameraTap ?? () {},
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: TextField(
-                        controller: widget.controller,
-                        focusNode: widget.focusNode,
-                        enabled: !widget.isSending,
-                        maxLines: 1,
-                        onChanged: (_) => widget.onTextChanged(),
-                        style: const TextStyle(
-                          color: Color(0xFFCFCFCF),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        decoration: InputDecoration(
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
-                          hintText: 'SYRA\'ya sor…',
-                          hintStyle: TextStyle(
-                            color:
-                                const Color(0xFFCFCFCF).withValues(alpha: 0.60),
+                // Content
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // Plus icon
+                      _buildIconButton(
+                        iconPath: 'assets/icons/plus.svg',
+                        onTap: widget.onAttachmentTap,
+                      ),
+                      const SizedBox(width: 6),
+                      // Camera icon
+                      _buildIconButton(
+                        iconPath: 'assets/icons/camera.svg',
+                        onTap: widget.onCameraTap ?? () {},
+                      ),
+                      const SizedBox(width: 10),
+                      // TextField
+                      Expanded(
+                        child: TextField(
+                          controller: widget.controller,
+                          focusNode: widget.focusNode,
+                          enabled: !widget.isSending,
+                          maxLines: 1,
+                          onChanged: (_) => widget.onTextChanged(),
+                          style: const TextStyle(
+                            color: Color(0xFFCFCFCF),
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
+                          decoration: InputDecoration(
+                            isDense: true,
+                            contentPadding: EdgeInsets.zero,
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            filled: false,
+                            hintText: 'SYRA\'ya sor…',
+                            hintStyle: TextStyle(
+                              color: const Color(0xFFCFCFCF).withValues(alpha: 0.60),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                          onSubmitted: (_) {
+                            if (canSend) {
+                              HapticFeedback.mediumImpact();
+                              widget.onSendMessage();
+                            }
+                          },
                         ),
-                        onSubmitted: (_) {
-                          if (canSend) {
-                            HapticFeedback.mediumImpact();
-                            widget.onSendMessage();
-                          }
-                        },
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    if (canSend) ...[
-                      _buildSendButton(),
-                    ] else ...[
-                      if (widget.isListening)
-                        _buildVoiceWaveButton()
-                      else
-                        _buildIconButton(
-                          iconPath: 'assets/icons/mic.svg',
-                          onTap: widget.onVoiceInputTap,
-                        ),
+                      const SizedBox(width: 10),
+                      // Mic or Send
+                      if (canSend) ...[
+                        _buildSendButton(),
+                      ] else ...[
+                        if (widget.isListening)
+                          _buildVoiceWaveButton()
+                        else
+                          _buildIconButton(
+                            iconPath: 'assets/icons/mic.svg',
+                            onTap: widget.onVoiceInputTap,
+                          ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
