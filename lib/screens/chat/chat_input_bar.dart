@@ -74,13 +74,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
   @override
   void initState() {
     super.initState();
-    
+
     // Initialize Liquid Glass shader if backgroundKey is provided
     if (widget.chatBackgroundKey != null) {
       _liquidGlassShader = LiquidGlassLensShader();
       _liquidGlassShader!.initialize().then((_) {
         if (!_liquidGlassShader!.isLoaded) {
-          debugPrint('⚠️ Liquid Glass shader failed to load, using fallback blur');
+          debugPrint(
+              '⚠️ Liquid Glass shader failed to load, using fallback blur');
           if (mounted) {
             setState(() {
               _useLiquidGlass = false;
@@ -111,7 +112,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -134,74 +135,81 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - With Liquid Glass Shader
+  /// GLASSMORPHISM INPUT BAR - Claude-style with buttons below
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
     final inputBarContent = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          // Plus icon - sol
-          _buildIconButton(
-            iconPath: 'assets/icons/plus.svg',
-            onTap: widget.onAttachmentTap,
-          ),
-          const SizedBox(width: 6),
-          // Camera icon
-          _buildIconButton(
-            iconPath: 'assets/icons/camera.svg',
-            onTap: widget.onCameraTap ?? () {},
-          ),
-          const SizedBox(width: 10),
-          // TextField - genişleyen
-          Expanded(
-            child: TextField(
-              controller: widget.controller,
-              focusNode: widget.focusNode,
-              enabled: !widget.isSending,
-              maxLines: 1,
-              onChanged: (_) => widget.onTextChanged(),
-              style: const TextStyle(
-                color: Color(0xFFCFCFCF),
-                fontSize: 14,
+          // TextField - üstte, tam genişlik
+          TextField(
+            controller: widget.controller,
+            focusNode: widget.focusNode,
+            enabled: !widget.isSending,
+            maxLines: null,
+            minLines: 1,
+            keyboardType: TextInputType.multiline,
+            textInputAction: TextInputAction.newline,
+            onChanged: (_) => widget.onTextChanged(),
+            style: const TextStyle(
+              color: Color(0xFFCFCFCF),
+              fontSize: 15,
+              fontWeight: FontWeight.w400,
+              height: 1.4,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              contentPadding: const EdgeInsets.symmetric(vertical: 2),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              filled: false,
+              hintText: 'SYRA\'ya sor…',
+              hintStyle: TextStyle(
+                color: const Color(0xFFCFCFCF).withOpacity(0.50),
+                fontSize: 15,
                 fontWeight: FontWeight.w400,
               ),
-              decoration: InputDecoration(
-                isDense: true,
-                contentPadding: EdgeInsets.zero,
-                border: InputBorder.none,
-                enabledBorder: InputBorder.none,
-                focusedBorder: InputBorder.none,
-                filled: false,
-                hintText: 'SYRA\'ya sor…',
-                hintStyle: TextStyle(
-                  color: const Color(0xFFCFCFCF).withOpacity(0.60),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
-              ),
-              onSubmitted: (_) {
-                if (canSend) {
-                  HapticFeedback.mediumImpact();
-                  widget.onSendMessage();
-                }
-              },
             ),
+            onSubmitted: (_) {
+              if (canSend) {
+                HapticFeedback.mediumImpact();
+                widget.onSendMessage();
+              }
+            },
           ),
-          const SizedBox(width: 10),
-          // Mic veya Send - sağ
-          if (canSend) ...[
-            _buildSendButton(),
-          ] else ...[
-            if (widget.isListening)
-              _buildVoiceWaveButton()
-            else
+          const SizedBox(height: 8),
+          // Butonlar - altta
+          Row(
+            children: [
+              // Plus icon
               _buildIconButton(
-                iconPath: 'assets/icons/mic.svg',
-                onTap: widget.onVoiceInputTap,
+                iconPath: 'assets/icons/plus.svg',
+                onTap: widget.onAttachmentTap,
               ),
-          ],
+              const SizedBox(width: 4),
+              // Camera icon
+              _buildIconButton(
+                iconPath: 'assets/icons/camera.svg',
+                onTap: widget.onCameraTap ?? () {},
+              ),
+              const Spacer(),
+              // Mic veya Send - sağ
+              if (canSend) ...[
+                _buildSendButton(),
+              ] else ...[
+                if (widget.isListening)
+                  _buildVoiceWaveButton()
+                else
+                  _buildIconButton(
+                    iconPath: 'assets/icons/mic.svg',
+                    onTap: widget.onVoiceInputTap,
+                  ),
+              ],
+            ],
+          ),
         ],
       ),
     );
@@ -225,35 +233,66 @@ class _ChatInputBarState extends State<ChatInputBar> {
       );
     }
 
-    // Fallback to standard blur
+    // Fallback to standard blur with Claude styling
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
+          constraints: const BoxConstraints(
+            minHeight: 56,
+            maxHeight: 200,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withOpacity(0.12),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: inputBarContent,
+          child: Stack(
+            children: [
+              // Content
+              inputBarContent,
+              // Top highlight gradient
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 28,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withOpacity(0.14),
+                        Colors.white.withOpacity(0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// ICON BUTTON - 24×24 SVG with tap area
+  /// ICON BUTTON - Claude-style smaller icons
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildIconButton({
     required String iconPath,
@@ -265,15 +304,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         onTap();
       },
       child: SizedBox(
-        width: 28,
-        height: 28,
+        width: 36,
+        height: 36,
         child: Center(
           child: SvgPicture.asset(
             iconPath,
-            width: 24,
-            height: 24,
+            width: 20,
+            height: 20,
             colorFilter: ColorFilter.mode(
-              Colors.white.withOpacity(0.8),
+              Colors.white.withOpacity(0.7),
               BlendMode.srcIn,
             ),
           ),
@@ -283,7 +322,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// SEND BUTTON - 33×33 white circle with arrow_up
+  /// SEND BUTTON - Claude-style
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildSendButton() {
     return _TapScale(
@@ -292,11 +331,11 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onSendMessage();
       },
       child: Container(
-        width: 33,
-        height: 33,
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          shape: BoxShape.circle,
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.9),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
           child: SvgPicture.asset(

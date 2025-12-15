@@ -41,7 +41,7 @@ class _ChatInputBarLiquidGlassState extends State<ChatInputBarLiquidGlass> {
   @override
   void initState() {
     super.initState();
-    
+
     // Check if shader loaded successfully
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!widget.shader.isLoaded) {
@@ -49,7 +49,8 @@ class _ChatInputBarLiquidGlassState extends State<ChatInputBarLiquidGlass> {
           _shaderFailed = true;
         });
         widget.onShaderLoadFailed?.call();
-        debugPrint('⚠️ Liquid Glass shader failed to load, using fallback blur');
+        debugPrint(
+            '⚠️ Liquid Glass shader failed to load, using fallback blur');
       } else {
         // Initial capture
         _captureBackground();
@@ -167,47 +168,136 @@ class _ChatInputBarLiquidGlassState extends State<ChatInputBarLiquidGlass> {
   Widget _buildLiquidGlass() {
     if (_capturedBackground == null) {
       // Still loading first capture
-      return widget.child;
+      return _buildFallbackBlur();
     }
 
-    // Update shader uniforms
+    // Update shader uniforms with dynamic height
     final size = MediaQuery.of(context).size;
     widget.shader.updateShaderUniforms(
-      width: size.width - 32, // Account for padding
-      height: 90, // ChatInputBar height
+      width: size.width - 32,
+      height: 120, // Increased for multiline support
       backgroundImage: _capturedBackground,
     );
 
-    return CustomPaint(
-      size: Size(size.width - 32, 90),
-      painter: ShaderPainter(widget.shader.shader),
-      child: widget.child,
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        constraints: const BoxConstraints(
+          minHeight: 56,
+          maxHeight: 200,
+        ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: Colors.white.withOpacity(0.12),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.35),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Shader background
+            CustomPaint(
+              size: Size(size.width - 32, 120),
+              painter: ShaderPainter(widget.shader.shader),
+            ),
+            // Tint overlay
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+              ),
+            ),
+            // Top highlight gradient
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 28,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withOpacity(0.14),
+                      Colors.white.withOpacity(0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Content
+            widget.child,
+          ],
+        ),
+      ),
     );
   }
 
-  /// Fallback to standard blur effect
+  /// Fallback to standard blur effect with Claude styling
   Widget _buildFallbackBlur() {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
         filter: ui.ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
+          constraints: const BoxConstraints(
+            minHeight: 56,
+            maxHeight: 200,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.15),
+              color: Colors.white.withOpacity(0.12),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 4),
+                color: Colors.black.withOpacity(0.35),
+                blurRadius: 24,
+                offset: const Offset(0, 10),
               ),
             ],
           ),
-          child: widget.child,
+          child: Stack(
+            children: [
+              // Content
+              widget.child,
+              // Top highlight gradient
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  height: 28,
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.white.withOpacity(0.14),
+                        Colors.white.withOpacity(0.0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

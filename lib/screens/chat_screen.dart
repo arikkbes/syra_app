@@ -8,19 +8,23 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+
 import '../services/chat_service.dart';
 import '../services/chat_service_streaming.dart'; // ← STREAMING SUPPORT
 import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
 import '../services/relationship_analysis_service.dart';
 import '../services/relationship_memory_service.dart';
+
 import '../models/chat_session.dart';
 import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
+
 import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_bottom_panel.dart';
+
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
 import 'side_menu.dart';
@@ -28,11 +32,16 @@ import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'premium_management_screen.dart';
 import 'tarot_mode_screen.dart';
+
+// ✅ Kim Daha Çok screen import (PATH’i sende farklıysa burayı düzelt)
+import 'kim_daha_cok_screen.dart';
+
 // New extracted widgets
 import 'chat/chat_app_bar.dart';
 import 'chat/chat_message_list.dart';
 import 'chat/chat_input_bar.dart';
 import '../widgets/chatgpt_mode_selector.dart';
+import '../widgets/claude_sidebar.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -63,9 +72,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   Map<String, dynamic>? _replyingTo;
 
-  bool _menuOpen = false;
-  late AnimationController _menuController;
-  late Animation<Offset> _menuOffset;
+  bool _sidebarOpen = false;
 
   double _swipeOffset = 0.0;
   String? _swipedMessageId;
@@ -130,20 +137,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
     });
-
-    _menuController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _menuOffset = Tween<Offset>(
-      begin: const Offset(-1.0, 0.0),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _menuController,
-        curve: Curves.easeOutCubic,
-      ),
-    );
   }
 
   Future<void> _initUser() async {
@@ -225,20 +218,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _menuController.dispose();
     _controller.dispose();
     _scrollController.dispose();
     _inputFocusNode.dispose();
     super.dispose();
   }
 
-  void _toggleMenu() {
-    setState(() => _menuOpen = !_menuOpen);
-    if (_menuOpen) {
-      _menuController.forward();
-    } else {
-      _menuController.reverse();
-    }
+  void _toggleSidebar() {
+    setState(() => _sidebarOpen = !_sidebarOpen);
   }
 
   void _scrollToBottom() {
@@ -340,6 +327,225 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         BlurToast.show(context, result.errorMessage!);
       }
     }
+  }
+
+  Future<void> _renameSessionFromSidebar(ChatSession session) async {
+    final controller = TextEditingController(text: session.title);
+
+    final newTitle = await SyraBottomPanel.show<String>(
+      context: context,
+      maxHeight: 320,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Yeniden Adlandır',
+            style: TextStyle(
+              color: SyraTokens.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Sohbet ismini düzenle.',
+            style: TextStyle(
+              color: SyraTokens.textSecondary.withValues(alpha: 0.9),
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            autofocus: true,
+            style: const TextStyle(
+              color: SyraTokens.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+            decoration: InputDecoration(
+              hintText: 'Örn: İlk buluşma planı',
+              hintStyle: TextStyle(
+                color: SyraTokens.textMuted.withValues(alpha: 0.8),
+              ),
+              filled: true,
+              fillColor: SyraTokens.card,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: SyraTokens.borderSubtle),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: SyraTokens.borderSubtle),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(14),
+                borderSide: BorderSide(color: SyraTokens.accent.withOpacity(0.6)),
+              ),
+            ),
+            onSubmitted: (v) {
+              final t = v.trim();
+              Navigator.pop(context, t.isEmpty ? null : t);
+            },
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SyraTokens.textSecondary,
+                    side: BorderSide(color: SyraTokens.borderSubtle),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Vazgeç'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    final t = controller.text.trim();
+                    Navigator.pop(context, t.isEmpty ? null : t);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SyraTokens.accent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Kaydet',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted) return;
+    final title = (newTitle ?? '').trim();
+    if (title.isEmpty || title == session.title) return;
+
+    final result = await ChatSessionService.renameSession(
+      sessionId: session.id,
+      newTitle: title,
+    );
+
+    if (!mounted) return;
+    if (result.success) {
+      await _loadChatSessions();
+      BlurToast.show(context, 'Sohbet adı güncellendi');
+    } else {
+      BlurToast.show(context, result.errorMessage ?? 'Sohbet adı değiştirilemedi');
+    }
+  }
+
+  Future<void> _deleteSessionFromSidebar(ChatSession session) async {
+    final confirmed = await SyraBottomPanel.show<bool>(
+      context: context,
+      maxHeight: 260,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Sohbet silinsin mi?',
+            style: TextStyle(
+              color: SyraTokens.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '"${session.title}" sohbeti kalıcı olarak silinecek.',
+            style: TextStyle(
+              color: SyraTokens.textSecondary.withValues(alpha: 0.92),
+              fontSize: 13,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context, false),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: SyraTokens.textSecondary,
+                    side: BorderSide(color: SyraTokens.borderSubtle),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text('Vazgeç'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: SyraTokens.error,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: const Text(
+                    'Sil',
+                    style: TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final result = await ChatSessionService.deleteSession(session.id);
+    if (!mounted) return;
+
+    if (result.success) {
+      // If we deleted the currently open chat, create/select a new one
+      if (_currentSessionId == session.id) {
+        setState(() {
+          _currentSessionId = null;
+          _messages.clear();
+          _replyingTo = null;
+          _isTarotMode = false;
+        });
+        await _createInitialSession();
+      }
+
+      await _loadChatSessions();
+      BlurToast.show(context, 'Sohbet silindi');
+    } else {
+      BlurToast.show(context, result.errorMessage ?? 'Sohbet silinemedi');
+    }
+  }
+
+  void _archiveSessionFromSidebar(ChatSession session) {
+    // NOTE: Archive is currently a placeholder in the app.
+    // We still expose the UI for the sidebar context menu.
+    BlurToast.show(context, 'Arşiv özelliği yakında');
   }
 
   /// Start tarot mode - Navigate to dedicated tarot screen
@@ -918,7 +1124,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
 
     // Small delay (AI "thinking")
-    await Future.delayed(Duration(milliseconds: 500));
+    await Future.delayed(const Duration(milliseconds: 500));
 
     // Create empty bot message
     final botMessageId = UniqueKey().toString();
@@ -1081,8 +1287,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Bugünlük mesaj hakkın bitti kanka.\n"
-                    "Premium ile sınırsız devam edebilirsin!",
+                    "Bugünlük mesaj hakkın bitti kanka.\nPremium ile sınırsız devam edebilirsin!",
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: SyraTokens.textSecondary,
@@ -1156,209 +1361,158 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void _openChatSessions() {
     SyraBottomPanel.show(
       context: context,
-      child: const ChatSessionsSheet(),
+      child: ChatSessionsSheet(
+        sessions: _chatSessions,
+        currentSessionId: _currentSessionId,
+        onNewChat: _startNewChat,
+        onSelectSession: (id) async => _loadSelectedChat(id),
+        onRefresh: _loadChatSessions,
+      ),
     );
   }
 
+  // ✅ FIX: build() BLOĞU BAŞTAN TEMİZ (parantez dengesi düzgün)
   @override
   Widget build(BuildContext context) {
     return PopScope(
       canPop: false,
       child: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-        },
+        onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
           backgroundColor: SyraTokens.background,
           body: Stack(
             children: [
               const SyraBackground(),
 
-              // ═══════════════════════════════════════════════════════════════
-              // MAIN CHAT CONTENT - Centered with max width + sliding animation
-              // Wrapped in RepaintBoundary for Liquid Glass background capture
-              // ═══════════════════════════════════════════════════════════════
               SafeArea(
                 child: Align(
                   alignment: Alignment.topCenter,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 240),
-                    curve: Curves.easeOutCubic,
-                    transform: Matrix4.identity()
-                      ..translate(_menuOpen ? 56.0 : 0.0, 0.0, 0.0)
-                      ..scale(_menuOpen ? 0.95 : 1.0),
-                    child: Container(
-                      constraints: const BoxConstraints(maxWidth: 720),
-                      decoration: _menuOpen
-                          ? BoxDecoration(
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.2),
-                                  blurRadius: 32,
-                                  offset: const Offset(-8, 0),
-                                ),
-                              ],
-                            )
-                          : null,
-                      child: Column(
-                        children: [
-                          ChatAppBar(
-                            selectedMode: _selectedMode,
-                            modeAnchorLink: _modeAnchorLink,
-                            onMenuTap: _toggleMenu,
-                            onModeTap: _handleModeSelection,
-                            onDocumentUpload: _handleDocumentUpload,
-                          ),
-                          // RepaintBoundary wraps message list and background
-                          Expanded(
-                            child: RepaintBoundary(
-                              key: _chatBackgroundKey,
-                              child: ChatMessageList(
-                                isEmpty: _messages.isEmpty,
-                                isTarotMode: _isTarotMode,
-                                isAITyping:
-                                    _isAITyping, // ← STREAMING: typing indicator
-                                onSuggestionTap: (text) {
-                                  setState(() {
-                                    _controller.text = text;
-                                  });
-                                  _inputFocusNode.requestFocus();
-                                  _controller.selection =
-                                      TextSelection.fromPosition(
-                                    TextPosition(offset: _controller.text.length),
-                                  );
-                                },
-                                messages: _messages,
-                                scrollController: _scrollController,
-                                isTyping: _isTyping,
-                                swipedMessageId: _swipedMessageId,
-                                swipeOffset: _swipeOffset,
-                                onMessageLongPress: (msg) =>
-                                    _showMessageMenu(context, msg),
-                                onSwipeUpdate: (msg, delta) {
-                                  setState(() {
-                                    _swipedMessageId = msg["id"];
-                                    _swipeOffset =
-                                        (_swipeOffset + delta).clamp(0, 30);
-                                  });
-                                },
-                                onSwipeEnd: (msg, shouldReply) {
-                                  if (shouldReply) {
-                                    setState(() => _replyingTo = msg);
-                                  }
-                                  setState(() {
-                                    _swipeOffset = 0;
-                                    _swipedMessageId = null;
-                                  });
-                                },
-                              ),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 720),
+                    child: Column(
+                      children: [
+                        ChatAppBar(
+                          selectedMode: _selectedMode,
+                          modeAnchorLink: _modeAnchorLink,
+                          onMenuTap: _toggleSidebar,
+                          onModeTap: _handleModeSelection,
+                          onDocumentUpload: _handleDocumentUpload,
+                        ),
+                        Expanded(
+                          child: RepaintBoundary(
+                            key: _chatBackgroundKey,
+                            child: ChatMessageList(
+                              isEmpty: _messages.isEmpty,
+                              isTarotMode: _isTarotMode,
+                              isAITyping: _isAITyping,
+                              onSuggestionTap: (text) {
+                                setState(() {
+                                  _controller.text = text;
+                                });
+                                _inputFocusNode.requestFocus();
+                                _controller.selection =
+                                    TextSelection.fromPosition(
+                                  TextPosition(offset: _controller.text.length),
+                                );
+                              },
+                              messages: _messages,
+                              scrollController: _scrollController,
+                              isTyping: _isTyping,
+                              swipedMessageId: _swipedMessageId,
+                              swipeOffset: _swipeOffset,
+                              onMessageLongPress: (msg) =>
+                                  _showMessageMenu(context, msg),
+                              onSwipeUpdate: (msg, delta) {
+                                setState(() {
+                                  _swipedMessageId = msg["id"];
+                                  _swipeOffset =
+                                      (_swipeOffset + delta).clamp(0, 30);
+                                });
+                              },
+                              onSwipeEnd: (msg, shouldReply) {
+                                if (shouldReply) {
+                                  setState(() => _replyingTo = msg);
+                                }
+                                setState(() {
+                                  _swipeOffset = 0;
+                                  _swipedMessageId = null;
+                                });
+                              },
                             ),
                           ),
-                          ChatInputBar(
-                            controller: _controller,
-                            focusNode: _inputFocusNode,
-                            isSending: _isSending,
-                            isLoading: _isLoading,
-                            isListening: _isListening,
-                            replyingTo: _replyingTo,
-                            pendingImage: _pendingImage,
-                            pendingImageUrl: _pendingImageUrl,
-                            onAttachmentTap: _handleAttachment,
-                            onVoiceInputTap: _handleVoiceInput,
-                            onSendMessage: _sendMessage,
-                            onCancelReply: () =>
-                                setState(() => _replyingTo = null),
-                            onClearImage: _clearPendingImage,
-                            onTextChanged: () => setState(() {}),
-                            onCameraTap: () =>
-                                _pickImageForPreview(ImageSource.camera),
-                            onGalleryTap: () =>
-                                _pickImageForPreview(ImageSource.gallery),
-                            onModeTap: _handleModeSelection,
-                            currentMode: _getModeDisplayName(),
-                            chatBackgroundKey: _chatBackgroundKey, // ← Pass the key
-                          ),
-                        ],
-                      ),
+                        ),
+                        ChatInputBar(
+                          controller: _controller,
+                          focusNode: _inputFocusNode,
+                          isSending: _isSending,
+                          isLoading: _isLoading,
+                          isListening: _isListening,
+                          replyingTo: _replyingTo,
+                          pendingImage: _pendingImage,
+                          pendingImageUrl: _pendingImageUrl,
+                          onAttachmentTap: _handleAttachment,
+                          onVoiceInputTap: _handleVoiceInput,
+                          onSendMessage: _sendMessage,
+                          onCancelReply: () =>
+                              setState(() => _replyingTo = null),
+                          onClearImage: _clearPendingImage,
+                          onTextChanged: () => setState(() {}),
+                          onCameraTap: () =>
+                              _pickImageForPreview(ImageSource.camera),
+                          onGalleryTap: () =>
+                              _pickImageForPreview(ImageSource.gallery),
+                          onModeTap: _handleModeSelection,
+                          currentMode: _getModeDisplayName(),
+
+                          // Eğer ChatInputBar bunu kabul etmiyorsa compile hatası verir.
+                          // O durumda sadece bu satırı kaldır.
+                          chatBackgroundKey: _chatBackgroundKey,
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
 
-              // ═══════════════════════════════════════════════════════════════
-              // DARK OVERLAY - Tap to close menu
-              // ═══════════════════════════════════════════════════════════════
-              Positioned.fill(
-                child: IgnorePointer(
-                  ignoring: !_menuOpen,
-                  child: GestureDetector(
-                    onTap: _toggleMenu,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 200),
-                      color: _menuOpen
-                          ? Colors.black.withOpacity(0.5)
-                          : Colors.transparent,
-                    ),
-                  ),
+              // SIDEBAR
+              // SIDEBAR
+              if (_sidebarOpen)
+                ClaudeSidebar(
+                  onClose: () => setState(() => _sidebarOpen = false),
+
+                  userName: FirebaseAuth.instance.currentUser?.displayName ??
+                      'Kullanıcı',
+                  userEmail: FirebaseAuth.instance.currentUser?.email,
+
+                  // ✅ NEW: sidebar içine sohbetleri basacağız
+                  sessions: _chatSessions,
+                  currentSessionId: _currentSessionId,
+                  onSelectSession: (id) async => _loadSelectedChat(id),
+
+                  onRenameSession: _renameSessionFromSidebar,
+                  onArchiveSession: _archiveSessionFromSidebar,
+                  onDeleteSession: _deleteSessionFromSidebar,
+
+                  onNewChat: _startNewChat,
+                  onTarotMode: _startTarotMode,
+                  onKimDahaCok: () {
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => const KimDahaCokScreen(),
+                      ),
+                    );
+                  },
+
+                  onSettingsTap: () {
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                  },
                 ),
-              ),
-              SideMenu(
-                slideAnimation: _menuOffset,
-                isPremium: _isPremium,
-                chatSessions: _chatSessions,
-                onNewChat: () {
-                  _toggleMenu();
-                  _startNewChat();
-                },
-                onTarotMode: () {
-                  _toggleMenu();
-                  _startTarotMode();
-                },
-                onSelectChat: (chat) async {
-                  _toggleMenu();
-                  await _loadSelectedChat(chat.id);
-                },
-                onDeleteChat: (chat) async {
-                  final result =
-                      await ChatSessionService.deleteSession(chat.id);
-                  if (result.success) {
-                    await _loadChatSessions();
-                    if (mounted) {
-                      BlurToast.show(context, "Chat silindi");
-                    }
-                  } else {
-                    debugPrint("❌ Delete chat error: ${result.debugMessage}");
-                    if (result.errorMessage != null && mounted) {
-                      BlurToast.show(context, result.errorMessage!);
-                    }
-                  }
-                },
-                onRenameChat: (chat, newTitle) async {
-                  final result = await ChatSessionService.renameSession(
-                    sessionId: chat.id,
-                    newTitle: newTitle,
-                  );
-                  if (result.success) {
-                    await _loadChatSessions();
-                    if (mounted) {
-                      BlurToast.show(context, "Chat adı güncellendi");
-                    }
-                  } else {
-                    debugPrint("❌ Rename chat error: ${result.debugMessage}");
-                    if (result.errorMessage != null && mounted) {
-                      BlurToast.show(context, result.errorMessage!);
-                    }
-                  }
-                },
-                onOpenSettings: () {
-                  _toggleMenu();
-                  Navigator.push(
-                    context,
-                    CupertinoPageRoute(builder: (_) => const SettingsScreen()),
-                  );
-                },
-                onClose: _toggleMenu,
-              ),
 
               // Loading overlay for relationship upload
               if (_isUploadingRelationshipFile)
@@ -1400,6 +1554,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
+  String _getModeDisplayName() {
+    switch (_selectedMode) {
+      case 'tarot':
+        return 'Tarot';
+      case 'flirt':
+        return 'Flört';
+      case 'deep':
+        return 'Derin';
+      case 'tactical':
+        return 'Taktik';
+      default:
+        return 'Pro';
+    }
+  }
+
+  // ----------------------------------------------------------------
+  // Aşağıdaki eski helper widgetlar sende zaten vardı; kalsın diye bıraktım.
+  // (Şu an yeni ChatAppBar/ChatMessageList/ChatInputBar kullanıyorsun.)
+  // ----------------------------------------------------------------
+
   /// ChatGPT-style App Bar
   Widget _buildAppBar() {
     return Container(
@@ -1416,7 +1590,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       child: Row(
         children: [
           _TapScale(
-            onTap: _toggleMenu,
+            onTap: _toggleSidebar,
             child: Container(
               width: 40,
               height: 40,
@@ -1523,482 +1697,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  /// Empty state with centered logo
-  Widget _buildEmptyState() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo - Daha belirgin ve premium
-            Image.asset(
-              'assets/icon/syra.png',
-              width: 120,
-              height: 120,
-              color: SyraTokens.accent.withOpacity(0.3),
-              colorBlendMode: BlendMode.srcIn,
-              errorBuilder: (context, error, stackTrace) {
-                return Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: LinearGradient(
-                      colors: [
-                        SyraTokens.accent.withOpacity(0.2),
-                        SyraTokens.accent.withOpacity(0.1),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: SyraTokens.accent.withOpacity(0.2),
-                        blurRadius: 30,
-                        spreadRadius: 5,
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      _isTarotMode ? "🔮" : "S",
-                      style: TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.w300,
-                        color: SyraTokens.accent.withOpacity(0.5),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-            const SizedBox(height: 32),
-
-            // Hero Title
-            Text(
-              _isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
-              style: TextStyle(
-                color:
-                    _isTarotMode ? SyraTokens.accent : SyraTokens.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-
-            // Subtitle
-            Text(
-              _isTarotMode
-                  ? "İstersen önce birkaç cümleyle durumu anlat."
-                  : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
-              style: const TextStyle(
-                color: SyraTokens.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-
-            // Suggestion Chips
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: _buildSuggestionChips(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  List<Widget> _buildSuggestionChips() {
-    final List<String> suggestions = _isTarotMode
-        ? [
-            "Son konuşmamı kartlarla yorumla",
-            "İlişkim için genel tarot açılımı yap",
-            "Bugün için kart çek",
-          ]
-        : [
-            "İlişki mesajımı analiz et",
-            "İlk mesaj taktiği ver",
-            "Konuşmamın enerjisini değerlendir",
-          ];
-
-    return suggestions.map((text) {
-      return GestureDetector(
-        onTap: () {
-          setState(() {
-            _controller.text = text;
-          });
-          _inputFocusNode.requestFocus();
-          // Cursor'u sonuna götür
-          _controller.selection = TextSelection.fromPosition(
-            TextPosition(offset: _controller.text.length),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: SyraTokens.surface.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: SyraTokens.divider.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: SyraTokens.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildMessageList() {
-    return ListView.builder(
-      controller: _scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      itemCount: _messages.length + (_isTyping ? 1 : 0),
-      physics: const BouncingScrollPhysics(),
-      itemBuilder: (context, index) {
-        if (_isTyping && index == _messages.length) {
-          return _buildTypingIndicator();
-        }
-
-        final msg = _messages[index];
-        final isUser = msg["sender"] == "user";
-
-        final bool isSwiped =
-            _swipedMessageId == msg["id"] && _swipeOffset != 0.0;
-
-        final double effectiveOffset = isSwiped
-            ? Curves.easeOutCubic.transform(_swipeOffset / 30).clamp(0.0, 1.0) *
-                30
-            : 0;
-
-        return _AnimatedMessageItem(
-          animationKey: ValueKey(msg["id"] ?? index),
-          child: GestureDetector(
-            onLongPress: () => _showMessageMenu(context, msg),
-            onHorizontalDragUpdate: (details) {
-              if (details.delta.dx > 0) {
-                setState(() {
-                  _swipedMessageId = msg["id"];
-                  _swipeOffset = (_swipeOffset + details.delta.dx).clamp(0, 30);
-                });
-              }
-            },
-            onHorizontalDragEnd: (_) {
-              if (_swipeOffset > 18) {
-                setState(() => _replyingTo = msg);
-              }
-              setState(() {
-                _swipeOffset = 0;
-                _swipedMessageId = null;
-              });
-            },
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 90),
-              transform: Matrix4.translationValues(effectiveOffset, 0, 0),
-              child: SyraMessageBubble(
-                text: msg["text"],
-                isUser: isUser,
-                time: msg["time"] is DateTime ? msg["time"] : null,
-                replyToText: msg["replyTo"],
-                hasRedFlag: !isUser && (msg['hasRed'] == true),
-                hasGreenFlag: !isUser && (msg['hasGreen'] == true),
-                onLongPress: () => _showMessageMenu(context, msg),
-                imageUrl: msg["imageUrl"], // Yeni: resim URL'i
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Typing indicator
-  Widget _buildTypingIndicator() {
-    return Padding(
-      padding: const EdgeInsets.only(left: 4, top: 8, bottom: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: SyraTokens.surface,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "SYRA düşünüyor",
-                  style: TextStyle(
-                    color: SyraTokens.textMuted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildDot(0),
-                const SizedBox(width: 4),
-                _buildDot(1),
-                const SizedBox(width: 4),
-                _buildDot(2),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: Duration(milliseconds: 600 + (index * 200)),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: SyraTokens.textMuted.withOpacity(value),
-          ),
-        );
-      },
-    );
-  }
-
-  /// ChatGPT-style input bar
-  Widget _buildInputBar() {
-    return ChatInputBar(
-      controller: _controller,
-      focusNode: _inputFocusNode,
-      isSending: _isSending,
-      isLoading: _isLoading,
-      isListening: _isListening,
-      replyingTo: _replyingTo,
-      pendingImage: _pendingImage,
-      pendingImageUrl: _pendingImageUrl,
-      onAttachmentTap: _handleAttachment,
-      onVoiceInputTap: _handleVoiceInput,
-      onSendMessage: _sendMessage,
-      onCancelReply: () => setState(() => _replyingTo = null),
-      onClearImage: () => setState(() {
-        _pendingImage = null;
-        _pendingImageUrl = null;
-      }),
-      onTextChanged: () => setState(() {}),
-      onCameraTap: () => _pickImageForPreview(ImageSource.camera),
-      onGalleryTap: () => _pickImageForPreview(ImageSource.gallery),
-      onModeTap: _handleModeSelection,
-      currentMode: _getModeDisplayName(),
-    );
-  }
-
-  String _getModeDisplayName() {
-    switch (_selectedMode) {
-      case 'tarot':
-        return 'Tarot';
-      case 'flirt':
-        return 'Flört';
-      case 'deep':
-        return 'Derin';
-      case 'tactical':
-        return 'Taktik';
-      default:
-        return 'Pro';
-    }
-  }
-
-  Widget _buildReplyPreview() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: SyraTokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: SyraTokens.border,
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 28,
-            decoration: BoxDecoration(
-              color: SyraTokens.accent,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Yanıtlanıyor",
-                  style: TextStyle(
-                    color: SyraTokens.accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _replyingTo!["text"] ?? "",
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: SyraTokens.textMuted,
-                    fontSize: 13,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: () => setState(() => _replyingTo = null),
-            child: Padding(
-              padding: const EdgeInsets.all(4),
-              child: Icon(
-                Icons.close_rounded,
-                size: 18,
-                color: SyraTokens.textMuted,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Pending image preview (ChatGPT/Claude style)
-  Widget _buildImagePreview() {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: SyraTokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: SyraTokens.border,
-          width: 0.5,
-        ),
-      ),
-      child: Row(
-        children: [
-          // Resim thumbnail
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: Image.file(
-              _pendingImage!,
-              width: 60,
-              height: 60,
-              fit: BoxFit.cover,
-            ),
-          ),
-          const SizedBox(width: 12),
-
-          // Upload durumu
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Fotoğraf",
-                  style: TextStyle(
-                    color: SyraTokens.textPrimary,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                if (_pendingImageUrl == null)
-                  Row(
-                    children: [
-                      SizedBox(
-                        width: 12,
-                        height: 12,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: SyraTokens.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Yükleniyor...",
-                        style: TextStyle(
-                          color: SyraTokens.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  )
-                else
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle_rounded,
-                        size: 14,
-                        color: Colors.green,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        "Hazır",
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-
-          // Kapat butonu
-          GestureDetector(
-            onTap: _clearPendingImage,
-            child: Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: SyraTokens.background,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(
-                Icons.close_rounded,
-                size: 16,
-                color: SyraTokens.textMuted,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2370,243 +2068,5 @@ class _TapScaleState extends State<_TapScale> {
         child: widget.child,
       ),
     );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Animated Message Item - Entrance animation for messages
-// ═══════════════════════════════════════════════════════════════
-class _AnimatedMessageItem extends StatefulWidget {
-  final Widget child;
-  final Key? animationKey;
-
-  const _AnimatedMessageItem({
-    required this.child,
-    this.animationKey,
-  });
-
-  @override
-  State<_AnimatedMessageItem> createState() => _AnimatedMessageItemState();
-}
-
-class _AnimatedMessageItemState extends State<_AnimatedMessageItem>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _opacity;
-  late final Animation<Offset> _offset;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 220),
-    );
-
-    _opacity = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOut,
-    );
-
-    _offset = Tween<Offset>(
-      begin: const Offset(0, 0.15),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeOut,
-      ),
-    );
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _opacity,
-      child: SlideTransition(
-        position: _offset,
-        child: widget.child,
-      ),
-    );
-  }
-}
-
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA MESSAGE BUBBLE - Chat Message Widget
-/// ═══════════════════════════════════════════════════════════════
-
-class SyraMessageBubble extends StatelessWidget {
-  final String text;
-  final bool isUser;
-  final DateTime? time;
-  final String? replyToText;
-  final bool hasRedFlag;
-  final bool hasGreenFlag;
-  final VoidCallback? onLongPress;
-  final String? imageUrl;
-
-  const SyraMessageBubble({
-    super.key,
-    required this.text,
-    required this.isUser,
-    this.time,
-    this.replyToText,
-    this.hasRedFlag = false,
-    this.hasGreenFlag = false,
-    this.onLongPress,
-    this.imageUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPress: onLongPress,
-      child: Container(
-        margin: EdgeInsets.only(
-          left: isUser ? 60 : 16,
-          right: isUser ? 16 : 60,
-          bottom: 8,
-        ),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color:
-              isUser ? SyraTokens.accent.withOpacity(0.15) : SyraTokens.surface,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isUser
-                ? SyraTokens.accent.withOpacity(0.3)
-                : SyraTokens.border.withOpacity(0.3),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Reply indicator
-            if (replyToText != null) ...[
-              Container(
-                padding: const EdgeInsets.all(8),
-                margin: const EdgeInsets.only(bottom: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '↩ $replyToText',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: SyraTokens.textSecondary,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-
-            // Image if present
-            if (imageUrl != null) ...[
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  imageUrl!,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      height: 100,
-                      color: SyraTokens.surface,
-                      child: const Center(
-                        child: Icon(Icons.broken_image,
-                            color: SyraTokens.textMuted),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-
-            // Message text
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 15,
-                color: isUser ? SyraTokens.textPrimary : SyraTokens.textPrimary,
-                height: 1.4,
-              ),
-            ),
-
-            // Flags and time row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Flags
-                Row(
-                  children: [
-                    if (hasRedFlag)
-                      Container(
-                        margin: const EdgeInsets.only(right: 4, top: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: SyraTokens.error.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '🚩 Dikkat',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: SyraTokens.error,
-                          ),
-                        ),
-                      ),
-                    if (hasGreenFlag)
-                      Container(
-                        margin: const EdgeInsets.only(right: 4, top: 4),
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: SyraTokens.success.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: const Text(
-                          '✓ İyi',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: SyraTokens.success,
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-
-                // Time
-                if (time != null)
-                  Text(
-                    _formatTime(time!),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: SyraTokens.textMuted,
-                    ),
-                  ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  String _formatTime(DateTime dateTime) {
-    final hour = dateTime.hour.toString().padLeft(2, '0');
-    final minute = dateTime.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
   }
 }
