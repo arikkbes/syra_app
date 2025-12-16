@@ -125,19 +125,19 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final overlaySize = overlayBox.size;
 
-    const double w = 300;
+    const double w = 320;
     const double padding = 12;
 
     // Popover’ı parmağın yanına koy, ekran dışına taşmasın
-    double left = (globalPos.dx - w + 48).clamp(
+    double left = (globalPos.dx - w + 56).clamp(
       padding,
       overlaySize.width - w - padding,
     );
 
     // Çok yukarı/çok aşağı kaçmasın
-    double top = (globalPos.dy - 90).clamp(
+    double top = (globalPos.dy - 110).clamp(
       80,
-      overlaySize.height - 280,
+      overlaySize.height - 360,
     );
 
     Future<void> runAction(FutureOr<void> Function() fn) async {
@@ -165,7 +165,8 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               top: top,
               width: w,
               child: _SessionPopoverCard(
-                title: s.title,
+                title: s
+                    .title, // artık preview'de yazdırmıyoruz (actions için kalsın)
                 subtitle: _subtitle(s),
                 trailing: _timeLabel(s.lastUpdatedAt),
                 onRename: widget.onRenameSession == null
@@ -649,10 +650,10 @@ class _MenuDivider extends StatelessWidget {
   }
 }
 
-/// ===== Popover Card (Preview + Actions) =====
+/// ===== Popover Card (Preview Card + Actions Card) =====
 
 class _SessionPopoverCard extends StatelessWidget {
-  final String title;
+  final String title; // kullanılmıyor (senin isteğin: title görünmesin)
   final String subtitle;
   final String trailing;
 
@@ -671,121 +672,149 @@ class _SessionPopoverCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildPreviewCard(),
+        const SizedBox(height: 10),
+        _buildActionsCard(),
+      ],
+    );
+  }
+
+  /// ✅ Preview kart: SADECE sohbet önizlemesi (title yok!)
+  Widget _buildPreviewCard() {
+    final bg = const Color(0xFF141414).withOpacity(0.92);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(20),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(20),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.35),
+                  blurRadius: 26,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    subtitle,
+                    maxLines: 8,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.80),
+                      fontSize: 13.5,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Text(
+                        'Önizleme',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.45),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const Spacer(),
+                      Text(
+                        trailing,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.45),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActionsCard() {
     final bg = const Color(0xFF141414).withOpacity(0.92);
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Container(
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.10), width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.35),
-                blurRadius: 26,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Preview header
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF33B5E5).withOpacity(0.18),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
-                          color: const Color(0xFF33B5E5).withOpacity(0.35),
-                          width: 1,
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.chat_bubble_rounded,
-                        color: Color(0xFF33B5E5),
-                        size: 18,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 13.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            subtitle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.55),
-                              fontSize: 11.5,
-                              height: 1.1,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      trailing,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.45),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
+        child: Material(
+          type: MaterialType.transparency,
+          child: Container(
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(18),
+              border:
+                  Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.30),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
                 ),
-              ),
-
-              Container(
-                height: 1,
-                color: Colors.white.withOpacity(0.08),
-              ),
-
-              // Actions
-              if (onRename != null)
-                _PopoverActionRow(
-                  icon: Icons.edit_rounded,
-                  label: 'Yeniden Adlandır',
-                  onTap: onRename!,
-                ),
-              if (onArchive != null)
-                _PopoverActionRow(
-                  icon: Icons.archive_outlined,
-                  label: 'Arşivle',
-                  onTap: onArchive!,
-                ),
-              if (onDelete != null)
-                _PopoverActionRow(
-                  icon: Icons.delete_rounded,
-                  label: 'Sil',
-                  isDestructive: true,
-                  onTap: onDelete!,
-                ),
-            ],
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (onRename != null)
+                  _PopoverActionRow(
+                    icon: Icons.edit_rounded,
+                    label: 'Yeniden Adlandır',
+                    onTap: onRename!,
+                  ),
+                if (onRename != null && (onArchive != null || onDelete != null))
+                  _thinDivider(),
+                if (onArchive != null)
+                  _PopoverActionRow(
+                    icon: Icons.archive_outlined,
+                    label: 'Arşivle',
+                    onTap: onArchive!,
+                  ),
+                if (onArchive != null && onDelete != null) _thinDivider(),
+                if (onDelete != null)
+                  _PopoverActionRow(
+                    icon: Icons.delete_rounded,
+                    label: 'Sil',
+                    isDestructive: true,
+                    onTap: onDelete!,
+                  ),
+              ],
+            ),
           ),
         ),
       ),
+    );
+  }
+
+  Widget _thinDivider() {
+    return Container(
+      height: 1,
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      color: Colors.white.withOpacity(0.08),
     );
   }
 }
@@ -812,7 +841,7 @@ class _PopoverActionRow extends StatelessWidget {
         HapticFeedback.lightImpact();
         onTap();
       },
-      child: Container(
+      child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
@@ -824,7 +853,7 @@ class _PopoverActionRow extends StatelessWidget {
                 style: TextStyle(
                   color: c.withOpacity(0.9),
                   fontSize: 13.5,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
             ),

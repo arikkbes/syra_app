@@ -2,7 +2,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.4+36
+version: 1.0.4+37
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -75,9 +75,9 @@ flutter_icons:
 flutter:
   uses-material-design: true
 
-  # Shaders for Liquid Glass effects
+  # Shaders
   shaders:
-    - shaders/liquid_glass_lens.frag
+    - shaders/glass_refraction.frag
 
   assets:
     - assets/icon/syra.png
