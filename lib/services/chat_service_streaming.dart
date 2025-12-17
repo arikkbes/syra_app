@@ -127,15 +127,37 @@ class ChatServiceStreaming {
         return;
       }
 
-      // Process streaming response
-      int chunkCount = 0;
-      await for (final chunk in _processStream(streamedResponse.stream)) {
-        chunkCount++;
-        debugPrint("📦 [StreamingService] Chunk #$chunkCount: ${chunk.text}");
-        yield chunk;
-      }
+      // Read entire response (backend doesn't support streaming yet)
+      final responseBody = await streamedResponse.stream.bytesToString();
+      debugPrint("📦 [StreamingService] Full response: ${responseBody.substring(0, responseBody.length > 200 ? 200 : responseBody.length)}...");
 
-      debugPrint("🏁 [StreamingService] Total chunks received: $chunkCount");
+      try {
+        final json = jsonDecode(responseBody) as Map<String, dynamic>;
+
+        if (json['success'] == true && json['message'] != null) {
+          final fullMessage = json['message'] as String;
+
+          // Simulate streaming by yielding word-by-word
+          final words = fullMessage.split(' ');
+          for (int i = 0; i < words.length; i++) {
+            final word = words[i];
+            // Add space before word (except first)
+            final chunk = i == 0 ? word : ' $word';
+            yield StreamChunk.text(chunk);
+
+            // Small delay for smooth streaming effect
+            await Future.delayed(const Duration(milliseconds: 30));
+          }
+
+          debugPrint("✅ [StreamingService] Message delivered successfully");
+        } else {
+          final error = json['error'] as String? ?? 'Bilinmeyen hata';
+          yield StreamChunk.error(error);
+        }
+      } catch (e) {
+        debugPrint("❌ [StreamingService] JSON parse error: $e");
+        yield StreamChunk.error("Yanıt işlenemedi.");
+      }
 
       // Mark as done
       yield StreamChunk.done();
