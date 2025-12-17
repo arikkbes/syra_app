@@ -4,7 +4,7 @@ import '../../theme/syra_theme.dart';
 import '../../widgets/syra_message_bubble.dart';
 
 /// Message list for ChatScreen
-/// 
+///
 /// Displays:
 /// - Empty state with suggestions when no messages
 /// - Scrollable message list with typing indicator
@@ -146,8 +146,8 @@ class ChatMessageList extends StatelessWidget {
         final isUser = msg["sender"] == "user";
 
         // Sender-aware spacing (ChatGPT style)
-        final bool isSameSender = index > 0 &&
-            messages[index - 1]["sender"] == msg["sender"];
+        final bool isSameSender =
+            index > 0 && messages[index - 1]["sender"] == msg["sender"];
         final double topMargin = isSameSender ? 8.0 : 16.0;
 
         final bool isSwiped =
@@ -162,29 +162,28 @@ class ChatMessageList extends StatelessWidget {
           padding: EdgeInsets.only(top: topMargin),
           child: _AnimatedMessageItem(
             animationKey: ValueKey(msg["id"] ?? index),
-              child: GestureDetector(
-                onLongPress: () => onMessageLongPress(msg),
-                onHorizontalDragUpdate: (details) {
-                  if (details.delta.dx > 0) {
-                    onSwipeUpdate(msg, details.delta.dx);
-                  }
-                },
-                onHorizontalDragEnd: (_) {
-                  onSwipeEnd(msg, swipeOffset > 18);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 90),
-                  transform: Matrix4.translationValues(effectiveOffset, 0, 0),
-                  child: SyraMessageBubble(
-                    text: msg["text"],
-                    isUser: isUser,
-                    time: msg["time"] is DateTime ? msg["time"] : null,
-                    replyToText: msg["replyTo"],
-                    hasRedFlag: !isUser && (msg['hasRed'] == true),
-                    hasGreenFlag: !isUser && (msg['hasGreen'] == true),
-                    onLongPress: () => onMessageLongPress(msg),
-                    imageUrl: msg["imageUrl"],
-                  ),
+            child: GestureDetector(
+              onLongPress: () => onMessageLongPress(msg),
+              onHorizontalDragUpdate: (details) {
+                if (details.delta.dx > 0) {
+                  onSwipeUpdate(msg, details.delta.dx);
+                }
+              },
+              onHorizontalDragEnd: (_) {
+                onSwipeEnd(msg, swipeOffset > 18);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 90),
+                transform: Matrix4.translationValues(effectiveOffset, 0, 0),
+                child: SyraMessageBubble(
+                  text: msg["text"],
+                  isUser: isUser,
+                  time: msg["time"] is DateTime ? msg["time"] : null,
+                  replyToText: msg["replyTo"],
+                  hasRedFlag: !isUser && (msg['hasRed'] == true),
+                  hasGreenFlag: !isUser && (msg['hasGreen'] == true),
+                  onLongPress: () => onMessageLongPress(msg),
+                  imageUrl: msg["imageUrl"],
                 ),
               ),
             ),
@@ -223,7 +222,6 @@ class ChatMessageList extends StatelessWidget {
       ),
     );
   }
-
 }
 
 /// Animated message item wrapper for fade-in effect
@@ -283,4 +281,3 @@ class _AnimatedMessageItemState extends State<_AnimatedMessageItem>
     );
   }
 }
-
