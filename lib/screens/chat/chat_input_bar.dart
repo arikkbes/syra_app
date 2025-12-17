@@ -168,7 +168,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               filled: false,
               hintText: 'SYRA\'ya sor…',
               hintStyle: TextStyle(
-                color: const Color(0xFFCFCFCF).withOpacity(0.50),
+                color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
               ),
@@ -244,15 +244,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
             maxHeight: 200,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.05),
+            color: Colors.white.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: Colors.white.withOpacity(0.12),
+              color: Colors.white.withValues(alpha: 0.12),
               width: 1,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.35),
+                color: Colors.black.withValues(alpha: 0.35),
                 blurRadius: 24,
                 offset: const Offset(0, 10),
               ),
@@ -277,8 +277,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.white.withOpacity(0.14),
-                        Colors.white.withOpacity(0.0),
+                        Colors.white.withValues(alpha: 0.14),
+                        Colors.white.withValues(alpha: 0.0),
                       ],
                     ),
                   ),
@@ -312,7 +312,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 20,
             height: 20,
             colorFilter: ColorFilter.mode(
-              Colors.white.withOpacity(0.7),
+              Colors.white.withValues(alpha: 0.7),
               BlendMode.srcIn,
             ),
           ),
@@ -334,7 +334,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.9),
+          color: Colors.white.withValues(alpha: 0.9),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Center(
@@ -365,7 +365,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: const Color(0xFF33B5E5).withOpacity(0.15),
+          color: SyraColors.accent.withValues(alpha: 0.15),
           shape: BoxShape.circle,
         ),
         child: const Center(
@@ -395,7 +395,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: const Color(0xFF33B5E5), // accent
+              color: SyraColors.accent, // accent
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -407,7 +407,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 const Text(
                   'Yanıtlanıyor',
                   style: TextStyle(
-                    color: Color(0xFF33B5E5), // accent
+                    color: SyraColors.accent, // accent
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -418,7 +418,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: Colors.white.withValues(alpha: 0.6),
                     fontSize: 13,
                   ),
                 ),
@@ -433,7 +433,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Icon(
               Icons.close_rounded,
               size: 20,
-              color: Colors.white.withOpacity(0.5),
+              color: Colors.white.withValues(alpha: 0.5),
             ),
           ),
         ],
@@ -466,7 +466,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   Image.file(widget.pendingImage!, fit: BoxFit.cover),
                   if (isUploading)
                     Container(
-                      color: Colors.black.withOpacity(0.5),
+                      color: Colors.black.withValues(alpha: 0.5),
                       child: const Center(
                         child: SizedBox(
                           width: 22,
@@ -474,7 +474,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation(Color(0xFF33B5E5)),
+                                AlwaysStoppedAnimation(SyraColors.accent),
                           ),
                         ),
                       ),
@@ -488,7 +488,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Text(
               isUploading ? 'Yükleniyor...' : 'Resim hazır',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.6),
+                color: Colors.white.withValues(alpha: 0.6),
                 fontSize: 14,
               ),
             ),
@@ -502,7 +502,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
               child: Icon(
                 Icons.close_rounded,
                 size: 20,
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
               ),
             ),
         ],
@@ -563,7 +563,7 @@ class _VoiceWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = const Color(0xFF33B5E5)
+      ..color = SyraColors.accent
       ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
 

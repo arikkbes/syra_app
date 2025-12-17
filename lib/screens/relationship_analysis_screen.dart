@@ -112,7 +112,7 @@ Not: Bu analiz genel bir değerlendirmedir. Gerçek ilişki analizi için SYRA 1
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const CircularProgressIndicator(
-                      color: Color(0xFF00D4FF),
+                      color: SyraColors.accent,
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -308,7 +308,7 @@ Not: Bu analiz genel bir değerlendirmedir. Gerçek ilişki analizi için SYRA 1
           borderRadius: BorderRadius.circular(14),
           gradient: hasText
               ? const LinearGradient(
-                  colors: [Color(0xFFB388FF), Color(0xFF00D4FF)],
+                  colors: [Color(0xFFB388FF), SyraColors.accent],
                 )
               : null,
           color: hasText ? null : Colors.white.withValues(alpha: 0.1),
@@ -361,13 +361,13 @@ Not: Bu analiz genel bir değerlendirmedir. Gerçek ilişki analizi için SYRA 1
                   gradient: LinearGradient(
                     colors: [
                       const Color(0xFFB388FF).withValues(alpha: 0.3),
-                      const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                      SyraColors.accent.withValues(alpha: 0.3),
                     ],
                   ),
                 ),
                 child: const Icon(
                   Icons.auto_awesome_rounded,
-                  color: Color(0xFF00D4FF),
+                  color: SyraColors.accent,
                   size: 18,
                 ),
               ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
+import '../theme/syra_glass.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// ACCOUNT SETTINGS SCREEN
@@ -144,7 +145,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Widget _buildProfileCard() {
-    return GlassCard(
+    return SyraGlassCard(
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
@@ -156,11 +157,11 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
               gradient: LinearGradient(
                 colors: [
                   const Color(0xFFFF6B9D).withValues(alpha: 0.3),
-                  const Color(0xFF00D4FF).withValues(alpha: 0.3),
+                  SyraColors.accent.withValues(alpha: 0.3),
                 ],
               ),
               border: Border.all(
-                color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                color: SyraColors.accent.withValues(alpha: 0.5),
                 width: 2,
               ),
             ),
@@ -239,7 +240,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Widget _buildInfoCard() {
-    return GlassCard(
+    return SyraGlassCard(
       padding: EdgeInsets.zero,
       child: Column(
         children: [
@@ -309,7 +310,7 @@ class _AccountSettingsScreenState extends State<AccountSettingsScreen> {
   }
 
   Widget _buildActionsCard() {
-    return GlassCard(
+    return SyraGlassCard(
       padding: EdgeInsets.zero,
       child: Column(
         children: [

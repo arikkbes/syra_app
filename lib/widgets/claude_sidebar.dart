@@ -416,7 +416,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               width: 42,
               height: 42,
               decoration: const BoxDecoration(
-                color: Color(0xFF33B5E5),
+                color: SyraColors.accent,
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -522,7 +522,7 @@ class _SessionItem extends StatelessWidget {
                 Icon(
                   Icons.chat_bubble_rounded,
                   color: isSelected
-                      ? const Color(0xFF33B5E5)
+                      ? SyraColors.accent
                       : Colors.white.withOpacity(0.55),
                   size: 18,
                 ),
@@ -602,7 +602,7 @@ class _MenuItem extends StatelessWidget {
             Icon(
               icon,
               color: isPremium
-                  ? const Color(0xFF33B5E5)
+                  ? SyraColors.accent
                   : Colors.white.withOpacity(0.8),
               size: 22,
             ),
@@ -620,13 +620,13 @@ class _MenuItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF33B5E5).withOpacity(0.15),
+                  color: SyraColors.accent.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   'PRO',
                   style: TextStyle(
-                    color: Color(0xFF33B5E5),
+                    color: SyraColors.accent,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),

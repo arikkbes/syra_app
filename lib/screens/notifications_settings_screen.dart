@@ -47,7 +47,7 @@ class _NotificationsSettingsScreenState
                         const SizedBox(height: 12),
                         _buildNotificationCard(
                           icon: Icons.chat_bubble_rounded,
-                          iconColor: const Color(0xFF00D4FF),
+                          iconColor: SyraColors.accent,
                           title: "SYRA Cevap Hazır",
                           subtitle:
                               "SYRA sana cevap yazdığında bildirim al",
@@ -276,8 +276,8 @@ class _NotificationsSettingsScreenState
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: const Color(0xFF00D4FF),
-            activeTrackColor: const Color(0xFF00D4FF).withValues(alpha: 0.3),
+            activeThumbColor: SyraColors.accent,
+            activeTrackColor: SyraColors.accent.withValues(alpha: 0.3),
             inactiveThumbColor: Colors.white.withValues(alpha: 0.5),
             inactiveTrackColor: Colors.white.withValues(alpha: 0.1),
           ),

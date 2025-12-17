@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import '../../theme/syra_theme.dart';
 import '../../widgets/syra_message_bubble.dart';
 
@@ -62,7 +63,7 @@ class ChatMessageList extends StatelessWidget {
               'assets/icon/syra.png',
               width: 120,
               height: 120,
-              color: SyraColors.accent.withOpacity(0.3),
+              color: SyraColors.accent.withValues(alpha: 0.3),
               colorBlendMode: BlendMode.srcIn,
               errorBuilder: (context, error, stackTrace) {
                 return Container(
@@ -72,15 +73,15 @@ class ChatMessageList extends StatelessWidget {
                     shape: BoxShape.circle,
                     gradient: LinearGradient(
                       colors: [
-                        SyraColors.accent.withOpacity(0.2),
-                        SyraColors.accent.withOpacity(0.1),
+                        SyraColors.accent.withValues(alpha: 0.2),
+                        SyraColors.accent.withValues(alpha: 0.1),
                       ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: SyraColors.accent.withOpacity(0.2),
+                        color: SyraColors.accent.withValues(alpha: 0.2),
                         blurRadius: 30,
                         spreadRadius: 5,
                       ),
@@ -92,7 +93,7 @@ class ChatMessageList extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 56,
                         fontWeight: FontWeight.w300,
-                        color: SyraColors.accent.withOpacity(0.5),
+                        color: SyraColors.accent.withValues(alpha: 0.5),
                       ),
                     ),
                   ),
@@ -191,58 +192,33 @@ class ChatMessageList extends StatelessWidget {
     );
   }
 
-  /// Typing indicator
+  /// Typing indicator - Logo pulse animation
   Widget _buildTypingIndicator() {
     return Padding(
-      padding: EdgeInsets.only(left: 4, top: 8, bottom: 8),
+      padding: const EdgeInsets.only(left: 4, top: 16, bottom: 16),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: SyraColors.surface,
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "SYRA düşünüyor",
-                  style: TextStyle(
-                    color: SyraColors.textMuted,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _buildDot(0),
-                const SizedBox(width: 4),
-                _buildDot(1),
-                const SizedBox(width: 4),
-                _buildDot(2),
-              ],
-            ),
-          ),
+          Image.asset(
+            'assets/images/syra_logo.png',
+            width: 48,
+            height: 48,
+          )
+              .animate(onPlay: (controller) => controller.repeat())
+              .scale(
+                begin: const Offset(0.85, 0.85),
+                end: const Offset(1.0, 1.0),
+                duration: 1200.ms,
+                curve: Curves.easeInOut,
+              )
+              .then()
+              .scale(
+                begin: const Offset(1.0, 1.0),
+                end: const Offset(0.85, 0.85),
+                duration: 1200.ms,
+                curve: Curves.easeInOut,
+              ),
         ],
       ),
-    );
-  }
-
-  Widget _buildDot(int index) {
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0.3, end: 1.0),
-      duration: Duration(milliseconds: 600 + (index * 200)),
-      curve: Curves.easeInOut,
-      builder: (context, value, child) {
-        return Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: SyraColors.textMuted.withOpacity(value),
-          ),
-        );
-      },
     );
   }
 
