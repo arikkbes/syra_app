@@ -9,7 +9,7 @@ name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
-version: 1.0.4+40
+version: 1.0.4+41
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
