@@ -90,7 +90,9 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         child: GestureDetector(
           onLongPress: widget.onLongPress,
           child: Container(
-            margin: EdgeInsets.only(bottom: SyraSpacing.md),
+            margin: EdgeInsets.only(
+              bottom: widget.isUser ? SyraSpacing.md : 10, // ChatGPT density
+            ),
             child: Column(
               crossAxisAlignment: widget.isUser
                   ? CrossAxisAlignment.end
@@ -126,7 +128,8 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                   ],
                 ),
 
-                if (widget.time != null) _buildTimestamp(),
+                // Timestamp: only for user messages (ChatGPT style)
+                if (widget.time != null && widget.isUser) _buildTimestamp(),
               ],
             ),
           ),
@@ -206,18 +209,18 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       );
     }
 
-    // Assistant: NO bubble, ChatGPT style (plain text)
+    // Assistant: NO bubble, ChatGPT style (reading column)
     return Container(
-      padding: EdgeInsets.only(
-        left: SyraSpacing.sm,
-        right: SyraSpacing.xl * 2,
+      padding: EdgeInsets.symmetric(
+        horizontal: 20, // Reading column: 20px both sides
+        vertical: 4, // Minimal vertical padding
       ),
       child: SelectableText(
         widget.text ?? "",
         style: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
           fontSize: 16,
-          height: 1.4,
+          height: 1.42,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.15,
         ),
