@@ -164,54 +164,62 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   Widget _buildTextBubble() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(SyraRadius.lg),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: SyraGlass.blurSubtle,
-          sigmaY: SyraGlass.blurSubtle,
+    // User: Keep bubble style
+    if (widget.isUser) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(SyraRadius.lg),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: SyraGlass.blurSubtle,
+            sigmaY: SyraGlass.blurSubtle,
+          ),
+          child: Container(
+            constraints: BoxConstraints(maxWidth: 280),
+            padding: EdgeInsets.symmetric(
+              horizontal: SyraSpacing.md,
+              vertical: SyraSpacing.sm + 2,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  SyraColors.accent.withValues(alpha: 0.15),
+                  SyraColors.accent.withValues(alpha: 0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(SyraRadius.lg),
+              border: Border.all(
+                color: SyraColors.accent.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              widget.text ?? "",
+              style: SyraTextStyles.bodyMedium.copyWith(
+                color: SyraColors.textPrimary,
+                height: 1.5,
+              ),
+            ),
+          ),
         ),
-        child: Container(
-          constraints: BoxConstraints(maxWidth: 280),
-          padding: EdgeInsets.symmetric(
-            horizontal: SyraSpacing.md,
-            vertical: SyraSpacing.sm + 2,
-          ),
-          decoration: BoxDecoration(
-            gradient: widget.isUser
-                ? LinearGradient(
-                    colors: [
-                      SyraColors.accent.withValues(alpha: 0.15),
-                      SyraColors.accent.withValues(alpha: 0.08),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  )
-                : LinearGradient(
-                    colors: [
-                      SyraColors.surface.withValues(alpha: 0.8),
-                      SyraColors.surface.withValues(alpha: 0.6),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-            borderRadius: BorderRadius.circular(SyraRadius.lg),
-            border: Border.all(
-              color: widget.isUser
-                  ? SyraColors.accent.withValues(alpha: 0.2)
-                  : SyraColors.border.withValues(alpha: 0.3),
-              width: 1,
-            ),
-          ),
-          child: Text(
-            widget.text ?? "",
-            style: SyraTextStyles.bodyMedium.copyWith(
-              color: widget.isUser
-                  ? SyraColors.textPrimary
-                  : SyraColors.textPrimary.withValues(alpha: 0.95),
-              height: 1.5,
-            ),
-          ),
+      );
+    }
+
+    // Assistant: NO bubble, ChatGPT style (plain text)
+    return Container(
+      padding: EdgeInsets.only(
+        left: SyraSpacing.sm,
+        right: SyraSpacing.xl * 2,
+      ),
+      child: SelectableText(
+        widget.text ?? "",
+        style: SyraTextStyles.bodyMedium.copyWith(
+          color: SyraColors.textPrimary,
+          fontSize: 16,
+          height: 1.4,
+          fontWeight: FontWeight.w400,
+          letterSpacing: 0.15,
         ),
       ),
     );
