@@ -114,7 +114,11 @@ class ChatServiceStreaming {
       });
       request.body = jsonEncode(requestBody);
 
+      debugPrint("🔍 [StreamingService] Request body: ${request.body}");
+
       final streamedResponse = await request.send();
+
+      debugPrint("📥 [StreamingService] Response status: ${streamedResponse.statusCode}");
 
       if (streamedResponse.statusCode != 200) {
         final errorBody = await streamedResponse.stream.bytesToString();
@@ -124,9 +128,14 @@ class ChatServiceStreaming {
       }
 
       // Process streaming response
+      int chunkCount = 0;
       await for (final chunk in _processStream(streamedResponse.stream)) {
+        chunkCount++;
+        debugPrint("📦 [StreamingService] Chunk #$chunkCount: ${chunk.text}");
         yield chunk;
       }
+
+      debugPrint("🏁 [StreamingService] Total chunks received: $chunkCount");
 
       // Mark as done
       yield StreamChunk.done();
@@ -144,9 +153,12 @@ class ChatServiceStreaming {
   /// Process SSE (Server-Sent Events) stream
   static Stream<StreamChunk> _processStream(Stream<List<int>> byteStream) async* {
     String buffer = '';
+    int byteChunkCount = 0;
 
     await for (final bytes in byteStream) {
+      byteChunkCount++;
       final chunk = utf8.decode(bytes);
+      debugPrint("🔸 [StreamingService] Raw byte chunk #$byteChunkCount: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...");
       buffer += chunk;
 
       // Process complete lines
@@ -159,6 +171,8 @@ class ChatServiceStreaming {
           continue; // Skip empty lines and comments
         }
 
+        debugPrint("🔹 [StreamingService] Processing line: $line");
+
         // Parse SSE format: "data: {...}"
         if (line.startsWith('data: ')) {
           final data = line.substring(6);
@@ -170,20 +184,28 @@ class ChatServiceStreaming {
 
           try {
             final json = jsonDecode(data) as Map<String, dynamic>;
-            
+            debugPrint("🔸 [StreamingService] Parsed JSON: $json");
+
             // Extract text from various formats
             final text = _extractText(json);
-            
+
             if (text.isNotEmpty) {
+              debugPrint("✨ [StreamingService] Extracted text: '$text'");
               yield StreamChunk.text(text);
+            } else {
+              debugPrint("⚠️ [StreamingService] No text extracted from JSON");
             }
           } catch (e) {
-            debugPrint("⚠️ [StreamingService] Failed to parse chunk: $e");
+            debugPrint("⚠️ [StreamingService] Failed to parse chunk: $e\nData: $data");
             // Continue processing other chunks
           }
+        } else {
+          debugPrint("⚠️ [StreamingService] Line doesn't start with 'data: ': $line");
         }
       }
     }
+
+    debugPrint("🏁 [StreamingService] Stream processing ended. Total byte chunks: $byteChunkCount");
   }
 
   /// Extract text from various JSON response formats
