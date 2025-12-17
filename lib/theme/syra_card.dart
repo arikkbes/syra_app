@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'syra_tokens.dart';
+import 'syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA CARD - Premium Card Component
@@ -60,17 +60,17 @@ class _SyraCardState extends State<SyraCard> {
 
   @override
   Widget build(BuildContext context) {
-    final effectivePadding = widget.padding ?? 
-        EdgeInsets.all(SyraTokens.paddingLg);
-    
-    final bgColor = widget.backgroundColor ?? SyraTokens.surface;
-    
+    final effectivePadding = widget.padding ??
+        EdgeInsets.all(SyraSpacing.lg);
+
+    final bgColor = widget.backgroundColor ?? SyraColors.surface;
+
     final decoration = BoxDecoration(
       color: bgColor,
-      borderRadius: BorderRadius.circular(SyraTokens.radiusMd),
+      borderRadius: BorderRadius.circular(SyraRadius.card),
       border: widget.outlined
           ? Border.all(
-              color: widget.borderColor ?? SyraTokens.border,
+              color: widget.borderColor ?? SyraColors.border,
               width: 1,
             )
           : null,
@@ -133,7 +133,7 @@ class SyraCardCompact extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SyraCard(
-      padding: EdgeInsets.all(SyraTokens.paddingMd),
+      padding: EdgeInsets.all(SyraSpacing.md),
       onTap: onTap,
       backgroundColor: backgroundColor,
       child: child,
@@ -196,16 +196,16 @@ class SyraInfoCard extends StatelessWidget {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: (iconColor ?? SyraTokens.accent).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(SyraTokens.radiusMd),
+              color: (iconColor ?? SyraColors.accent).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(SyraRadius.md),
             ),
             child: Icon(
               icon,
-              color: iconColor ?? SyraTokens.accent,
+              color: iconColor ?? SyraColors.accent,
               size: 24,
             ),
           ),
-          SizedBox(width: SyraTokens.paddingMd),
+          SizedBox(width: SyraSpacing.md),
           
           // Text content
           Expanded(
@@ -216,7 +216,7 @@ class SyraInfoCard extends StatelessWidget {
                   title,
                   style: const TextStyle(
                     fontSize: 13,
-                    color: SyraTokens.textSecondary,
+                    color: SyraColors.textSecondary,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -225,7 +225,7 @@ class SyraInfoCard extends StatelessWidget {
                   value,
                   style: const TextStyle(
                     fontSize: 20,
-                    color: SyraTokens.textPrimary,
+                    color: SyraColors.textPrimary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -235,7 +235,7 @@ class SyraInfoCard extends StatelessWidget {
                     subtitle!,
                     style: const TextStyle(
                       fontSize: 12,
-                      color: SyraTokens.textMuted,
+                      color: SyraColors.textMuted,
                     ),
                   ),
                 ],
@@ -267,7 +267,7 @@ class SyraStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? SyraTokens.accent;
+    final effectiveColor = color ?? SyraColors.accent;
 
     return SyraCard(
       onTap: onTap,
@@ -278,10 +278,10 @@ class SyraStatCard extends StatelessWidget {
             Container(
               width: 40,
               height: 40,
-              margin: EdgeInsets.only(bottom: SyraTokens.paddingMd),
+              margin: EdgeInsets.only(bottom: SyraSpacing.md),
               decoration: BoxDecoration(
                 color: effectiveColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(SyraTokens.radiusSm),
+                borderRadius: BorderRadius.circular(SyraRadius.sm),
               ),
               child: Icon(
                 icon,
@@ -293,7 +293,7 @@ class SyraStatCard extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 13,
-              color: SyraTokens.textSecondary,
+              color: SyraColors.textSecondary,
               fontWeight: FontWeight.w500,
             ),
           ),

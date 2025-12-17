@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/syra_page.dart';
-import '../../theme/syra_tokens.dart';
+import '../../theme/syra_theme.dart';
 import '../../utils/syra_prefs.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -56,10 +56,10 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             'Choose your preferred theme',
             style: TextStyle(
               fontSize: 14,
-              color: SyraTokens.textSecondary,
+              color: SyraColors.textSecondary,
             ),
           ),
-          SizedBox(height: SyraTokens.paddingLg),
+          SizedBox(height: SyraSpacing.lg),
 
           _buildThemeOption(
             value: 'dark',
@@ -67,14 +67,14 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             description: 'Modern dark theme with cool tones',
             icon: Icons.dark_mode_outlined,
           ),
-          SizedBox(height: SyraTokens.paddingMd),
+          SizedBox(height: SyraSpacing.md),
           _buildThemeOption(
             value: 'light',
             title: 'Light',
             description: 'Clean light theme for daytime use',
             icon: Icons.light_mode_outlined,
           ),
-          SizedBox(height: SyraTokens.paddingMd),
+          SizedBox(height: SyraSpacing.md),
           _buildThemeOption(
             value: 'pure_black',
             title: 'Pure Black',
@@ -97,12 +97,12 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
     return GestureDetector(
       onTap: () => _saveTheme(value),
       child: Container(
-        padding: EdgeInsets.all(SyraTokens.paddingMd),
+        padding: EdgeInsets.all(SyraSpacing.md),
         decoration: BoxDecoration(
-          color: SyraTokens.surface,
-          borderRadius: BorderRadius.circular(SyraTokens.radiusMd),
+          color: SyraColors.surface,
+          borderRadius: BorderRadius.circular(SyraRadius.md),
           border: Border.all(
-            color: isSelected ? SyraTokens.accent : SyraTokens.border,
+            color: isSelected ? SyraColors.accent : SyraColors.border,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -113,17 +113,17 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
               height: 48,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? SyraTokens.accent.withValues(alpha: 0.1)
-                    : SyraTokens.surfaceLight,
-                borderRadius: BorderRadius.circular(SyraTokens.radiusMd),
+                    ? SyraColors.accent.withValues(alpha: 0.1)
+                    : SyraColors.surfaceLight,
+                borderRadius: BorderRadius.circular(SyraRadius.md),
               ),
               child: Icon(
                 icon,
-                color: isSelected ? SyraTokens.accent : SyraTokens.textPrimary,
+                color: isSelected ? SyraColors.accent : SyraColors.textPrimary,
                 size: 24,
               ),
             ),
-            SizedBox(width: SyraTokens.paddingMd),
+            SizedBox(width: SyraSpacing.md),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -134,8 +134,8 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: isSelected
-                          ? SyraTokens.accent
-                          : SyraTokens.textPrimary,
+                          ? SyraColors.accent
+                          : SyraColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -143,7 +143,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
                     description,
                     style: const TextStyle(
                       fontSize: 13,
-                      color: SyraTokens.textSecondary,
+                      color: SyraColors.textSecondary,
                     ),
                   ),
                 ],
@@ -152,7 +152,7 @@ class _ThemeSettingsScreenState extends State<ThemeSettingsScreen> {
             if (isSelected)
               const Icon(
                 Icons.check_circle,
-                color: SyraTokens.accent,
+                color: SyraColors.accent,
                 size: 24,
               ),
           ],

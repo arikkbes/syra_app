@@ -6,7 +6,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass_tokens.dart';
-import '../theme/syra_tokens.dart';
 
 /// Premium Liquid Glass Chat Input Bar
 /// 
@@ -136,7 +135,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                     minLines: 1,
                     onChanged: (_) => onTextChanged(),
                     style: TextStyle(
-                      color: SyraTokens.textPrimary,
+                      color: SyraColors.textPrimary,
                       fontSize: 15,
                       height: 1.4,
                     ),
@@ -149,7 +148,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                       border: InputBorder.none,
                       hintText: "Message",
                       hintStyle: TextStyle(
-                        color: SyraTokens.textMuted.withOpacity(0.6),
+                        color: SyraColors.textMuted.withOpacity(0.6),
                         fontSize: 15,
                       ),
                     ),
@@ -163,7 +162,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                 _GlassIconButton(
                   icon: isListening ? Icons.mic_rounded : Icons.mic_none_rounded,
                   onTap: onVoiceInputTap,
-                  color: isListening ? SyraTokens.accent : null,
+                  color: isListening ? SyraColors.accent : null,
                 ),
 
                 SizedBox(width: SyraGlassTokens.chatBarIconSpacing),
@@ -426,7 +425,7 @@ class _GlassIconButtonState extends State<_GlassIconButton>
           child: Icon(
             widget.icon,
             size: SyraGlassTokens.chatBarIconSize,
-            color: widget.color ?? SyraTokens.textSecondary,
+            color: widget.color ?? SyraColors.textSecondary,
           ),
         ),
       ),
@@ -514,13 +513,13 @@ class _GlassSendButtonState extends State<_GlassSendButton>
           height: 40,
           decoration: BoxDecoration(
             color: widget.canSend
-                ? SyraTokens.textPrimary
-                : SyraTokens.textMuted.withOpacity(0.25),
+                ? SyraColors.textPrimary
+                : SyraColors.textMuted.withOpacity(0.25),
             shape: BoxShape.circle,
             boxShadow: widget.canSend
                 ? [
                     BoxShadow(
-                      color: SyraTokens.textPrimary.withOpacity(0.3),
+                      color: SyraColors.textPrimary.withOpacity(0.3),
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),

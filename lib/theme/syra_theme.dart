@@ -327,30 +327,6 @@ class SyraTextStyles {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// BACKWARD COMPATIBILITY: SyraTypography → SyraTextStyles
-// ═══════════════════════════════════════════════════════════════
-@Deprecated('Use SyraTextStyles instead')
-class SyraTypography {
-  SyraTypography._();
-
-  static TextStyle get headingLarge => SyraTextStyles.headingLarge;
-  static TextStyle get headingMedium => SyraTextStyles.headingMedium;
-  static TextStyle get headingSmall => SyraTextStyles.headingSmall;
-  static TextStyle get bodyText => SyraTextStyles.bodyMedium;
-  static TextStyle get bodyTextSecondary => SyraTextStyles.bodySmall;
-  static TextStyle get caption => SyraTextStyles.caption;
-  static TextStyle get overline => SyraTextStyles.overline;
-  static TextStyle get button => SyraTextStyles.button;
-
-  // Message bubble specific styles
-  static TextStyle get messageText => SyraTextStyles.bodyMedium;
-  static TextStyle get timeText => SyraTextStyles.caption;
-
-  static TextStyle logoStyle({double fontSize = 20}) =>
-      SyraTextStyles.logoStyle(fontSize: fontSize);
-}
-
-// ═══════════════════════════════════════════════════════════════
 // THEME DATA
 // ═══════════════════════════════════════════════════════════════
 class SyraTheme {

@@ -4,6 +4,10 @@ import 'package:flutter/material.dart';
 
 /// Design tokens for SYRA app
 /// Contains all the core design values used across the app
+///
+/// @deprecated Use SyraColors, SyraSpacing, SyraRadius from syra_theme.dart instead.
+/// This class is being phased out to consolidate design tokens.
+@Deprecated('Use SyraColors, SyraSpacing, SyraRadius from syra_theme.dart instead')
 class SyraTokens {
   // Private constructor to prevent instantiation
   SyraTokens._();
@@ -25,11 +29,11 @@ class SyraTokens {
   /// Secondary card/surface (for nested cards)
   static const Color cardElevated = Color(0xFF22252E);
 
-  /// Accent/primary color - cool cyan
-  static const Color accent = Color(0xFF66E0FF);
+  /// Accent/primary color - champagne gold (aligned with SyraColors)
+  static const Color accent = Color(0xFFD6B35A);
 
-  /// Accent color with reduced opacity for hover states
-  static const Color accentHover = Color(0xFF52B3CC);
+  /// Accent color with reduced opacity for hover states (aligned with gold theme)
+  static const Color accentHover = Color(0xFFEAD7A5);
 
   /// Primary text color - almost white
   static const Color textPrimary = Color(0xFFE8EBF0);
