@@ -49,15 +49,11 @@ dependencies:
 
   # 🎤 Speech to text — FIXED 7.3.0
   speech_to_text: ^7.3.0
-  dtd: ^4.0.0
   flutter_lints: ^6.0.0
   flutter_animate: ^4.5.0
   animations: ^2.0.11
   shimmer: ^3.0.0
-  json_rpc_2: ^4.0.0
   path: ^1.9.1
-  stack_trace: ^1.12.1
-  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
