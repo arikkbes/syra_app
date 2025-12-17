@@ -1117,7 +1117,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // 🚀 STREAMING AI RESPONSE
     // ═══════════════════════════════════════════════════════════════
 
-    // Show typing indicator
+    // Show typing indicator (logo pulse)
     setState(() {
       _isAITyping = true;
     });
@@ -1125,23 +1125,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Small delay (AI "thinking")
     await Future.delayed(const Duration(milliseconds: 500));
 
-    // Create empty bot message
+    // Create bot message ID (but don't add to list yet)
     final botMessageId = UniqueKey().toString();
-    final botMessage = {
-      "id": botMessageId,
-      "sender": "bot",
-      "text": "", // ← Starts empty
-      "replyTo": null,
-      "time": DateTime.now(),
-      "timestamp": DateTime.now(),
-      "hasRed": false,
-      "hasGreen": false,
-    };
-
-    setState(() {
-      _isAITyping = false;
-      _messages.add(botMessage);
-    });
+    bool messageAdded = false; // Track if message was added to list
 
     // Stream AI response word-by-word
     try {
@@ -1155,6 +1141,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // Error handling
         if (chunk.error != null) {
           setState(() {
+            _isAITyping = false;
             _isTyping = false;
             _isLoading = false;
             _isSending = false;
@@ -1164,16 +1151,22 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             BlurToast.show(context, chunk.error!);
           }
 
-          // Remove empty bot message
-          setState(() {
-            _messages.removeWhere((m) => m['id'] == botMessageId);
-          });
+          // Remove message if it was added
+          if (messageAdded) {
+            setState(() {
+              _messages.removeWhere((m) => m['id'] == botMessageId);
+            });
+          }
 
           return;
         }
 
         // Stream completed
         if (chunk.isDone) {
+          setState(() {
+            _isAITyping = false;
+          });
+
           // Detect manipulation flags
           final index = _messages.indexWhere((m) => m['id'] == botMessageId);
           if (index != -1) {
@@ -1210,14 +1203,32 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           break;
         }
 
-        // Append chunk to bot message
-        setState(() {
-          final index = _messages.indexWhere((m) => m['id'] == botMessageId);
-          if (index != -1) {
-            _messages[index]['text'] =
-                (_messages[index]['text'] as String) + chunk.text;
-          }
-        });
+        // First chunk: hide logo, add message to list
+        if (!messageAdded) {
+          setState(() {
+            _isAITyping = false; // Hide logo pulse
+            _messages.add({
+              "id": botMessageId,
+              "sender": "bot",
+              "text": chunk.text, // First chunk
+              "replyTo": null,
+              "time": DateTime.now(),
+              "timestamp": DateTime.now(),
+              "hasRed": false,
+              "hasGreen": false,
+            });
+          });
+          messageAdded = true;
+        } else {
+          // Subsequent chunks: append to existing message
+          setState(() {
+            final index = _messages.indexWhere((m) => m['id'] == botMessageId);
+            if (index != -1) {
+              _messages[index]['text'] =
+                  (_messages[index]['text'] as String) + chunk.text;
+            }
+          });
+        }
 
         // Auto-scroll to bottom
         _scrollToBottom();
