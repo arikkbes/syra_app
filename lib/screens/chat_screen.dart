@@ -1578,14 +1578,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget _buildAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: SyraTokens.background,
-        border: Border(
-          bottom: BorderSide(
-            color: SyraTokens.divider,
-            width: 0.5,
-          ),
-        ),
       ),
       child: Row(
         children: [

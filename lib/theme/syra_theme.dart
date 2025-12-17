@@ -6,8 +6,8 @@ import 'package:google_fonts/google_fonts.dart';
 /// ═══════════════════════════════════════════════════════════════
 ///  SYRA DESIGN SYSTEM v5.0 - Dark Mode 2.0: Rich Tech
 ///  Sophisticated, literary, and serene user experience
-///  Background: #11131A (Gece Mavisi - Brand Identity)
-///  Accent: #33B5E5 (Tech Blue - Trust & Technology)
+///  Background: #0B0D10 (Obsidian)
+///  Accent: #D6B35A (Champagne Gold)
 /// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
@@ -17,34 +17,34 @@ class SyraColors {
   SyraColors._();
 
   // ─── Background (Marka Rengi Korundu) ───
-  static const Color background = Color(0xFF11131A); // Ana BG - RGB(17, 19, 26)
-  static const Color surface = Color(0xFF11131A); // Ana BG ile aynı
+  static const Color background = Color(0xFF0B0D10); // Obsidian
+  static const Color surface = Color(0xFF0F1216); // Base surface
   static const Color surfaceElevated =
-      Color(0xFF1B202C); // Yükseltilmiş yüzey - RGB(27, 32, 44)
+      Color(0xFF141A20); // Elevated card
   static const Color surfaceLight =
-      Color(0xFF1B202C); // Input bar, kartlar için
-  static const Color surfaceDark = Color(0xFF0C0F15); // Eski değer korundu
+      Color(0xFF171F27); // Inputs / secondary
+  static const Color surfaceDark = Color(0xFF07080B); // Deeper
 
   // ─── Borders & Dividers (Subtle) ───
-  static const Color border = Color(0xFF1A1E24);
-  static const Color divider = Color(0xFF1A1E24);
+  static const Color border = Color(0x14FFFFFF); // ~8% white
+  static const Color divider = Color(0x12FFFFFF); // ~7% white
 
   // ─── Text (Kırık Beyaz - Gözü Yormaz) ───
   static const Color textPrimary =
-      Color(0xFFE0E6ED); // RGB(224, 230, 237) - Soğuk tonlu
+      Color(0xFFE7E9EE); // Soft white
   static const Color textSecondary =
-      Color(0xFF8F9BB3); // RGB(143, 155, 179) - İkincil metin
-  static const Color textMuted = Color(0xFF8F9BB3); // Placeholder & ipuçları
-  static const Color textHint = Color(0xFF8F9BB3);
+      Color(0xFFA2AABD); // Secondary
+  static const Color textMuted = Color(0xFF6C7386); // Muted
+  static const Color textHint = Color(0xFF6C7386);
 
   // ─── Accent (Tech Blue - Güven & Teknoloji) ───
   static const Color accent =
-      Color(0xFF33B5E5); // RGB(51, 181, 229) - Parlak mavi
-  static const Color accentLight = Color(0xFF5AC8F5);
-  static const Color accentMuted = Color(0x3333B5E5);
+      Color(0xFFD6B35A); // Champagne Gold
+  static const Color accentLight = Color(0xFFF2E3B1);
+  static const Color accentMuted = Color(0x33D6B35A);
 
   // ─── Icons ───
-  static const Color iconStroke = Color(0xFFE0E6ED);
+  static const Color iconStroke = textPrimary;
   static const Color iconActive = textPrimary;
   static const Color iconMuted = textSecondary;
 
@@ -54,13 +54,13 @@ class SyraColors {
   static const Color error = Color(0xFFFF4D6D);
 
   // ─── Glass Effect ───
-  static const Color glassBg = Color(0x3311131A);
+  static const Color glassBg = Color(0x330B0D10);
   static const Color glassBorder = divider;
-  static const Color glassHighlight = Color(0x1AE0E6ED);
+  static const Color glassHighlight = Color(0x1AE7E9EE);
 
   // ─── Chat Bubbles ───
   static const Color syraBubbleBg = surfaceElevated;
-  static const Color userBubbleBg = Color(0xFF1B202C);
+  static const Color userBubbleBg = surface;
   static const Color syraBubbleGlow = accent;
 
   // ─── Backward Compatibility ───
@@ -68,9 +68,9 @@ class SyraColors {
   static const Color neonCyan = accent;
   static const Color neonPinkLight = accentLight;
   static const Color neonCyanLight = accentLight;
-  static const Color neonPinkDark = Color(0xFF2A9DC5);
-  static const Color neonCyanDark = Color(0xFF2A9DC5);
-  static const Color neonViolet = Color(0xFF5AC8F5);
+  static const Color neonPinkDark = Color(0xFFB9923A);
+  static const Color neonCyanDark = Color(0xFFB9923A);
+  static const Color neonViolet = accentLight;
 
   // ─── Gradients ───
   static const LinearGradient backgroundGradient = LinearGradient(

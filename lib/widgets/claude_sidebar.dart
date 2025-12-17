@@ -4,8 +4,11 @@ import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/chat_session.dart';
+import '../theme/syra_theme.dart';
 
 /// Claude-style sidebar overlay
 class ClaudeSidebar extends StatefulWidget {
@@ -165,9 +168,9 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               top: top,
               width: w,
               child: _SessionPopoverCard(
-                title: s
-                    .title, // artık preview'de yazdırmıyoruz (actions için kalsın)
-                subtitle: _subtitle(s),
+                sessionId: s.id,
+                title: s.title,
+                fallbackSubtitle: _subtitle(s),
                 trailing: _timeLabel(s.lastUpdatedAt),
                 onRename: widget.onRenameSession == null
                     ? null
@@ -402,7 +405,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(
-              color: Colors.white.withOpacity(0.08),
+              color: SyraColors.divider.withOpacity(0.9),
               width: 1,
             ),
           ),
@@ -413,7 +416,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               width: 42,
               height: 42,
               decoration: const BoxDecoration(
-                color: Color(0xFF33B5E5),
+                color: SyraColors.accent,
                 shape: BoxShape.circle,
               ),
               child: Center(
@@ -519,7 +522,7 @@ class _SessionItem extends StatelessWidget {
                 Icon(
                   Icons.chat_bubble_rounded,
                   color: isSelected
-                      ? const Color(0xFF33B5E5)
+                      ? SyraColors.accent
                       : Colors.white.withOpacity(0.55),
                   size: 18,
                 ),
@@ -599,7 +602,7 @@ class _MenuItem extends StatelessWidget {
             Icon(
               icon,
               color: isPremium
-                  ? const Color(0xFF33B5E5)
+                  ? SyraColors.accent
                   : Colors.white.withOpacity(0.8),
               size: 22,
             ),
@@ -617,13 +620,13 @@ class _MenuItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF33B5E5).withOpacity(0.15),
+                  color: SyraColors.accent.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: const Text(
                   'PRO',
                   style: TextStyle(
-                    color: Color(0xFF33B5E5),
+                    color: SyraColors.accent,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
@@ -645,16 +648,29 @@ class _MenuDivider extends StatelessWidget {
     return Container(
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: Colors.white.withOpacity(0.08),
+      color: SyraColors.divider.withOpacity(0.9),
     );
   }
 }
 
 /// ===== Popover Card (Preview Card + Actions Card) =====
 
-class _SessionPopoverCard extends StatelessWidget {
-  final String title; // kullanılmıyor (senin isteğin: title görünmesin)
-  final String subtitle;
+class _PreviewMsg {
+  final bool isUser;
+  final String text;
+
+  const _PreviewMsg({required this.isUser, required this.text});
+}
+
+class _SessionPopoverCard extends StatefulWidget {
+  /// Session id for fetching recent messages
+  final String sessionId;
+  final String title;
+
+  /// Fallback text if messages cannot be fetched
+  final String fallbackSubtitle;
+
+  /// Right-side time label
   final String trailing;
 
   final VoidCallback? onRename;
@@ -662,8 +678,9 @@ class _SessionPopoverCard extends StatelessWidget {
   final VoidCallback? onDelete;
 
   const _SessionPopoverCard({
+    required this.sessionId,
     required this.title,
-    required this.subtitle,
+    required this.fallbackSubtitle,
     required this.trailing,
     this.onRename,
     this.onArchive,
@@ -671,23 +688,57 @@ class _SessionPopoverCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildPreviewCard(),
-        const SizedBox(height: 10),
-        _buildActionsCard(),
-      ],
-    );
+  State<_SessionPopoverCard> createState() => _SessionPopoverCardState();
+}
+
+class _SessionPopoverCardState extends State<_SessionPopoverCard> {
+  late Future<List<_PreviewMsg>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _loadPreview();
   }
 
-  /// ✅ Preview kart: SADECE sohbet önizlemesi (title yok!)
-  Widget _buildPreviewCard() {
-    final bg = const Color(0xFF141414).withOpacity(0.92);
+  Future<List<_PreviewMsg>> _loadPreview() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return const [];
+
+      final snap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(widget.sessionId)
+          .collection('messages')
+          .orderBy('timestamp', descending: true)
+          .limit(3)
+          .get();
+
+      // Snapshot is newest -> oldest. We want oldest -> newest for preview.
+      final docs = snap.docs.toList().reversed;
+      final out = <_PreviewMsg>[];
+      for (final d in docs) {
+        final data = d.data();
+        final txt = (data['text'] ?? '').toString().trim();
+        if (txt.isEmpty) continue;
+        final sender = (data['sender'] ?? '').toString();
+        out.add(_PreviewMsg(isUser: sender == 'user', text: txt));
+      }
+      return out;
+    } catch (_) {
+      // Silent fallback: if Firestore path differs / permission issue, show fallback.
+      return const [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = 22.0;
+    final bg = SyraColors.surfaceElevated.withOpacity(0.92);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Material(
@@ -695,9 +746,11 @@ class _SessionPopoverCard extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: BorderRadius.circular(20),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.10), width: 1),
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(
+                color: SyraColors.border.withOpacity(0.75),
+                width: 1,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.35),
@@ -706,47 +759,16 @@ class _SessionPopoverCard extends StatelessWidget {
                 ),
               ],
             ),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    subtitle,
-                    maxLines: 8,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.80),
-                      fontSize: 13.5,
-                      height: 1.25,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Text(
-                        'Önizleme',
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.45),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-                      const Spacer(),
-                      Text(
-                        trailing,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.45),
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                  child: _buildPreviewSection(),
+                ),
+                _thinDivider(),
+                _buildActionsList(),
+              ],
             ),
           ),
         ),
@@ -754,58 +776,150 @@ class _SessionPopoverCard extends StatelessWidget {
     );
   }
 
-  Widget _buildActionsCard() {
-    final bg = const Color(0xFF141414).withOpacity(0.92);
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(18),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
-        child: Material(
-          type: MaterialType.transparency,
-          child: Container(
-            decoration: BoxDecoration(
-              color: bg,
-              borderRadius: BorderRadius.circular(18),
-              border:
-                  Border.all(color: Colors.white.withOpacity(0.10), width: 1),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.30),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
+  /// ✅ Preview kart: WhatsApp gibi mini sohbet kesiti
+  Widget _buildPreviewSection() {
+    // WhatsApp hissi: header + sabit yükseklikte mini chat alanı + footer
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.chat_bubble_outline,
+                size: 16, color: SyraColors.textSecondary.withOpacity(0.9)),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                widget.title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: SyraColors.textPrimary.withOpacity(0.95),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
                 ),
-              ],
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (onRename != null)
-                  _PopoverActionRow(
-                    icon: Icons.edit_rounded,
-                    label: 'Yeniden Adlandır',
-                    onTap: onRename!,
-                  ),
-                if (onRename != null && (onArchive != null || onDelete != null))
-                  _thinDivider(),
-                if (onArchive != null)
-                  _PopoverActionRow(
-                    icon: Icons.archive_outlined,
-                    label: 'Arşivle',
-                    onTap: onArchive!,
-                  ),
-                if (onArchive != null && onDelete != null) _thinDivider(),
-                if (onDelete != null)
-                  _PopoverActionRow(
-                    icon: Icons.delete_rounded,
-                    label: 'Sil',
-                    isDestructive: true,
-                    onTap: onDelete!,
-                  ),
-              ],
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Mini chat alanı (tek çerçeve: içeride border yok)
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: SyraColors.surfaceDark.withOpacity(0.35),
+            ),
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: SizedBox(
+              height: 110,
+              child: FutureBuilder<List<_PreviewMsg>>(
+                future: _future,
+                builder: (context, snap) {
+                  final loading = snap.connectionState != ConnectionState.done;
+                  if (loading) return _PreviewLoading();
+
+                  final msgs = snap.data ?? const <_PreviewMsg>[];
+                  if (msgs.isEmpty) {
+                    return Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Text(
+                        widget.fallbackSubtitle,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: SyraColors.textSecondary.withOpacity(0.95),
+                          fontSize: 13,
+                          height: 1.25,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    );
+                  }
+
+                  // Mesajları aşağıda bitir (WhatsApp gibi)
+                  final children = <Widget>[const Spacer()];
+                  for (final m in msgs) {
+                    children.add(
+                      Align(
+                        alignment: m.isUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: _MiniBubble(text: m.text, isUser: m.isUser),
+                      ),
+                    );
+                    children.add(const SizedBox(height: 8));
+                  }
+
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: children,
+                  );
+                },
+              ),
             ),
           ),
         ),
+
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Text(
+              'Önizleme',
+              style: TextStyle(
+                color: SyraColors.textMuted.withOpacity(0.95),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const Spacer(),
+            Text(
+              widget.trailing,
+              style: TextStyle(
+                color: SyraColors.textMuted.withOpacity(0.95),
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionsList() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(6, 10, 6, 10),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.onRename != null)
+            _PopoverActionRow(
+              icon: Icons.edit_rounded,
+              label: 'Yeniden Adlandır',
+              onTap: widget.onRename!,
+            ),
+          if (widget.onRename != null &&
+              (widget.onArchive != null || widget.onDelete != null))
+            _thinDivider(),
+          if (widget.onArchive != null)
+            _PopoverActionRow(
+              icon: Icons.archive_rounded,
+              label: 'Arşivle',
+              onTap: widget.onArchive!,
+            ),
+          if (widget.onArchive != null && widget.onDelete != null)
+            _thinDivider(),
+          if (widget.onDelete != null)
+            _PopoverActionRow(
+              icon: Icons.delete_rounded,
+              label: 'Sil',
+              isDestructive: true,
+              onTap: widget.onDelete!,
+            ),
+        ],
       ),
     );
   }
@@ -814,7 +928,118 @@ class _SessionPopoverCard extends StatelessWidget {
     return Container(
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 12),
-      color: Colors.white.withOpacity(0.08),
+      color: SyraColors.divider.withOpacity(0.9),
+    );
+  }
+}
+
+class _MiniBubble extends StatelessWidget {
+  final String text;
+  final bool isUser;
+
+  const _MiniBubble({required this.text, required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isUser
+        ? SyraColors.accent.withOpacity(0.22)
+        : SyraColors.border.withOpacity(0.65);
+
+    final gradient = isUser
+        ? LinearGradient(
+            colors: [
+              SyraColors.accent.withOpacity(0.18),
+              SyraColors.accent.withOpacity(0.10),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : LinearGradient(
+            colors: [
+              SyraColors.surfaceElevated.withOpacity(0.75),
+              SyraColors.surfaceElevated.withOpacity(0.55),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          );
+
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 290),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(isUser ? 16 : 5),
+          bottomRight: Radius.circular(isUser ? 5 : 16),
+        ),
+        border: Border.all(color: borderColor, width: 1),
+      ),
+      child: Text(
+        text,
+        maxLines: 3,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: SyraColors.textPrimary.withOpacity(0.95),
+          fontSize: 13.4,
+          height: 1.25,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _PreviewLoading extends StatelessWidget {
+  const _PreviewLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    // Lightweight skeleton: two ghost bubbles, aligned like chat.
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: const [
+        Spacer(),
+        Align(
+            alignment: Alignment.centerRight,
+            child: _GhostBubble(isUser: true)),
+        SizedBox(height: 8),
+        Align(
+            alignment: Alignment.centerLeft,
+            child: _GhostBubble(isUser: false)),
+      ],
+    );
+  }
+}
+
+class _GhostBubble extends StatelessWidget {
+  final bool isUser;
+  const _GhostBubble({required this.isUser});
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = isUser
+        ? SyraColors.accent.withOpacity(0.18)
+        : SyraColors.border.withOpacity(0.55);
+
+    final fill = isUser
+        ? SyraColors.accent.withOpacity(0.10)
+        : SyraColors.surfaceElevated.withOpacity(0.55);
+
+    return Container(
+      width: isUser ? 140 : 180,
+      height: 34,
+      decoration: BoxDecoration(
+        color: fill,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(16),
+          topRight: const Radius.circular(16),
+          bottomLeft: Radius.circular(isUser ? 16 : 5),
+          bottomRight: Radius.circular(isUser ? 5 : 16),
+        ),
+        border: Border.all(color: borderColor, width: 1),
+      ),
     );
   }
 }

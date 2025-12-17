@@ -41,12 +41,6 @@ class ChatAppBar extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: SyraColors.background.withValues(alpha: 0.85),
-            border: Border(
-              bottom: BorderSide(
-                color: SyraColors.divider.withValues(alpha: 0.5),
-                width: 0.5,
-              ),
-            ),
           ),
           child: Row(
             children: [

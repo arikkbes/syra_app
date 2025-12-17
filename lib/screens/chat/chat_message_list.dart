@@ -3,7 +3,7 @@ import '../../theme/syra_theme.dart';
 import '../../widgets/syra_message_bubble.dart';
 
 /// Message list for ChatScreen
-/// 
+///
 /// Displays:
 /// - Empty state with suggestions when no messages
 /// - Scrollable message list with typing indicator
@@ -105,8 +105,7 @@ class ChatMessageList extends StatelessWidget {
             Text(
               isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
               style: TextStyle(
-                color:
-                    isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
+                color: isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.w600,
                 letterSpacing: -0.3,
@@ -127,74 +126,27 @@ class ChatMessageList extends StatelessWidget {
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 40),
-
-            // Suggestion Chips
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: _buildSuggestionChips(),
-            ),
+            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 
-  List<Widget> _buildSuggestionChips() {
-    final suggestions = isTarotMode
-        ? [
-            "Aşk hayatımla ilgili bir tarot açılımı yap",
-            "Kariyer hedeflerim için ne diyor kartlar?",
-          ]
-        : [
-            "Sevgilimin mesajını analiz et",
-            "İlişkimde bir konu var, yardım eder misin?",
-            "Bu durumda ne yapmalıyım?",
-          ];
-
-    return suggestions.map((text) {
-      return GestureDetector(
-        onTap: () => onSuggestionTap(text),
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 10,
-          ),
-          decoration: BoxDecoration(
-            color: SyraColors.surface.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: SyraColors.divider.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(
-              color: SyraColors.textSecondary,
-              fontSize: 13,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }).toList();
-  }
-
   Widget _buildMessageList() {
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      itemCount: messages.length + (isTyping ? 1 : 0) + (isAITyping ? 1 : 0), // ← STREAMING
+      itemCount: messages.length +
+          (isTyping ? 1 : 0) +
+          (isAITyping ? 1 : 0), // ← STREAMING
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         // Show AI typing indicator (3 dots)
         if (isAITyping && index == messages.length) {
           return _buildAITypingIndicator();
         }
-        
+
         // Show regular typing indicator
         if (isTyping && index == messages.length + (isAITyping ? 1 : 0)) {
           return _buildTypingIndicator();

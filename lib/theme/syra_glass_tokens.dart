@@ -4,18 +4,18 @@ import 'package:flutter/material.dart';
 
 /// Liquid Glass design tokens for SYRA
 /// Based on Figma "Liquid Glass button iOS 26 – Bold variant"
-/// Adapted to SYRA's dark theme (#11131A background)
+/// Adapted to SYRA's dark theme (#0B0D10 background)
 class SyraGlassTokens {
   SyraGlassTokens._();
 
   // ===== BASE COLORS =====
   
-  /// Base glass color - adapted from Figma #1D1D1D to fit SYRA's #11131A
+  /// Base glass color - adapted from Figma #1D1D1D to fit SYRA's #0B0D10
   /// Slightly lighter than the background for the glass effect
-  static const Color glassBase = Color(0xFF1A1D26);
+  static const Color glassBase = Color(0xFF141A20);
   
   /// Glass overlay - 20% opacity layer
-  static const Color glassOverlay = Color(0x331A1D26);
+  static const Color glassOverlay = Color(0x33141A20);
   
   // ===== FIGMA CHAT BAR COLORS =====
   // Extracted from Figma Liquid Glass Chat Bar design
