@@ -27,7 +27,6 @@ import '../widgets/syra_bottom_panel.dart';
 
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
-import 'side_menu.dart';
 import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'premium_management_screen.dart';
