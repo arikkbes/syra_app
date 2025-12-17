@@ -152,7 +152,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
               colors: [
                 Colors.white.withOpacity(0.15),
                 Colors.white.withOpacity(0.08),
-                SyraColors.accent.withOpacity(0.05),
+                const Color(0xFF66E0FF).withOpacity(0.05),
               ],
             ),
             borderRadius: BorderRadius.circular(20),
@@ -167,7 +167,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                 offset: const Offset(0, 8),
               ),
               BoxShadow(
-                color: SyraColors.accent.withOpacity(0.10),
+                color: const Color(0xFF66E0FF).withOpacity(0.1),
                 blurRadius: 20,
                 spreadRadius: -5,
               ),
@@ -229,8 +229,8 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                       label: 'Normal',
                       description: 'Dengeli, akıcı sohbet',
                       gradient: [
-                        SyraColors.accent,
-                        SyraColors.neonPinkDark,
+                        const Color(0xFF66E0FF),
+                        const Color(0xFF4FC3DC),
                       ],
                     ),
                     _buildModeItem(

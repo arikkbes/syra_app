@@ -6,7 +6,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../theme/syra_theme.dart';
 import '../../utils/liquid_glass_lens_shader.dart';
 import '../../widgets/chat_input_bar_liquid_glass.dart';
 
@@ -366,7 +365,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
         width: 28,
         height: 28,
         decoration: BoxDecoration(
-          color: SyraColors.accent.withOpacity(0.15),
+          color: const Color(0xFF33B5E5).withOpacity(0.15),
           shape: BoxShape.circle,
         ),
         child: const Center(
@@ -383,10 +382,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: SyraColors.accent.withOpacity(0.10), // accent with 10% opacity
+        color: const Color(0x1A33B5E5), // accent with 10% opacity
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: SyraColors.accent.withOpacity(0.30), // accent with 30% opacity
+          color: const Color(0x4D33B5E5), // accent with 30% opacity
           width: 1,
         ),
       ),
@@ -396,7 +395,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
             width: 3,
             height: 36,
             decoration: BoxDecoration(
-              color: SyraColors.accent, // accent
+              color: const Color(0xFF33B5E5), // accent
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -405,10 +404,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
+                const Text(
                   'Yanıtlanıyor',
                   style: TextStyle(
-                    color: SyraColors.accent,
+                    color: Color(0xFF33B5E5), // accent
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -475,7 +474,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor:
-                                AlwaysStoppedAnimation(SyraColors.accent),
+                                AlwaysStoppedAnimation(Color(0xFF33B5E5)),
                           ),
                         ),
                       ),
@@ -564,7 +563,7 @@ class _VoiceWavePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = SyraColors.accent
+      ..color = const Color(0xFF33B5E5)
       ..strokeWidth = 2.0
       ..strokeCap = StrokeCap.round;
 

@@ -1,13 +1,11 @@
 // lib/theme/syra_theme.dart
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-///  SYRA DESIGN SYSTEM v5.0 - Dark Mode 2.0: Rich Tech
-///  Sophisticated, literary, and serene user experience
-///  Background: #0B0D10 (Obsidian)
-///  Accent: #D6B35A (Champagne Gold)
+///  SYRA DESIGN SYSTEM — Obsidian + Champagne Gold
+///  - Background: #11131A (Obsidian)
+///  - Accent: Champagne Gold (premium)
 /// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════
@@ -17,34 +15,31 @@ class SyraColors {
   SyraColors._();
 
   // ─── Background (Marka Rengi Korundu) ───
-  static const Color background = Color(0xFF0B0D10); // Obsidian
-  static const Color surface = Color(0xFF0F1216); // Base surface
+  static const Color background = Color(0xFF11131A); // Ana BG - RGB(17, 19, 26)
+  static const Color surface = Color(0xFF11131A); // Ana BG ile aynı
   static const Color surfaceElevated =
-      Color(0xFF141A20); // Elevated card
+      Color(0xFF1B202C); // Yükseltilmiş yüzey - RGB(27, 32, 44)
   static const Color surfaceLight =
-      Color(0xFF171F27); // Inputs / secondary
-  static const Color surfaceDark = Color(0xFF07080B); // Deeper
+      Color(0xFF1B202C); // Input bar, kartlar için
+  static const Color surfaceDark = Color(0xFF0C0F15); // Eski değer korundu
 
-  // ─── Borders & Dividers (Subtle) ───
+  // ─── Borders & Dividers (Subtle - white alpha) ───
   static const Color border = Color(0x14FFFFFF); // ~8% white
-  static const Color divider = Color(0x12FFFFFF); // ~7% white
+  static const Color divider = Color(0x0FFFFFFF); // ~6% white
 
-  // ─── Text (Kırık Beyaz - Gözü Yormaz) ───
-  static const Color textPrimary =
-      Color(0xFFE7E9EE); // Soft white
-  static const Color textSecondary =
-      Color(0xFFA2AABD); // Secondary
-  static const Color textMuted = Color(0xFF6C7386); // Muted
-  static const Color textHint = Color(0xFF6C7386);
+  // ─── Text (Kırık Beyaz - premium) ───
+  static const Color textPrimary = Color(0xFFE7E9EE);
+  static const Color textSecondary = Color(0xFF9AA3B2);
+  static const Color textMuted = Color(0xFF778090);
+  static const Color textHint = textMuted;
 
-  // ─── Accent (Tech Blue - Güven & Teknoloji) ───
-  static const Color accent =
-      Color(0xFFD6B35A); // Champagne Gold
-  static const Color accentLight = Color(0xFFF2E3B1);
+  // ─── Accent (Champagne Gold) ───
+  static const Color accent = Color(0xFFD6B35A);
+  static const Color accentLight = Color(0xFFEAD7A5);
   static const Color accentMuted = Color(0x33D6B35A);
 
   // ─── Icons ───
-  static const Color iconStroke = textPrimary;
+  static const Color iconStroke = Color(0xFFE0E6ED);
   static const Color iconActive = textPrimary;
   static const Color iconMuted = textSecondary;
 
@@ -54,13 +49,13 @@ class SyraColors {
   static const Color error = Color(0xFFFF4D6D);
 
   // ─── Glass Effect ───
-  static const Color glassBg = Color(0x330B0D10);
+  static const Color glassBg = Color(0x3311131A);
   static const Color glassBorder = divider;
   static const Color glassHighlight = Color(0x1AE7E9EE);
 
   // ─── Chat Bubbles ───
   static const Color syraBubbleBg = surfaceElevated;
-  static const Color userBubbleBg = surface;
+  static const Color userBubbleBg = Color(0xFF1B202C);
   static const Color syraBubbleGlow = accent;
 
   // ─── Backward Compatibility ───
@@ -68,9 +63,9 @@ class SyraColors {
   static const Color neonCyan = accent;
   static const Color neonPinkLight = accentLight;
   static const Color neonCyanLight = accentLight;
-  static const Color neonPinkDark = Color(0xFFB9923A);
-  static const Color neonCyanDark = Color(0xFFB9923A);
-  static const Color neonViolet = accentLight;
+  static const Color neonPinkDark = Color(0xFF2A9DC5);
+  static const Color neonCyanDark = Color(0xFF2A9DC5);
+  static const Color neonViolet = Color(0xFF5AC8F5);
 
   // ─── Gradients ───
   static const LinearGradient backgroundGradient = LinearGradient(
@@ -195,126 +190,138 @@ class SyraAnimation {
 class SyraTextStyles {
   SyraTextStyles._();
 
-  // Base font family using Google Fonts
-  static String get _fontFamily => GoogleFonts.inter().fontFamily!;
-
-  // Serif font for headings (Literary feel)
-  static String get _serifFamily => GoogleFonts.lora().fontFamily!;
+  // Asset-backed font families (pubspec.yaml)
+  static const String _uiFamily = 'Inter';
+  static const String _displayFamily = 'DMSerifDisplay';
 
   // ─── Display & Headings (SERIF - Entelektüel Hava) ───
-  static TextStyle get displayLarge => GoogleFonts.lora(
+  static TextStyle get displayLarge => const TextStyle(
+        fontFamily: _displayFamily,
         fontSize: 32,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.5,
-        color: SyraColors.textPrimary,
         height: 1.2,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.4,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get displayMedium => GoogleFonts.lora(
+  static TextStyle get displayMedium => const TextStyle(
+        fontFamily: _displayFamily,
         fontSize: 28,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.5,
-        color: SyraColors.textPrimary,
         height: 1.2,
+        fontWeight: FontWeight.w400,
+        letterSpacing: -0.4,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get headingLarge => GoogleFonts.lora(
+  static TextStyle get headingLarge => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 24,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
-        color: SyraColors.textPrimary,
         height: 1.3,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.2,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get headingMedium => GoogleFonts.lora(
+  static TextStyle get headingMedium => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 20,
-        fontWeight: FontWeight.w600,
-        letterSpacing: -0.3,
-        color: SyraColors.textPrimary,
         height: 1.3,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.1,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get headingSmall => GoogleFonts.lora(
+  static TextStyle get headingSmall => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 16,
+        height: 1.4,
         fontWeight: FontWeight.w600,
         color: SyraColors.textPrimary,
-        height: 1.4,
       );
 
   // ─── Body Text (SANS-SERIF - Okunabilirlik) ───
-  static TextStyle get bodyLarge => GoogleFonts.inter(
+  static TextStyle get bodyLarge => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 16,
-        fontWeight: FontWeight.w400,
-        color: SyraColors.textPrimary,
         height: 1.5,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.1,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get bodyMedium => GoogleFonts.inter(
+  static TextStyle get bodyMedium => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 15,
-        fontWeight: FontWeight.w400,
-        color: SyraColors.textPrimary,
         height: 1.5,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.1,
+        color: SyraColors.textPrimary,
       );
 
-  static TextStyle get bodySmall => GoogleFonts.inter(
+  static TextStyle get bodySmall => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 14,
-        fontWeight: FontWeight.w400,
-        color: SyraColors.textSecondary,
         height: 1.5,
+        fontWeight: FontWeight.w400,
         letterSpacing: 0.1,
+        color: SyraColors.textSecondary,
       );
 
   // ─── Labels & Captions ───
-  static TextStyle get labelLarge => GoogleFonts.inter(
+  static TextStyle get labelLarge => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: SyraColors.textPrimary,
         letterSpacing: 0.1,
       );
 
-  static TextStyle get labelMedium => GoogleFonts.inter(
+  static TextStyle get labelMedium => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 13,
         fontWeight: FontWeight.w500,
         color: SyraColors.textPrimary,
         letterSpacing: 0.15,
       );
 
-  static TextStyle get labelSmall => GoogleFonts.inter(
+  static TextStyle get labelSmall => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 12,
         fontWeight: FontWeight.w500,
         color: SyraColors.textSecondary,
         letterSpacing: 0.2,
       );
 
-  static TextStyle get caption => GoogleFonts.inter(
+  static TextStyle get caption => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 12,
         fontWeight: FontWeight.w400,
         color: SyraColors.textMuted,
         letterSpacing: 0.2,
       );
 
-  static TextStyle get button => GoogleFonts.inter(
+  static TextStyle get button => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 15,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.3,
         color: SyraColors.textPrimary,
       );
 
-  static TextStyle get overline => GoogleFonts.inter(
+  static TextStyle get overline => const TextStyle(
+        fontFamily: _uiFamily,
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 1.0,
         color: SyraColors.textMuted,
       );
 
-  // Logo uses SF Pro Display fallback for brand consistency
+  // Logo uses Inter with tight tracking (premium)
   static TextStyle logoStyle({double fontSize = 20}) => TextStyle(
-        fontFamily: "SF Pro Display",
+        fontFamily: _uiFamily,
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
-        letterSpacing: fontSize * 0.12,
+        letterSpacing: 1.0,
         color: SyraColors.textPrimary,
       );
 }
@@ -353,7 +360,7 @@ class SyraTheme {
         useMaterial3: true,
         brightness: Brightness.dark,
         scaffoldBackgroundColor: SyraColors.background,
-        fontFamily: GoogleFonts.inter().fontFamily,
+        fontFamily: 'Inter',
 
         // ─── Color Scheme ───
         colorScheme: const ColorScheme.dark(

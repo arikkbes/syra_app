@@ -3,7 +3,7 @@ import '../../theme/syra_theme.dart';
 import '../../widgets/syra_message_bubble.dart';
 
 /// Message list for ChatScreen
-///
+/// 
 /// Displays:
 /// - Empty state with suggestions when no messages
 /// - Scrollable message list with typing indicator
@@ -104,11 +104,9 @@ class ChatMessageList extends StatelessWidget {
             // Hero Title
             Text(
               isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
-              style: TextStyle(
-                color: isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
+              style: SyraTextStyles.displayMedium.copyWith(
                 fontSize: 24,
-                fontWeight: FontWeight.w600,
-                letterSpacing: -0.3,
+                color: isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
               ),
               textAlign: TextAlign.center,
             ),
@@ -119,14 +117,14 @@ class ChatMessageList extends StatelessWidget {
               isTarotMode
                   ? "İstersen önce birkaç cümleyle durumu anlat."
                   : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
-              style: const TextStyle(
+              style: SyraTextStyles.bodySmall.copyWith(
                 color: SyraColors.textMuted,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 24),
+
+            // NOTE: Claude-style empty state should not show example prompts.
+            // (User asked to remove the old placeholder suggestion texts.)
           ],
         ),
       ),
@@ -137,16 +135,14 @@ class ChatMessageList extends StatelessWidget {
     return ListView.builder(
       controller: scrollController,
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      itemCount: messages.length +
-          (isTyping ? 1 : 0) +
-          (isAITyping ? 1 : 0), // ← STREAMING
+      itemCount: messages.length + (isTyping ? 1 : 0) + (isAITyping ? 1 : 0), // ← STREAMING
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
         // Show AI typing indicator (3 dots)
         if (isAITyping && index == messages.length) {
           return _buildAITypingIndicator();
         }
-
+        
         // Show regular typing indicator
         if (isTyping && index == messages.length + (isAITyping ? 1 : 0)) {
           return _buildTypingIndicator();

@@ -41,6 +41,7 @@ class ChatAppBar extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: SyraColors.background.withValues(alpha: 0.85),
+            // NOTE: Claude-style header has NO bottom divider line.
           ),
           child: Row(
             children: [

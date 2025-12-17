@@ -9,13 +9,16 @@ import '../theme/syra_animations.dart';
 /// PREMIUM CHAT EMPTY STATE
 /// ═══════════════════════════════════════════════════════════════
 /// Hero section when no messages exist:
-/// - Logo/icon
-/// - Welcome message
-/// - Quick action chips
+/// - Logo
+/// - Welcome title
+/// - Subtitle
+/// (Suggestion chips removed for clean Claude-style empty state)
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatEmptyState extends StatelessWidget {
   final bool isTarotMode;
+
+  /// Kept for compatibility with existing calls (even though suggestions are hidden)
   final Function(String) onSuggestionTap;
 
   const ChatEmptyState({
@@ -26,50 +29,66 @@ class ChatEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final w = MediaQuery.of(context).size.width;
+    final isDesktop = w >= 900;
+
+    final titleText =
+        isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?";
+    final subtitleText = isTarotMode
+        ? "İstersen önce birkaç cümleyle durumu anlat."
+        : "Mesajını, ilişkini ya da aklındaki soruyu anlat.";
+
+    final titleStyle = SyraTextStyles.displayMedium.copyWith(
+      fontSize: isDesktop ? 34 : 30,
+      height: isDesktop ? (42 / 34) : (38 / 30),
+      color: (isTarotMode ? SyraColors.accent : SyraColors.textPrimary)
+          .withValues(alpha: 0.92),
+    );
+
+    final subtitleStyle = SyraTextStyles.bodyMedium.copyWith(
+      fontSize: isDesktop ? 15 : 14,
+      height: 22 / (isDesktop ? 15 : 14),
+      color: SyraColors.textSecondary.withValues(alpha: 0.72),
+    );
+
     return Center(
       child: SingleChildScrollView(
         padding: EdgeInsets.all(SyraSpacing.xl),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Logo/Icon
-            _buildLogo().fadeInSlide(
-              delay: Duration(milliseconds: 100),
-            ),
-
-            SizedBox(height: SyraSpacing.xl),
-
-            // Title
-            Text(
-              isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
-              style: SyraTextStyles.displayMedium.copyWith(
-                color: isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Logo
+              _buildLogo().fadeInSlide(
+                delay: const Duration(milliseconds: 100),
               ),
-              textAlign: TextAlign.center,
-            ).fadeInSlide(
-              delay: Duration(milliseconds: 200),
-            ),
 
-            SizedBox(height: SyraSpacing.md),
+              SizedBox(height: SyraSpacing.xl),
 
-            // Subtitle
-            Text(
-              isTarotMode
-                  ? "İstersen önce birkaç cümleyle durumu anlat."
-                  : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
-              style: SyraTextStyles.bodyMedium.copyWith(
-                color: SyraColors.textSecondary,
+              // Title
+              Text(
+                titleText,
+                style: titleStyle,
+                textAlign: TextAlign.center,
+              ).fadeInSlide(
+                delay: const Duration(milliseconds: 200),
               ),
-              textAlign: TextAlign.center,
-            ).fadeInSlide(
-              delay: Duration(milliseconds: 300),
-            ),
 
-            SizedBox(height: SyraSpacing.xl + SyraSpacing.sm),
+              const SizedBox(height: 12),
 
-            // Suggestion chips
-            _buildSuggestions(),
-          ],
+              // Subtitle
+              Text(
+                subtitleText,
+                style: subtitleStyle,
+                textAlign: TextAlign.center,
+              ).fadeInSlide(
+                delay: const Duration(milliseconds: 300),
+              ),
+
+              // Suggestions removed (as requested)
+            ],
+          ),
         ),
       ),
     );
@@ -81,103 +100,35 @@ class ChatEmptyState extends StatelessWidget {
 
   Widget _buildLogo() {
     return Container(
-      width: 100,
-      height: 100,
+      width: 108,
+      height: 108,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
           colors: [
-            SyraColors.accent.withValues(alpha: 0.2),
-            SyraColors.accent.withValues(alpha: 0.05),
+            SyraColors.accent.withValues(alpha: 0.18),
+            SyraColors.accent.withValues(alpha: 0.04),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: SyraColors.accent.withValues(alpha: 0.15),
-            blurRadius: 30,
-            spreadRadius: 5,
+            color: SyraColors.accent.withValues(alpha: 0.14),
+            blurRadius: 34,
+            spreadRadius: 6,
           ),
         ],
       ),
       child: Center(
-        child: Text(
-          isTarotMode ? "🔮" : "S",
-          style: TextStyle(
-            fontSize: isTarotMode ? 48 : 42,
-            fontWeight: FontWeight.w300,
-            color: SyraColors.accent.withValues(alpha: 0.7),
-          ),
+        child: Image.asset(
+          'assets/images/syra_logo.png',
+          width: 56,
+          height: 56,
+          fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
       ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // SUGGESTIONS
-  // ═══════════════════════════════════════════════════════════════
-
-  Widget _buildSuggestions() {
-    final List<String> suggestions = isTarotMode
-        ? [
-            "Son konuşmamı kartlarla yorumla",
-            "İlişkim için genel tarot açılımı yap",
-            "Bugün için kart çek",
-          ]
-        : [
-            "İlişki mesajımı analiz et",
-            "İlk mesaj taktiği ver",
-            "Konuşmamın enerjisini değerlendir",
-          ];
-
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: SyraSpacing.sm,
-      runSpacing: SyraSpacing.sm,
-      children: suggestions.asMap().entries.map((entry) {
-        final index = entry.key;
-        final text = entry.value;
-        return _buildSuggestionChip(
-          text: text,
-          index: index,
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildSuggestionChip({
-    required String text,
-    required int index,
-  }) {
-    return SyraGlassCard(
-      padding: EdgeInsets.symmetric(
-        horizontal: SyraSpacing.md,
-        vertical: SyraSpacing.sm + 2,
-      ),
-      borderRadius: SyraRadius.full,
-      onTap: () => onSuggestionTap(text),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            Icons.auto_awesome_outlined,
-            size: 16,
-            color: SyraColors.accent.withValues(alpha: 0.7),
-          ),
-          SizedBox(width: SyraSpacing.xs),
-          Flexible(
-            child: Text(
-              text,
-              style: SyraTextStyles.labelMedium.copyWith(
-                color: SyraColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    ).fadeInSlide(
-      delay: Duration(milliseconds: 400 + (index * 100)),
     );
   }
 }

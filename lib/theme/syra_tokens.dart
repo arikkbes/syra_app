@@ -11,46 +11,46 @@ class SyraTokens {
   // ===== COLORS =====
 
   /// Main app background - dark navy
-  static const Color bg = Color(0xFF0B0D10);
+  static const Color bg = Color(0xFF11131A);
 
   /// Card/surface color - slightly lighter than bg
-  static const Color card = Color(0xFF141A20);
+  static const Color card = Color(0xFF1A1D26);
 
   /// Surface color (alias for card for consistency)
-  static const Color surface = Color(0xFF141A20);
+  static const Color surface = Color(0xFF1A1D26);
 
   /// Surface light color (for nested/elevated elements)
-  static const Color surfaceLight = Color(0xFF171F27);
+  static const Color surfaceLight = Color(0xFF22252E);
 
   /// Secondary card/surface (for nested cards)
-  static const Color cardElevated = Color(0xFF171F27);
+  static const Color cardElevated = Color(0xFF22252E);
 
   /// Accent/primary color - cool cyan
-  static const Color accent = Color(0xFFD6B35A);
+  static const Color accent = Color(0xFF66E0FF);
 
   /// Accent color with reduced opacity for hover states
-  static const Color accentHover = Color(0xFFB9923A);
+  static const Color accentHover = Color(0xFF52B3CC);
 
   /// Primary text color - almost white
-  static const Color textPrimary = Color(0xFFE7E9EE);
+  static const Color textPrimary = Color(0xFFE8EBF0);
 
   /// Secondary text color - dimmed
-  static const Color textSecondary = Color(0xFFA2AABD);
+  static const Color textSecondary = Color(0xFF8B92A6);
 
   /// Muted text color (alias for tertiary)
-  static const Color textMuted = Color(0xFF6C7386);
+  static const Color textMuted = Color(0xFF5A5F73);
 
   /// Tertiary text color - very dimmed
-  static const Color textTertiary = Color(0xFF6C7386);
+  static const Color textTertiary = Color(0xFF5A5F73);
 
   /// Subtle border color
-  static const Color borderSubtle = Color(0x14FFFFFF); // ~8% white
+  static const Color borderSubtle = Color(0xFF2A2D36);
 
   /// More visible border color
-  static const Color border = Color(0x24FFFFFF); // ~14% white
+  static const Color border = Color(0xFF3A3D46);
 
   /// Divider color
-  static const Color divider = Color(0x12FFFFFF); // ~7% white
+  static const Color divider = Color(0xFF252830);
 
   /// Error/danger color
   static const Color error = Color(0xFFFF4D6D);
@@ -62,7 +62,7 @@ class SyraTokens {
   static const Color background = bg;
 
   /// Glass background (semi-transparent)
-  static const Color glassBg = Color(0x80141A20);
+  static const Color glassBg = Color(0x80000000);
 
   /// Text hint color (for input placeholders)
   static const Color textHint = textMuted;

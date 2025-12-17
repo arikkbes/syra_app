@@ -51,7 +51,6 @@ dependencies:
   speech_to_text: ^7.3.0
   dtd: ^4.0.0
   flutter_lints: ^6.0.0
-  google_fonts: ^6.3.3
   flutter_animate: ^4.5.0
   animations: ^2.0.11
   shimmer: ^3.0.0
@@ -84,3 +83,24 @@ flutter:
     - assets/images/syra_logo.png
     - assets/images/syra_logo_tarot.png
     - assets/icons/
+    - assets/fonts/
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.otf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.otf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.otf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.otf
+          weight: 700
+
+    # Display/hero font.
+    # NOTE: This file is shipped via assets. If you later want the exact DM Serif Display,
+    # just replace assets/fonts/DMSerifDisplay-Regular.ttf with the real font file.
+    - family: DMSerifDisplay
+      fonts:
+        - asset: assets/fonts/DMSerifDisplay-Regular.ttf
+          weight: 400
