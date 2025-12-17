@@ -104,10 +104,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                       : MainAxisAlignment.start,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (!widget.isUser) ...[
-                      _buildAvatar(),
-                      SizedBox(width: SyraSpacing.sm),
-                    ],
+                    // NO avatar for assistant (ChatGPT style)
 
                     Flexible(
                       child: Stack(
@@ -139,38 +136,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // AVATAR
-  // ═══════════════════════════════════════════════════════════════
-
-  Widget _buildAvatar() {
-    return Container(
-      width: 28,
-      height: 28,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: SyraColors.accentGradient,
-        boxShadow: [
-          BoxShadow(
-            color: SyraColors.accent.withValues(alpha: 0.2),
-            blurRadius: 8,
-            spreadRadius: 0,
-          ),
-        ],
-      ),
-      child: Center(
-        child: Text(
-          "S",
-          style: SyraTextStyles.labelMedium.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // MESSAGE CONTENT
+  // MESSAGE CONTENT (NO AVATAR - ChatGPT style)
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildMessageContent() {

@@ -67,7 +67,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isTyping = false;
   bool _isSending = false; // Anti-spam flag
   bool _userScrolledUp = false; // Track if user manually scrolled
-  bool _isAITyping = false; // ← STREAMING: AI typing indicator
 
   Map<String, dynamic>? _replyingTo;
 
@@ -1119,7 +1118,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     // Show typing indicator (logo pulse)
     setState(() {
-      _isAITyping = true;
+      _isTyping = true;
     });
 
     // Small delay (AI "thinking")
@@ -1141,7 +1140,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // Error handling
         if (chunk.error != null) {
           setState(() {
-            _isAITyping = false;
+            _isTyping = false;
             _isTyping = false;
             _isLoading = false;
             _isSending = false;
@@ -1164,7 +1163,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // Stream completed
         if (chunk.isDone) {
           setState(() {
-            _isAITyping = false;
+            _isTyping = false;
           });
 
           // Detect manipulation flags
@@ -1206,7 +1205,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // First chunk: hide logo, add message to list
         if (!messageAdded) {
           setState(() {
-            _isAITyping = false; // Hide logo pulse
+            _isTyping = false; // Hide logo pulse
             _messages.add({
               "id": botMessageId,
               "sender": "bot",
@@ -1414,7 +1413,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             child: ChatMessageList(
                               isEmpty: _messages.isEmpty,
                               isTarotMode: _isTarotMode,
-                              isAITyping: _isAITyping,
+                              
                               onSuggestionTap: (text) {
                                 setState(() {
                                   _controller.text = text;
