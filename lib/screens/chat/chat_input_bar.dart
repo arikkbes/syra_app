@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../utils/liquid_glass_lens_shader.dart';
 import '../../widgets/chat_input_bar_liquid_glass.dart';
+import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM GLASSMORPHISM CHAT INPUT BAR WITH LIQUID GLASS

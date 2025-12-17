@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../theme/syra_glass.dart';
+import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// ACCOUNT SETTINGS SCREEN

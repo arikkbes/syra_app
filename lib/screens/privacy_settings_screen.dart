@@ -2,6 +2,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
+import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PRIVACY SETTINGS SCREEN

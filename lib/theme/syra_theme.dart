@@ -1,11 +1,17 @@
 // lib/theme/syra_theme.dart
+// ═══════════════════════════════════════════════════════════════
+// ⛔ SYRA DESIGN CORE — DO NOT EDIT
+// ═══════════════════════════════════════════════════════════════
+// LOCKED: Obsidian (#11131A) + Champagne Gold (#D6B35A)
+// NO hardcoded Color(0xFF...) in UI code — use SyraColors.* only
+// ═══════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 ///  SYRA DESIGN SYSTEM — Obsidian + Champagne Gold
 ///  - Background: #11131A (Obsidian)
-///  - Accent: Champagne Gold (premium)
+///  - Accent: #D6B35A (Champagne Gold - premium)
 /// ═══════════════════════════════════════════════════════════════
 
 // ═══════════════════════════════════════════════════════════════

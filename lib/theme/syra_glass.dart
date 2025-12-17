@@ -1,4 +1,10 @@
 // lib/theme/syra_glass.dart
+// ═══════════════════════════════════════════════════════════════
+// ⛔ SYRA DESIGN CORE — DO NOT EDIT
+// ═══════════════════════════════════════════════════════════════
+// LOCKED: Glass system components - uses SyraColors.* only
+// NO hardcoded Color(0xFF...) in glass effects
+// ═══════════════════════════════════════════════════════════════
 
 import 'dart:ui';
 import 'package:flutter/material.dart';

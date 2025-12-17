@@ -1,3 +1,10 @@
+# ═══════════════════════════════════════════════════════════════
+# ⛔ SYRA DESIGN CORE — DO NOT EDIT
+# ═══════════════════════════════════════════════════════════════
+# LOCKED: Design system dependencies and assets
+# Changes to theme/design tokens must go through design review
+# ═══════════════════════════════════════════════════════════════
+
 name: syra
 description: SYRA - İlişki Danışmanın
 publish_to: 'none'
