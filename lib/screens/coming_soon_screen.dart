@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../widgets/glass_background.dart';
+import '../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// COMING SOON SCREEN
@@ -40,11 +41,11 @@ class ComingSoonScreen extends StatelessWidget {
                             height: 80,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              color: const Color(0xFF00D4FF).withValues(alpha: 0.15),
+                              color: SyraColors.accent.withValues(alpha: 0.15),
                             ),
                             child: Icon(
                               Icons.schedule_rounded,
-                              color: const Color(0xFF00D4FF),
+                              color: SyraColors.accent,
                               size: 40,
                             ),
                           ),
@@ -83,16 +84,16 @@ class ComingSoonScreen extends StatelessWidget {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                color: const Color(0xFF00D4FF).withValues(alpha: 0.2),
+                                color: SyraColors.accent.withValues(alpha: 0.2),
                                 borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
-                                  color: const Color(0xFF00D4FF).withValues(alpha: 0.5),
+                                  color: SyraColors.accent.withValues(alpha: 0.5),
                                 ),
                               ),
                               child: const Text(
                                 "Geri Dön",
                                 style: TextStyle(
-                                  color: Color(0xFF00D4FF),
+                                  color: SyraColors.accent,
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
                                 ),
