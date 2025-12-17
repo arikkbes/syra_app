@@ -4,6 +4,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
+import 'syra_markdown.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM MESSAGE BUBBLE v3.0
@@ -206,7 +207,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       );
     }
 
-    // Assistant: NO bubble, ChatGPT style (reading column)
+    // Assistant: NO bubble, ChatGPT style (reading column) with Premium Markdown
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -216,15 +217,9 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
             horizontal: 20, // Reading column: 20px both sides
             vertical: 4, // Minimal vertical padding
           ),
-          child: SelectableText(
-            widget.text ?? "",
-            style: SyraTextStyles.bodyMedium.copyWith(
-              color: SyraColors.textPrimary,
-              fontSize: 16,
-              height: 1.42,
-              fontWeight: FontWeight.w400,
-              letterSpacing: 0.15,
-            ),
+          child: SyraMarkdown(
+            data: widget.text ?? "",
+            selectable: true,
           ),
         ),
       ),

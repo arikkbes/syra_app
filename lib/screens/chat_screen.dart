@@ -67,6 +67,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isTyping = false;
   bool _isSending = false; // Anti-spam flag
   bool _userScrolledUp = false; // Track if user manually scrolled
+  int _scrollCallCount = 0; // Debounce scroll during streaming
 
   Map<String, dynamic>? _replyingTo;
 
@@ -226,14 +227,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     setState(() => _sidebarOpen = !_sidebarOpen);
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool smooth = true}) {
     // Sadece kullanıcı manuel scroll yapmamışsa otomatik scroll yap
     if (!_userScrolledUp && _scrollController.hasClients) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+      if (smooth) {
+        // Debounce: Only scroll every 3rd call during streaming to reduce jank
+        _scrollCallCount++;
+        if (_scrollCallCount % 3 == 0) {
+          // Use jumpTo for instant scroll without animation during streaming
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+            }
+          });
+        }
+      } else {
+        // Animated scroll for user actions (sending message)
+        _scrollCallCount = 0; // Reset debounce counter
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (_scrollController.hasClients) {
+            _scrollController.animateTo(
+              _scrollController.position.maxScrollExtent,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+            );
+          }
+        });
+      }
     }
   }
 
@@ -1047,8 +1067,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _pendingImageUrl = null;
     });
 
-    // Scroll to bottom after user message
-    Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+    // Scroll to bottom after user message (with animation)
+    Future.delayed(const Duration(milliseconds: 100), () => _scrollToBottom(smooth: false));
 
     // 1 saniye sonra buton tekrar aktif olacak (anti-spam timeout)
     Future.delayed(const Duration(seconds: 1), () {

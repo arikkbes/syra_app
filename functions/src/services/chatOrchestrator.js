@@ -218,6 +218,22 @@ Cevabını buna göre kurgula.
     });
   }
 
+  // ═══════════════════════════════════════════════════════════════
+  // RESPONSE STYLE ENFORCEMENT: ChatGPT-quality concise responses
+  // ═══════════════════════════════════════════════════════════════
+  systemMessages.push({
+    role: "system",
+    content: `
+⚡ STYLE REMINDER (CRITICAL):
+• Keep responses SHORT: 1-2 sentences default
+• NO filler phrases: "Buradayım", "Seni dinliyorum", "Yardımcı olabilirim", etc.
+• MAX 1 question per response
+• NO repeated greetings (only greet once per new chat)
+• Direct action framing: "Tamam. Şunu yap: …"
+• Only expand if user asks or situation requires detail
+    `.trim(),
+  });
+
   const recentHistory = history.slice(-10);
 
   // ═══════════════════════════════════════════════════════════════
