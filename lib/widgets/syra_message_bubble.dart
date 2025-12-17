@@ -90,9 +90,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         child: GestureDetector(
           onLongPress: widget.onLongPress,
           child: Container(
-            margin: EdgeInsets.only(
-              bottom: widget.isUser ? SyraSpacing.md : 10, // ChatGPT density
-            ),
+            // No margin here - spacing handled in ListView (sender-aware)
             child: Column(
               crossAxisAlignment: widget.isUser
                   ? CrossAxisAlignment.end
@@ -128,8 +126,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                   ],
                 ),
 
-                // Timestamp: only for user messages (ChatGPT style)
-                if (widget.time != null && widget.isUser) _buildTimestamp(),
+                // Timestamp: hidden (ChatGPT style - no timestamps shown)
               ],
             ),
           ),
@@ -210,19 +207,25 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
     }
 
     // Assistant: NO bubble, ChatGPT style (reading column)
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: 20, // Reading column: 20px both sides
-        vertical: 4, // Minimal vertical padding
-      ),
-      child: SelectableText(
-        widget.text ?? "",
-        style: SyraTextStyles.bodyMedium.copyWith(
-          color: SyraColors.textPrimary,
-          fontSize: 16,
-          height: 1.42,
-          fontWeight: FontWeight.w400,
-          letterSpacing: 0.15,
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: 720), // Desktop max width
+        child: Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: 20, // Reading column: 20px both sides
+            vertical: 4, // Minimal vertical padding
+          ),
+          child: SelectableText(
+            widget.text ?? "",
+            style: SyraTextStyles.bodyMedium.copyWith(
+              color: SyraColors.textPrimary,
+              fontSize: 16,
+              height: 1.42,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0.15,
+            ),
+          ),
         ),
       ),
     );
