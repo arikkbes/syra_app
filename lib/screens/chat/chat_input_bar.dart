@@ -6,18 +6,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../utils/liquid_glass_lens_shader.dart';
-import '../../widgets/chat_input_bar_liquid_glass.dart';
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM GLASSMORPHISM CHAT INPUT BAR WITH LIQUID GLASS
+/// SYRA CHAT INPUT BAR - NEW GLASS DESIGN (Figma 2024)
 /// ═══════════════════════════════════════════════════════════════
-/// Updated with Liquid Glass shader effect:
-/// - True liquid glass physics with GLSL shader
-/// - Chromatic aberration & distortion
-/// - Automatic fallback to blur if shader fails
-/// - Optimized background capture with throttling
+/// Glass surface design from Figma Dev Mode:
+/// - Main glass: 24px borderRadius, ~7% obsidian overlay
+/// - Backdrop blur: 40px (sigmaX/sigmaY)
+/// - Subtle outer shadow/glow for premium feel
+/// - Layout: [plus icon] [syra logo] [text: "SYRA'ya Sor"] [send/wave]
+/// - Responsive: constraints-based, preserves radius 24
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatInputBar extends StatefulWidget {
@@ -69,34 +68,7 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
-  late LiquidGlassLensShader? _liquidGlassShader;
-  bool _useLiquidGlass = true; // Try liquid glass, fallback to blur if fails
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Initialize Liquid Glass shader if backgroundKey is provided
-    if (widget.chatBackgroundKey != null) {
-      _liquidGlassShader = LiquidGlassLensShader();
-      _liquidGlassShader!.initialize().then((_) {
-        if (!_liquidGlassShader!.isLoaded) {
-          debugPrint(
-              '⚠️ Liquid Glass shader failed to load, using fallback blur');
-          if (mounted) {
-            setState(() {
-              _useLiquidGlass = false;
-            });
-          }
-        } else {
-          debugPrint('✅ Liquid Glass shader loaded successfully');
-        }
-      });
-    } else {
-      _liquidGlassShader = null;
-      _useLiquidGlass = false;
-    }
-  }
+  // No liquid glass shader - using pure glass design per Figma specs
 
   @override
   Widget build(BuildContext context) {
@@ -136,156 +108,106 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - Claude-style with buttons below
+  /// NEW GLASS INPUT BAR - Figma Design (radius 24, backdrop blur 40)
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
-    final inputBarContent = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // TextField - üstte, tam genişlik
-          TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            enabled: !widget.isSending,
-            maxLines: null,
-            minLines: 1,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-            onChanged: (_) => widget.onTextChanged(),
-            style: const TextStyle(
-              color: Color(0xFFCFCFCF),
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              height: 1.4,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 2),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              hintText: 'SYRA\'ya sor…',
-              hintStyle: TextStyle(
-                color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            onSubmitted: (_) {
-              if (canSend) {
-                HapticFeedback.mediumImpact();
-                widget.onSendMessage();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          // Butonlar - altta
-          Row(
-            children: [
-              // Plus icon
-              _buildIconButton(
-                iconPath: 'assets/icons/plus.svg',
-                onTap: widget.onAttachmentTap,
-              ),
-              const SizedBox(width: 4),
-              // Camera icon
-              _buildIconButton(
-                iconPath: 'assets/icons/camera.svg',
-                onTap: widget.onCameraTap ?? () {},
-              ),
-              const Spacer(),
-              // Mic veya Send - sağ
-              if (canSend) ...[
-                _buildSendButton(),
-              ] else ...[
-                if (widget.isListening)
-                  _buildVoiceWaveButton()
-                else
-                  _buildIconButton(
-                    iconPath: 'assets/icons/mic.svg',
-                    onTap: widget.onVoiceInputTap,
-                  ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-
-    // Use Liquid Glass if available and enabled
-    if (_useLiquidGlass &&
-        widget.chatBackgroundKey != null &&
-        _liquidGlassShader != null &&
-        _liquidGlassShader!.isLoaded) {
-      return ChatInputBarLiquidGlass(
-        backgroundKey: widget.chatBackgroundKey!,
-        shader: _liquidGlassShader!,
-        onShaderLoadFailed: () {
-          if (mounted) {
-            setState(() {
-              _useLiquidGlass = false;
-            });
-          }
-        },
-        child: inputBarContent,
-      );
-    }
-
-    // Fallback to standard blur with Claude styling
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(24),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 40, sigmaY: 40),
         child: Container(
           constraints: const BoxConstraints(
             minHeight: 56,
             maxHeight: 200,
           ),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
-              width: 1,
-            ),
+            // Obsidian #11131A at ~7% opacity with screen blend approximation
+            color: const Color(0xFF11131A).withValues(alpha: 0.07),
+            borderRadius: BorderRadius.circular(24),
+            // Subtle outer glow/shadow for premium feel
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 20,
+                spreadRadius: 0,
+                offset: const Offset(0, 8),
+              ),
+              BoxShadow(
+                color: const Color(0xFF11131A).withValues(alpha: 0.08),
+                blurRadius: 40,
+                spreadRadius: 0,
+                offset: const Offset(0, 4),
               ),
             ],
           ),
-          child: Stack(
-            children: [
-              // Content
-              inputBarContent,
-              // Top highlight gradient
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 28,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                // Left: Plus icon
+                _buildIconButton(
+                  iconPath: 'assets/icons/plus.svg',
+                  onTap: widget.onAttachmentTap,
+                ),
+                const SizedBox(width: 8),
+                // SYRA logo icon placeholder (using plus as fallback since logo SVG not found)
+                _buildSmallLogoIcon(),
+                const SizedBox(width: 12),
+                // Center: TextField
+                Expanded(
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: widget.focusNode,
+                    enabled: !widget.isSending,
+                    maxLines: null,
+                    minLines: 1,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    onChanged: (_) => widget.onTextChanged(),
+                    style: const TextStyle(
+                      color: Color(0xFFE7E9EE),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      height: 1.4,
                     ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.14),
-                        Colors.white.withValues(alpha: 0.0),
-                      ],
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding: const EdgeInsets.symmetric(vertical: 2),
+                      border: InputBorder.none,
+                      enabledBorder: InputBorder.none,
+                      focusedBorder: InputBorder.none,
+                      filled: false,
+                      hintText: 'SYRA\'ya Sor',
+                      hintStyle: TextStyle(
+                        color: const Color(0xFFE7E9EE).withValues(alpha: 0.4),
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
+                    onSubmitted: (_) {
+                      if (canSend) {
+                        HapticFeedback.mediumImpact();
+                        widget.onSendMessage();
+                      }
+                    },
                   ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 8),
+                // Right: Send button or Mic/Wave
+                if (canSend) ...[
+                  _buildSendButton(),
+                ] else ...[
+                  if (widget.isListening)
+                    _buildVoiceWaveButton()
+                  else
+                    _buildIconButton(
+                      iconPath: 'assets/icons/mic.svg',
+                      onTap: widget.onVoiceInputTap,
+                    ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -293,7 +215,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// ICON BUTTON - Claude-style smaller icons
+  /// ICON BUTTON - Minimal style
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildIconButton({
     required String iconPath,
@@ -305,15 +227,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         onTap();
       },
       child: SizedBox(
-        width: 36,
-        height: 36,
+        width: 32,
+        height: 32,
         child: Center(
           child: SvgPicture.asset(
             iconPath,
             width: 20,
             height: 20,
             colorFilter: ColorFilter.mode(
-              Colors.white.withValues(alpha: 0.7),
+              const Color(0xFFE7E9EE).withValues(alpha: 0.6),
               BlendMode.srcIn,
             ),
           ),
@@ -323,7 +245,47 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// SEND BUTTON - Claude-style
+  /// SMALL SYRA LOGO ICON - Non-interactive
+  /// ═══════════════════════════════════════════════════════════════
+  Widget _buildSmallLogoIcon() {
+    // Using a small accent-colored circle as logo placeholder
+    // Replace with actual SYRA logo SVG when available
+    return Container(
+      width: 20,
+      height: 20,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          colors: [
+            SyraColors.accent.withValues(alpha: 0.8),
+            SyraColors.accentLight.withValues(alpha: 0.6),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: SyraColors.accent.withValues(alpha: 0.3),
+            blurRadius: 4,
+            spreadRadius: 0,
+          ),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          'S',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.9),
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ═══════════════════════════════════════════════════════════════
+  /// SEND BUTTON - Circular with accent gradient
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildSendButton() {
     return _TapScale(
@@ -335,16 +297,31 @@ class _ChatInputBarState extends State<ChatInputBar> {
         width: 36,
         height: 36,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
+          shape: BoxShape.circle,
+          gradient: LinearGradient(
+            colors: [
+              SyraColors.accent,
+              SyraColors.accentLight,
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: SyraColors.accent.withValues(alpha: 0.4),
+              blurRadius: 8,
+              spreadRadius: 0,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Center(
           child: SvgPicture.asset(
             'assets/icons/arrow_up.svg',
             width: 18,
             height: 18,
-            colorFilter: const ColorFilter.mode(
-              Colors.black,
+            colorFilter: ColorFilter.mode(
+              Colors.white.withValues(alpha: 0.95),
               BlendMode.srcIn,
             ),
           ),
@@ -354,7 +331,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// VOICE WAVE BUTTON - Shows while listening
+  /// VOICE WAVE BUTTON - Shows while listening (circular)
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildVoiceWaveButton() {
     return _TapScale(
@@ -363,11 +340,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onVoiceInputTap();
       },
       child: Container(
-        width: 28,
-        height: 28,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
           color: SyraColors.accent.withValues(alpha: 0.15),
           shape: BoxShape.circle,
+          border: Border.all(
+            color: SyraColors.accent.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
         ),
         child: const Center(
           child: _VoiceWaveAnimation(),
