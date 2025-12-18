@@ -29,10 +29,10 @@ class SyraMarkdown extends StatelessWidget {
         'code': SyraCodeElementBuilder(),
       },
       styleSheet: MarkdownStyleSheet(
-        // Paragraph text (main body)
+        // Paragraph text (main body) - Increased from 16 to 18 for Claude-like reading size
         p: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 16,
+          fontSize: 18,
           height: 1.42,
           fontWeight: FontWeight.w400,
           letterSpacing: 0.15,
@@ -40,21 +40,21 @@ class SyraMarkdown extends StatelessWidget {
         // Bold text
         strong: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 16,
+          fontSize: 18,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.15,
         ),
         // Italic text
         em: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 16,
+          fontSize: 18,
           fontStyle: FontStyle.italic,
           letterSpacing: 0.15,
         ),
-        // Inline code (chip style)
+        // Inline code (chip style) - Increased from 13 to 14
         code: SyraTextStyles.bodyMedium.copyWith(
           fontFamily: 'monospace',
-          fontSize: 13,
+          fontSize: 14,
           color: SyraColors.accent,
           backgroundColor: SyraColors.surface.withValues(alpha: 0.4),
           letterSpacing: 0,
@@ -70,43 +70,43 @@ class SyraMarkdown extends StatelessWidget {
         ),
         // Code block padding
         codeblockPadding: EdgeInsets.all(SyraSpacing.md),
-        // Lists - tighter spacing
+        // Lists - Increased from 16 to 18
         listBullet: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.accent.withValues(alpha: 0.8),
-          fontSize: 16,
+          fontSize: 18,
         ),
         listIndent: 20,
-        // Links - subtle accent
+        // Links - Increased from 16 to 18
         a: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.accent.withValues(alpha: 0.9),
-          fontSize: 16,
+          fontSize: 18,
           decoration: TextDecoration.underline,
           decorationColor: SyraColors.accent.withValues(alpha: 0.5),
           letterSpacing: 0.15,
         ),
-        // Headings
+        // Headings - Proportionally increased
         h1: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 24,
+          fontSize: 26,
           fontWeight: FontWeight.w700,
           height: 1.3,
         ),
         h2: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 20,
+          fontSize: 22,
           fontWeight: FontWeight.w600,
           height: 1.3,
         ),
         h3: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 18,
+          fontSize: 20,
           fontWeight: FontWeight.w600,
           height: 1.3,
         ),
-        // Blockquote
+        // Blockquote - Increased from 16 to 18
         blockquote: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textSecondary,
-          fontSize: 16,
+          fontSize: 18,
           fontStyle: FontStyle.italic,
         ),
         blockquoteDecoration: BoxDecoration(
@@ -146,7 +146,7 @@ class SyraCodeElementBuilder extends MarkdownElementBuilder {
             code,
             style: TextStyle(
               fontFamily: 'monospace',
-              fontSize: 13,
+              fontSize: 14,
               color: SyraColors.accent,
               letterSpacing: 0,
             ),
@@ -207,7 +207,7 @@ class _SyraCodeBlockState extends State<SyraCodeBlock> {
               widget.code,
               style: TextStyle(
                 fontFamily: 'monospace',
-                fontSize: 13,
+                fontSize: 14,
                 color: SyraColors.textPrimary.withValues(alpha: 0.9),
                 height: 1.5,
                 letterSpacing: 0,
