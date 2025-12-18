@@ -2,6 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -33,28 +34,35 @@ class ChatAppBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           height: 56,
           padding: EdgeInsets.symmetric(
             horizontal: SyraSpacing.md,
           ),
           decoration: BoxDecoration(
-            color: SyraColors.background.withValues(alpha: 0.85),
-            // NOTE: Claude-style header has NO bottom divider line.
+            // Claude-like translucent scrim with subtle gradient
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                SyraColors.background.withValues(alpha: 0.68),
+                SyraColors.background.withValues(alpha: 0.58),
+              ],
+            ),
+            border: Border(
+              bottom: BorderSide(
+                color: SyraColors.border.withValues(alpha: 0.08),
+                width: 0.5,
+              ),
+            ),
           ),
           child: Row(
             children: [
-              // Left: Menu button
+              // Left: Menu button (Claude-style glass bubble)
               _TapScale(
                 onTap: onMenuTap,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(SyraRadius.sm),
-                  ),
+                child: _GlassBubble(
                   child: Icon(
                     Icons.menu_rounded,
                     color: SyraColors.iconStroke,
@@ -63,23 +71,17 @@ class ChatAppBar extends StatelessWidget {
                 ),
               ),
 
-              // Center: Text-based mode selector (NOT a pill)
+              // Center: Text-based mode selector
               Expanded(
                 child: Center(
                   child: _buildModeTrigger(),
                 ),
               ),
 
-              // Right: Profile/ghost button
+              // Right: Profile button (Claude-style glass bubble)
               _TapScale(
                 onTap: onDocumentUpload,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(SyraRadius.sm),
-                  ),
+                child: _GlassBubble(
                   child: Icon(
                     Icons.person_outline_rounded,
                     color: SyraColors.iconStroke,
@@ -176,7 +178,50 @@ class ChatAppBar extends StatelessWidget {
 }
 
 /// ═══════════════════════════════════════════════════════════════
-/// TAP SCALE ANIMATION
+/// GLASS BUBBLE - Claude-style circular button background
+/// ═══════════════════════════════════════════════════════════════
+
+class _GlassBubble extends StatelessWidget {
+  final Widget child;
+
+  const _GlassBubble({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipOval(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            // Subtle translucent fill
+            color: SyraColors.surface.withValues(alpha: 0.26),
+            shape: BoxShape.circle,
+            // Hairline border
+            border: Border.all(
+              color: SyraColors.border.withValues(alpha: 0.18),
+              width: 0.5,
+            ),
+            // Top-left inner highlight (subtle gradient overlay)
+            gradient: RadialGradient(
+              center: Alignment.topLeft,
+              radius: 1.5,
+              colors: [
+                SyraColors.accent.withValues(alpha: 0.08),
+                SyraColors.surface.withValues(alpha: 0.0), // Token-based transparent
+              ],
+            ),
+          ),
+          child: Center(child: child),
+        ),
+      ),
+    );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════
+/// TAP SCALE ANIMATION - Premium iOS-like press feel
 /// ═══════════════════════════════════════════════════════════════
 
 class _TapScale extends StatefulWidget {
@@ -192,42 +237,39 @@ class _TapScale extends StatefulWidget {
   State<_TapScale> createState() => _TapScaleState();
 }
 
-class _TapScaleState extends State<_TapScale>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: SyraAnimation.fast,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.96).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: SyraAnimation.emphasize,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+class _TapScaleState extends State<_TapScale> {
+  double _scale = 1.0;
+  bool _isLongPressing = false;
 
   void _handleTapDown(TapDownDetails details) {
-    _controller.forward();
+    if (!_isLongPressing) {
+      HapticFeedback.lightImpact();
+      setState(() => _scale = 0.96);
+    }
   }
 
   void _handleTapUp(TapUpDetails details) {
-    _controller.reverse();
+    if (!_isLongPressing) {
+      setState(() => _scale = 1.0);
+    }
   }
 
   void _handleTapCancel() {
-    _controller.reverse();
+    if (!_isLongPressing) {
+      setState(() => _scale = 1.0);
+    }
+  }
+
+  void _handleLongPressStart(LongPressStartDetails details) {
+    _isLongPressing = true;
+    HapticFeedback.mediumImpact();
+    // Long press: grow (no shrink first)
+    setState(() => _scale = 1.06);
+  }
+
+  void _handleLongPressEnd(LongPressEndDetails details) {
+    _isLongPressing = false;
+    setState(() => _scale = 1.0);
   }
 
   @override
@@ -237,8 +279,14 @@ class _TapScaleState extends State<_TapScale>
       onTapUp: _handleTapUp,
       onTapCancel: _handleTapCancel,
       onTap: widget.onTap,
-      child: ScaleTransition(
-        scale: _scaleAnimation,
+      onLongPressStart: _handleLongPressStart,
+      onLongPressEnd: _handleLongPressEnd,
+      child: AnimatedScale(
+        scale: _scale,
+        duration: _scale == 1.0
+            ? const Duration(milliseconds: 250) // Spring back
+            : const Duration(milliseconds: 120), // Quick press
+        curve: _scale == 1.0 ? Curves.easeOutBack : Curves.easeOut,
         child: widget.child,
       ),
     );
