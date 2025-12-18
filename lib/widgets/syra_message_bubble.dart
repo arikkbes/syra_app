@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
 import 'syra_markdown.dart';
+import 'message_action_row.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM MESSAGE BUBBLE v3.0
@@ -24,7 +25,6 @@ class SyraMessageBubble extends StatefulWidget {
   final String? replyToText;
   final bool hasRedFlag;
   final bool hasGreenFlag;
-  final VoidCallback? onLongPress;
   final VoidCallback? onSwipeReply;
   final String? imageUrl;
 
@@ -36,7 +36,6 @@ class SyraMessageBubble extends StatefulWidget {
     this.replyToText,
     this.hasRedFlag = false,
     this.hasGreenFlag = false,
-    this.onLongPress,
     this.onSwipeReply,
     this.imageUrl,
   });
@@ -50,6 +49,11 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   late Animation<Offset> _slideAnimation;
+
+  // Action row state
+  bool _isHovered = false;
+  bool _isLiked = false;
+  bool _isDisliked = false;
 
   @override
   void initState() {
@@ -84,12 +88,24 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 
   @override
   Widget build(BuildContext context) {
+    // Check if mobile/tablet based on screen width
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
     return FadeTransition(
       opacity: _fadeAnimation,
       child: SlideTransition(
         position: _slideAnimation,
-        child: GestureDetector(
-          onLongPress: widget.onLongPress,
+        child: MouseRegion(
+          onEnter: (_) {
+            if (!isMobile) {
+              setState(() => _isHovered = true);
+            }
+          },
+          onExit: (_) {
+            if (!isMobile) {
+              setState(() => _isHovered = false);
+            }
+          },
           child: Container(
             // No margin here - spacing handled in ListView (sender-aware)
             child: Column(
@@ -126,6 +142,10 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                     if (widget.isUser) SizedBox(width: SyraSpacing.xs),
                   ],
                 ),
+
+                // Action row for assistant messages only
+                if (!widget.isUser && widget.text != null)
+                  _buildActionRow(isMobile),
 
                 // Timestamp: hidden (ChatGPT style - no timestamps shown)
               ],
@@ -412,5 +432,57 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         ),
       ),
     );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTION ROW (ChatGPT/Claude style inline actions)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildActionRow(bool isMobile) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20), // Match message padding
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 200),
+        opacity: isMobile ? 1.0 : (_isHovered ? 1.0 : 0.0), // Always visible on mobile
+        child: MessageActionRow(
+          messageText: widget.text ?? "",
+          isLiked: _isLiked,
+          isDisliked: _isDisliked,
+          onLikeChanged: (value) {
+            setState(() => _isLiked = value);
+            _sendFeedbackEvent(value ? 'like' : 'unlike');
+          },
+          onDislikeChanged: (value) {
+            setState(() => _isDisliked = value);
+            _sendFeedbackEvent(value ? 'dislike' : 'undislike');
+          },
+        ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // FEEDBACK EVENT (Fire-and-forget)
+  // ═══════════════════════════════════════════════════════════════
+
+  void _sendFeedbackEvent(String eventType) {
+    // Fire-and-forget feedback event
+    // TODO: Implement Firestore integration when available
+
+    final feedbackData = {
+      'eventType': eventType,
+      'messageText': widget.text ?? '',
+      'messageSnippet': (widget.text ?? '').length > 100
+          ? '${widget.text!.substring(0, 100)}...'
+          : widget.text ?? '',
+      'createdAt': DateTime.now().toIso8601String(),
+      'platform': 'flutter',
+      // TODO: Add userId from FirebaseAuth when available
+      // TODO: Add sessionId/chatId/messageId when available
+    };
+
+    debugPrint('📊 Feedback Event: $feedbackData');
+    // TODO: Replace with Firestore call:
+    // FirebaseFirestore.instance.collection('message_feedback').add(feedbackData);
   }
 }

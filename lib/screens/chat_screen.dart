@@ -1449,8 +1449,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               isTyping: _isTyping,
                               swipedMessageId: _swipedMessageId,
                               swipeOffset: _swipeOffset,
-                              onMessageLongPress: (msg) =>
-                                  _showMessageMenu(context, msg),
                               onSwipeUpdate: (msg, delta) {
                                 setState(() {
                                   _swipedMessageId = msg["id"];

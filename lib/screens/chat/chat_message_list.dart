@@ -21,7 +21,6 @@ class ChatMessageList extends StatelessWidget {
   final bool isTyping;
   final String? swipedMessageId;
   final double swipeOffset;
-  final Function(Map<String, dynamic>) onMessageLongPress;
   final Function(Map<String, dynamic>, double) onSwipeUpdate;
   final Function(Map<String, dynamic>, bool) onSwipeEnd;
 
@@ -35,7 +34,6 @@ class ChatMessageList extends StatelessWidget {
     required this.isTyping,
     this.swipedMessageId,
     required this.swipeOffset,
-    required this.onMessageLongPress,
     required this.onSwipeUpdate,
     required this.onSwipeEnd,
   });
@@ -163,7 +161,6 @@ class ChatMessageList extends StatelessWidget {
           child: _AnimatedMessageItem(
             animationKey: ValueKey(msg["id"] ?? index),
             child: GestureDetector(
-              onLongPress: () => onMessageLongPress(msg),
               onHorizontalDragUpdate: (details) {
                 if (details.delta.dx > 0) {
                   onSwipeUpdate(msg, details.delta.dx);
@@ -182,7 +179,6 @@ class ChatMessageList extends StatelessWidget {
                   replyToText: msg["replyTo"],
                   hasRedFlag: !isUser && (msg['hasRed'] == true),
                   hasGreenFlag: !isUser && (msg['hasGreen'] == true),
-                  onLongPress: () => onMessageLongPress(msg),
                   imageUrl: msg["imageUrl"],
                 ),
               ),
