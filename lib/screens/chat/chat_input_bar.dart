@@ -6,18 +6,12 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import '../../utils/liquid_glass_lens_shader.dart';
-import '../../widgets/chat_input_bar_liquid_glass.dart';
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// PREMIUM GLASSMORPHISM CHAT INPUT BAR WITH LIQUID GLASS
+/// CHAT INPUT BAR - Single blur implementation
 /// ═══════════════════════════════════════════════════════════════
-/// Updated with Liquid Glass shader effect:
-/// - True liquid glass physics with GLSL shader
-/// - Chromatic aberration & distortion
-/// - Automatic fallback to blur if shader fails
-/// - Optimized background capture with throttling
+/// Simplified to use only BackdropFilter blur (no shader effects)
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatInputBar extends StatefulWidget {
@@ -39,7 +33,7 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback? onGalleryTap;
   final VoidCallback? onModeTap;
   final String? currentMode;
-  final GlobalKey? chatBackgroundKey; // ← New parameter for Liquid Glass
+  final GlobalKey? chatBackgroundKey; // Unused - kept for API compatibility
 
   const ChatInputBar({
     super.key,
@@ -69,34 +63,7 @@ class ChatInputBar extends StatefulWidget {
 }
 
 class _ChatInputBarState extends State<ChatInputBar> {
-  late LiquidGlassLensShader? _liquidGlassShader;
-  bool _useLiquidGlass = true; // Try liquid glass, fallback to blur if fails
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Initialize Liquid Glass shader if backgroundKey is provided
-    if (widget.chatBackgroundKey != null) {
-      _liquidGlassShader = LiquidGlassLensShader();
-      _liquidGlassShader!.initialize().then((_) {
-        if (!_liquidGlassShader!.isLoaded) {
-          debugPrint(
-              '⚠️ Liquid Glass shader failed to load, using fallback blur');
-          if (mounted) {
-            setState(() {
-              _useLiquidGlass = false;
-            });
-          }
-        } else {
-          debugPrint('✅ Liquid Glass shader loaded successfully');
-        }
-      });
-    } else {
-      _liquidGlassShader = null;
-      _useLiquidGlass = false;
-    }
-  }
+  // No shader initialization needed - using simple BackdropFilter only
 
   @override
   Widget build(BuildContext context) {
@@ -136,7 +103,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - Claude-style with buttons below
+  /// GLASSMORPHISM INPUT BAR - Simple BackdropFilter blur only
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
     final inputBarContent = Padding(
@@ -215,26 +182,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       ),
     );
 
-    // Use Liquid Glass if available and enabled
-    if (_useLiquidGlass &&
-        widget.chatBackgroundKey != null &&
-        _liquidGlassShader != null &&
-        _liquidGlassShader!.isLoaded) {
-      return ChatInputBarLiquidGlass(
-        backgroundKey: widget.chatBackgroundKey!,
-        shader: _liquidGlassShader!,
-        onShaderLoadFailed: () {
-          if (mounted) {
-            setState(() {
-              _useLiquidGlass = false;
-            });
-          }
-        },
-        child: inputBarContent,
-      );
-    }
-
-    // Fallback to standard blur with Claude styling
+    // SINGLE BLUR PATH: Simple BackdropFilter only
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: BackdropFilter(
