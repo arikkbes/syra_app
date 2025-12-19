@@ -19,6 +19,7 @@ class ChatAppBar extends StatelessWidget {
   final VoidCallback onMenuTap;
   final VoidCallback onModeTap;
   final VoidCallback onDocumentUpload;
+  final bool isModeSelectorOpen;
 
   const ChatAppBar({
     super.key,
@@ -27,6 +28,7 @@ class ChatAppBar extends StatelessWidget {
     required this.onMenuTap,
     required this.onModeTap,
     required this.onDocumentUpload,
+    this.isModeSelectorOpen = false,
   });
 
   @override
@@ -125,48 +127,55 @@ class ChatAppBar extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // SYRA logo text
-              Text(
-                'SYRA',
-                style: SyraTextStyles.logoStyle(fontSize: 17).copyWith(
-                  letterSpacing: 1.0,
-                  fontWeight: FontWeight.w600,
+              // SYRA logo text - hide when mode selector is open
+              AnimatedOpacity(
+                opacity: isModeSelectorOpen ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Text(
+                  'SYRA',
+                  style: SyraTextStyles.logoStyle(fontSize: 17).copyWith(
+                    letterSpacing: 1.0,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
 
-              SizedBox(width: 6),
+              if (!isModeSelectorOpen) ...[
+                SizedBox(width: 6),
 
-              // Dot separator
-              Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: SyraColors.textMuted.withValues(alpha: 0.4),
-                  shape: BoxShape.circle,
+                // Dot separator
+                Container(
+                  width: 3,
+                  height: 3,
+                  decoration: BoxDecoration(
+                    color: SyraColors.textMuted.withValues(alpha: 0.4),
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
 
-              SizedBox(width: 6),
+                SizedBox(width: 6),
 
-              // Mode label
-              Text(
-                modeLabel,
-                style: TextStyle(
-                  color: modeColor.withValues(alpha: 0.85),
-                  fontSize: 15,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.2,
+                // Mode label
+                Text(
+                  modeLabel,
+                  style: TextStyle(
+                    color: modeColor.withValues(alpha: 0.85),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.2,
+                  ),
                 ),
-              ),
 
-              SizedBox(width: 4),
+                SizedBox(width: 4),
+              ],
 
-              // Dropdown arrow (small)
-              Icon(
-                Icons.keyboard_arrow_down_rounded,
-                size: 18,
-                color: SyraColors.iconMuted.withValues(alpha: 0.6),
-              ),
+              // Dropdown arrow (small) - hide when mode selector is open
+              if (!isModeSelectorOpen)
+                Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  size: 18,
+                  color: SyraColors.iconMuted.withValues(alpha: 0.6),
+                ),
             ],
           ),
         ),
