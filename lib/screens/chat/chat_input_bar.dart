@@ -173,6 +173,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
+                    fontFamily: 'DMSerifDisplay',
                   ),
                 ),
                 onSubmitted: (_) {
@@ -192,10 +193,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     onTap: widget.onAttachmentTap,
                   ),
                   const SizedBox(width: 4),
-                  // Camera icon
+                  // Logo icon (disabled)
                   _buildIconButton(
-                    iconPath: 'assets/icons/camera.svg',
-                    onTap: widget.onCameraTap ?? () {},
+                    iconPath: 'assets/icons/logo.svg',
+                    onTap: () {}, // Disabled for now
                   ),
                   const Spacer(),
                   // Mic veya Send - sağ
@@ -206,8 +207,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                       _buildVoiceWaveButton()
                     else
                       _buildIconButton(
-                        iconPath: 'assets/icons/mic.svg',
+                        iconPath: 'assets/icons/waveform.svg',
                         onTap: widget.onVoiceInputTap,
+                        useColorFilter: false,
+                        iconSize: 26,
                       ),
                   ],
                 ],
@@ -225,6 +228,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
   Widget _buildIconButton({
     required String iconPath,
     required VoidCallback onTap,
+    bool useColorFilter = true,
+    double? iconSize,
   }) {
     return _TapScale(
       onTap: () {
@@ -237,12 +242,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
         child: Center(
           child: SvgPicture.asset(
             iconPath,
-            width: 20,
-            height: 20,
-            colorFilter: ColorFilter.mode(
+            width: iconSize ?? 24,
+            height: iconSize ?? 24,
+            colorFilter: useColorFilter ? ColorFilter.mode(
               Colors.white.withValues(alpha: 0.7),
               BlendMode.srcIn,
-            ),
+            ) : null,
           ),
         ),
       ),
@@ -258,22 +263,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
         HapticFeedback.mediumImpact();
         widget.onSendMessage();
       },
-      child: Container(
+      child: SizedBox(
         width: 36,
         height: 36,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.9),
-          borderRadius: BorderRadius.circular(8),
-        ),
         child: Center(
           child: SvgPicture.asset(
-            'assets/icons/arrow_up.svg',
-            width: 18,
-            height: 18,
-            colorFilter: const ColorFilter.mode(
-              Colors.black,
-              BlendMode.srcIn,
-            ),
+            'assets/icons/arrow-up.svg',
+            width: 26,
+            height: 26,
           ),
         ),
       ),
