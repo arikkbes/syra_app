@@ -1418,84 +1418,97 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 720),
-                    child: Column(
+                    child: Stack(
                       children: [
-                        ChatAppBar(
-                          selectedMode: _selectedMode,
-                          modeAnchorLink: _modeAnchorLink,
-                          onMenuTap: _toggleSidebar,
-                          onModeTap: _handleModeSelection,
-                          onDocumentUpload: _handleDocumentUpload,
-                        ),
-                        Expanded(
-                          child: RepaintBoundary(
-                            key: _chatBackgroundKey,
-                            child: ChatMessageList(
-                              isEmpty: _messages.isEmpty,
-                              isTarotMode: _isTarotMode,
-                              
-                              onSuggestionTap: (text) {
-                                setState(() {
-                                  _controller.text = text;
-                                });
-                                _inputFocusNode.requestFocus();
-                                _controller.selection =
-                                    TextSelection.fromPosition(
-                                  TextPosition(offset: _controller.text.length),
-                                );
-                              },
-                              messages: _messages,
-                              scrollController: _scrollController,
-                              isTyping: _isTyping,
-                              swipedMessageId: _swipedMessageId,
-                              swipeOffset: _swipeOffset,
-                              onMessageLongPress: (msg) =>
-                                  _showMessageMenu(context, msg),
-                              onSwipeUpdate: (msg, delta) {
-                                setState(() {
-                                  _swipedMessageId = msg["id"];
-                                  _swipeOffset =
-                                      (_swipeOffset + delta).clamp(0, 30);
-                                });
-                              },
-                              onSwipeEnd: (msg, shouldReply) {
-                                if (shouldReply) {
-                                  setState(() => _replyingTo = msg);
-                                }
-                                setState(() {
-                                  _swipeOffset = 0;
-                                  _swipedMessageId = null;
-                                });
-                              },
+                        // Ana içerik: AppBar + Mesajlar
+                        Column(
+                          children: [
+                            ChatAppBar(
+                              selectedMode: _selectedMode,
+                              modeAnchorLink: _modeAnchorLink,
+                              onMenuTap: _toggleSidebar,
+                              onModeTap: _handleModeSelection,
+                              onDocumentUpload: _handleDocumentUpload,
                             ),
-                          ),
-                        ),
-                        ChatInputBar(
-                          controller: _controller,
-                          focusNode: _inputFocusNode,
-                          isSending: _isSending,
-                          isLoading: _isLoading,
-                          isListening: _isListening,
-                          replyingTo: _replyingTo,
-                          pendingImage: _pendingImage,
-                          pendingImageUrl: _pendingImageUrl,
-                          onAttachmentTap: _handleAttachment,
-                          onVoiceInputTap: _handleVoiceInput,
-                          onSendMessage: _sendMessage,
-                          onCancelReply: () =>
-                              setState(() => _replyingTo = null),
-                          onClearImage: _clearPendingImage,
-                          onTextChanged: () => setState(() {}),
-                          onCameraTap: () =>
-                              _pickImageForPreview(ImageSource.camera),
-                          onGalleryTap: () =>
-                              _pickImageForPreview(ImageSource.gallery),
-                          onModeTap: _handleModeSelection,
-                          currentMode: _getModeDisplayName(),
+                            Expanded(
+                              child: RepaintBoundary(
+                                key: _chatBackgroundKey,
+                                child: ChatMessageList(
+                                  isEmpty: _messages.isEmpty,
+                                  isTarotMode: _isTarotMode,
 
-                          // Eğer ChatInputBar bunu kabul etmiyorsa compile hatası verir.
-                          // O durumda sadece bu satırı kaldır.
-                          chatBackgroundKey: _chatBackgroundKey,
+                                  onSuggestionTap: (text) {
+                                    setState(() {
+                                      _controller.text = text;
+                                    });
+                                    _inputFocusNode.requestFocus();
+                                    _controller.selection =
+                                        TextSelection.fromPosition(
+                                      TextPosition(offset: _controller.text.length),
+                                    );
+                                  },
+                                  messages: _messages,
+                                  scrollController: _scrollController,
+                                  isTyping: _isTyping,
+                                  swipedMessageId: _swipedMessageId,
+                                  swipeOffset: _swipeOffset,
+                                  onMessageLongPress: (msg) =>
+                                      _showMessageMenu(context, msg),
+                                  onSwipeUpdate: (msg, delta) {
+                                    setState(() {
+                                      _swipedMessageId = msg["id"];
+                                      _swipeOffset =
+                                          (_swipeOffset + delta).clamp(0, 30);
+                                    });
+                                  },
+                                  onSwipeEnd: (msg, shouldReply) {
+                                    if (shouldReply) {
+                                      setState(() => _replyingTo = msg);
+                                    }
+                                    setState(() {
+                                      _swipeOffset = 0;
+                                      _swipedMessageId = null;
+                                    });
+                                  },
+                                ),
+                              ),
+                            ),
+                            // Input bar için boşluk (glass bar'ın üzerinde olması için)
+                            const SizedBox(height: 80),
+                          ],
+                        ),
+                        // Input bar - En üstte, floating
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: ChatInputBar(
+                            controller: _controller,
+                            focusNode: _inputFocusNode,
+                            isSending: _isSending,
+                            isLoading: _isLoading,
+                            isListening: _isListening,
+                            replyingTo: _replyingTo,
+                            pendingImage: _pendingImage,
+                            pendingImageUrl: _pendingImageUrl,
+                            onAttachmentTap: _handleAttachment,
+                            onVoiceInputTap: _handleVoiceInput,
+                            onSendMessage: _sendMessage,
+                            onCancelReply: () =>
+                                setState(() => _replyingTo = null),
+                            onClearImage: _clearPendingImage,
+                            onTextChanged: () => setState(() {}),
+                            onCameraTap: () =>
+                                _pickImageForPreview(ImageSource.camera),
+                            onGalleryTap: () =>
+                                _pickImageForPreview(ImageSource.gallery),
+                            onModeTap: _handleModeSelection,
+                            currentMode: _getModeDisplayName(),
+
+                            // Eğer ChatInputBar bunu kabul etmiyorsa compile hatası verir.
+                            // O durumda sadece bu satırı kaldır.
+                            chatBackgroundKey: _chatBackgroundKey,
+                          ),
                         ),
                       ],
                     ),

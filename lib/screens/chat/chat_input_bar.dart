@@ -6,6 +6,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_inset_shadow/flutter_inset_shadow.dart' as ib;
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -103,135 +104,113 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - Simple BackdropFilter blur only
+  /// GLASSMORPHISM INPUT BAR - Figma glass style
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
-    final inputBarContent = Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // TextField - üstte, tam genişlik
-          TextField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            enabled: !widget.isSending,
-            maxLines: null,
-            minLines: 1,
-            keyboardType: TextInputType.multiline,
-            textInputAction: TextInputAction.newline,
-            onChanged: (_) => widget.onTextChanged(),
-            style: const TextStyle(
-              color: Color(0xFFCFCFCF),
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              height: 1.4,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              contentPadding: const EdgeInsets.symmetric(vertical: 2),
-              border: InputBorder.none,
-              enabledBorder: InputBorder.none,
-              focusedBorder: InputBorder.none,
-              filled: false,
-              hintText: 'SYRA\'ya sor…',
-              hintStyle: TextStyle(
-                color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-            onSubmitted: (_) {
-              if (canSend) {
-                HapticFeedback.mediumImpact();
-                widget.onSendMessage();
-              }
-            },
-          ),
-          const SizedBox(height: 8),
-          // Butonlar - altta
-          Row(
-            children: [
-              // Plus icon
-              _buildIconButton(
-                iconPath: 'assets/icons/plus.svg',
-                onTap: widget.onAttachmentTap,
-              ),
-              const SizedBox(width: 4),
-              // Camera icon
-              _buildIconButton(
-                iconPath: 'assets/icons/camera.svg',
-                onTap: widget.onCameraTap ?? () {},
-              ),
-              const Spacer(),
-              // Mic veya Send - sağ
-              if (canSend) ...[
-                _buildSendButton(),
-              ] else ...[
-                if (widget.isListening)
-                  _buildVoiceWaveButton()
-                else
-                  _buildIconButton(
-                    iconPath: 'assets/icons/mic.svg',
-                    onTap: widget.onVoiceInputTap,
-                  ),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-
-    // SINGLE BLUR PATH: Simple BackdropFilter only
+    // GLASS EFFECT: Figma-style glass morphism
     return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(23),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: Container(
           constraints: const BoxConstraints(
             minHeight: 56,
             maxHeight: 200,
           ),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
-            borderRadius: BorderRadius.circular(16),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          decoration: ib.BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.005),
+            borderRadius: BorderRadius.circular(23),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.12),
+              color: Colors.white.withValues(alpha: 0.1),
               width: 1,
             ),
             boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
+              // CSS: 0 -2px 4px inset black 20%
+              ib.BoxShadow(
+                inset: true,
+                offset: const Offset(0, -2),
+                blurRadius: 4,
+                color: Colors.black.withValues(alpha: 0.18),
+              ),
+              // CSS: 0 2px 4px inset white 40%
+              ib.BoxShadow(
+                inset: true,
+                offset: const Offset(0, 2),
+                blurRadius: 4,
+                color: Colors.white.withValues(alpha: 0.30),
               ),
             ],
           ),
-          child: Stack(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // Content
-              inputBarContent,
-              // Top highlight gradient
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: Container(
-                  height: 28,
-                  decoration: BoxDecoration(
-                    borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
-                    ),
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.white.withValues(alpha: 0.14),
-                        Colors.white.withValues(alpha: 0.0),
-                      ],
-                    ),
+              // TextField - üstte, tam genişlik
+              TextField(
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                enabled: !widget.isSending,
+                maxLines: null,
+                minLines: 1,
+                keyboardType: TextInputType.multiline,
+                textInputAction: TextInputAction.newline,
+                onChanged: (_) => widget.onTextChanged(),
+                style: const TextStyle(
+                  color: Color(0xFFCFCFCF),
+                  fontSize: 15,
+                  fontWeight: FontWeight.w400,
+                  height: 1.4,
+                ),
+                decoration: InputDecoration(
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 2),
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  filled: false,
+                  hintText: 'SYRA\'ya sor…',
+                  hintStyle: TextStyle(
+                    color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
+                    fontSize: 15,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
+                onSubmitted: (_) {
+                  if (canSend) {
+                    HapticFeedback.mediumImpact();
+                    widget.onSendMessage();
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              // Butonlar - altta
+              Row(
+                children: [
+                  // Plus icon
+                  _buildIconButton(
+                    iconPath: 'assets/icons/plus.svg',
+                    onTap: widget.onAttachmentTap,
+                  ),
+                  const SizedBox(width: 4),
+                  // Camera icon
+                  _buildIconButton(
+                    iconPath: 'assets/icons/camera.svg',
+                    onTap: widget.onCameraTap ?? () {},
+                  ),
+                  const Spacer(),
+                  // Mic veya Send - sağ
+                  if (canSend) ...[
+                    _buildSendButton(),
+                  ] else ...[
+                    if (widget.isListening)
+                      _buildVoiceWaveButton()
+                    else
+                      _buildIconButton(
+                        iconPath: 'assets/icons/mic.svg',
+                        onTap: widget.onVoiceInputTap,
+                      ),
+                  ],
+                ],
               ),
             ],
           ),
