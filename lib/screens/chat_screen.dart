@@ -39,7 +39,7 @@ import 'kim_daha_cok_screen.dart';
 import 'chat/chat_app_bar.dart';
 import 'chat/chat_message_list.dart';
 import 'chat/chat_input_bar.dart';
-import '../widgets/chatgpt_mode_selector.dart';
+import '../widgets/minimal_mode_selector.dart';
 import '../widgets/claude_sidebar.dart';
 
 const bool forcePremiumForTesting = false;
@@ -85,6 +85,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isTarotMode = false;
 
   String _selectedMode = "standard";
+  bool _isModeSelectorOpen = false;
 
   // Speech-to-text
   late stt.SpeechToText _speech;
@@ -958,9 +959,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Handle mode selection - ChatGPT style animated popup
+  /// Handle mode selection - Minimal glass style popup
   void _handleModeSelection() {
-    showChatGPTModeSelector(
+    // Get screen width to center the card under SYRA title
+    final screenWidth = MediaQuery.of(context).size.width;
+    final cardWidth = 250.0;
+    final centerX = (screenWidth - cardWidth) / 2;
+
+    showMinimalModeSelector(
       context: context,
       selectedMode: _selectedMode,
       onModeSelected: (mode) {
@@ -968,7 +974,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _selectedMode = mode;
         });
       },
-      anchorPosition: const Offset(0, 140), // Position above the input bar
+      anchorPosition: Offset(centerX, 16), // Header padding aligned with SYRA
+      onShow: () {
+        setState(() {
+          _isModeSelectorOpen = true;
+        });
+      },
+      onHide: () {
+        setState(() {
+          _isModeSelectorOpen = false;
+        });
+      },
     );
   }
 
@@ -1429,6 +1445,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               onMenuTap: _toggleSidebar,
                               onModeTap: _handleModeSelection,
                               onDocumentUpload: _handleDocumentUpload,
+                              isModeSelectorOpen: _isModeSelectorOpen,
                             ),
                             Expanded(
                               child: RepaintBoundary(
