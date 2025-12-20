@@ -133,7 +133,7 @@ class ChatMessageList extends StatelessWidget {
   Widget _buildMessageList() {
     return ListView.builder(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
       itemCount: messages.length + (isTyping ? 1 : 0),
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {

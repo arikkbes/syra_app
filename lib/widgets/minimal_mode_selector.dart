@@ -43,7 +43,7 @@ class _MinimalModeSelectorState extends State<MinimalModeSelector>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 250),
     );
 
     _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -157,35 +157,17 @@ class _MinimalModeSelectorState extends State<MinimalModeSelector>
             children: [
               // Header
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Row(
-                  children: [
-                    Text(
-                      'Konuşma Modu',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                      ),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                child: Center(
+                  child: Text(
+                    'SYRA',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.0,
                     ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _closeWithAnimation,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.1),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.close_rounded,
-                          size: 14,
-                          color: Colors.white.withValues(alpha: 0.6),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
 

@@ -1463,18 +1463,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
 
               // Chat screen - slides to the right
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                transform: Matrix4.translationValues(
-                  _sidebarOpen ? MediaQuery.of(context).size.width * 0.85 : 0,
-                  0,
-                  0,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(_sidebarOpen ? 24 : 0),
-                  child: Container(
-                    color: SyraTokens.background,
+              GestureDetector(
+                // Swipe only works on chat screen area (not sidebar)
+                onHorizontalDragEnd: (details) {
+                  if (_sidebarOpen && details.primaryVelocity != null && details.primaryVelocity! < -300) {
+                    setState(() {
+                      _sidebarOpen = false;
+                    });
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  transform: Matrix4.translationValues(
+                    _sidebarOpen ? MediaQuery.of(context).size.width * 0.70 : 0,
+                    0,
+                    0,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(_sidebarOpen ? 24 : 0),
+                    child: Container(
+                      color: SyraTokens.background,
                     child: SafeArea(
                       child: Align(
                         alignment: Alignment.topCenter,
@@ -1575,6 +1584,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
+                ),
                 ),
               ),
 
