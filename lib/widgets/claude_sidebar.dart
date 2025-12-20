@@ -6,9 +6,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_inset_shadow/flutter_inset_shadow.dart' as ib;
 
 import '../models/chat_session.dart';
 import '../theme/syra_theme.dart';
+import '../theme/syra_tokens.dart';
 
 /// Claude-style sidebar overlay
 class ClaudeSidebar extends StatefulWidget {
@@ -217,40 +219,38 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
             );
           },
         ),
-        SlideTransition(
-          position: _slideAnimation,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: Container(
-              width: sidebarWidth,
-              decoration: BoxDecoration(
-                color: const Color(0xFF1A1A1A),
-                borderRadius: const BorderRadius.only(
-                  topRight: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
-                border: Border(
-                  right: BorderSide(
-                    color: Colors.white.withOpacity(0.10),
-                    width: 1,
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.4),
-                    blurRadius: 32,
-                    offset: const Offset(8, 0),
-                  ),
-                ],
-              ),
-              child: SafeArea(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildHeader(),
-                    Expanded(child: _buildMenuList()),
-                    _buildProfileSection(),
+        GestureDetector(
+          onHorizontalDragEnd: (details) {
+            // Swipe left to close
+            if (details.primaryVelocity != null && details.primaryVelocity! < -300) {
+              _close();
+            }
+          },
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Container(
+                width: sidebarWidth,
+                decoration: BoxDecoration(
+                  color: SyraTokens.background,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.4),
+                      blurRadius: 32,
+                      offset: const Offset(8, 0),
+                    ),
                   ],
+                ),
+                child: SafeArea(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildHeader(),
+                      Expanded(child: _buildMenuList()),
+                      _buildProfileSection(),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -274,23 +274,20 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               letterSpacing: 0.5,
             ),
           ),
-          const Spacer(),
-          IconButton(
-            onPressed: _close,
-            icon: Icon(
-              Icons.close_rounded,
-              color: Colors.white.withOpacity(0.7),
-              size: 24,
-            ),
-          ),
         ],
       ),
     );
   }
 
   Widget _buildMenuList() {
+    // Filter sessions with messages
+    final filteredSessions = widget.sessions
+        .where((s) => s.messageCount > 0)
+        .toList();
+
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12),
+      physics: const BouncingScrollPhysics(),
       children: [
         _MenuItem(
           icon: Icons.chat_bubble_outline_rounded,
@@ -319,55 +316,31 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
         ),
         const SizedBox(height: 16),
         const _MenuDivider(),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: Text(
-            'Geçmiş Sohbetler',
+            'Recents',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.5),
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 0.5,
+              color: Colors.white.withOpacity(0.4),
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 0.3,
             ),
           ),
         ),
-        _buildSessionsInline(),
-      ],
-    );
-  }
-
-  Widget _buildSessionsInline() {
-    if (widget.sessions.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-        child: Text(
-          'Henüz sohbet yok',
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.55),
-            fontSize: 12,
-            height: 1.2,
-          ),
-        ),
-      );
-    }
-
-    final items = widget.sessions.take(12).toList();
-
-    return Column(
-      children: [
-        for (final s in items)
-          _SessionItem(
-            title: s.title,
-            subtitle: _subtitle(s),
-            trailing: _timeLabel(s.lastUpdatedAt),
-            isSelected: s.id == widget.currentSessionId,
-            onTap: () {
-              _close();
-              widget.onSelectSession(s.id);
-            },
-            onOpenMenuAt: (pos) => _openSessionMenuAt(s, pos),
-          ),
+        // Session items directly in ListView
+        ...filteredSessions.map((s) => _SessionItem(
+          title: s.title,
+          subtitle: _subtitle(s),
+          trailing: _timeLabel(s.lastUpdatedAt),
+          isSelected: s.id == widget.currentSessionId,
+          onTap: () {
+            _close();
+            widget.onSelectSession(s.id);
+          },
+          onOpenMenuAt: (pos) => _openSessionMenuAt(s, pos),
+        )),
         if (widget.sessions.length > 10 && widget.onOpenAllSessions != null)
           Align(
             alignment: Alignment.centerLeft,
@@ -394,81 +367,106 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
   }
 
   Widget _buildProfileSection() {
-    return InkWell(
-      onTap: () {
-        HapticFeedback.mediumImpact();
-        _close();
-        widget.onSettingsTap?.call();
-      },
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: SyraColors.divider.withOpacity(0.9),
-              width: 1,
-            ),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: const BoxDecoration(
-                color: SyraColors.accent,
-                shape: BoxShape.circle,
+    // Get user initials
+    String getInitials() {
+      if (widget.userName == null || widget.userName!.isEmpty) return 'U';
+      final parts = widget.userName!.trim().split(' ');
+      if (parts.length >= 2) {
+        return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+      }
+      return widget.userName!.substring(0, 1).toUpperCase();
+    }
+
+    return Container(
+      color: SyraTokens.background,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+            child: Container(
+              decoration: ib.BoxDecoration(
+                color: SyraTokens.background.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  width: 1,
+                ),
+                boxShadow: [
+                  // CSS: 0 -2px 4px inset black 20%
+                  ib.BoxShadow(
+                    inset: true,
+                    offset: const Offset(0, -2),
+                    blurRadius: 4,
+                    color: Colors.black.withValues(alpha: 0.15),
+                  ),
+                  // CSS: 0 2px 4px inset white 40%
+                  ib.BoxShadow(
+                    inset: true,
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                    color: Colors.white.withValues(alpha: 0.20),
+                  ),
+                ],
               ),
-              child: Center(
-                child: Text(
-                  (widget.userName != null && widget.userName!.isNotEmpty)
-                      ? widget.userName!.substring(0, 1).toUpperCase()
-                      : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
+              child: InkWell(
+                onTap: () {
+                  HapticFeedback.mediumImpact();
+                  _close();
+                  widget.onSettingsTap?.call();
+                },
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFFD6B35A).withOpacity(0.9),
+                              const Color(0xFFD6B35A).withOpacity(0.7),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Center(
+                          child: Text(
+                            getInitials(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          widget.userName ?? 'Kullanıcı',
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: -0.1,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    widget.userName ?? 'Kullanıcı',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (widget.userEmail != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      widget.userEmail!,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
-                        fontSize: 13,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: Colors.white.withOpacity(0.4),
-              size: 20,
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -496,8 +494,6 @@ class _SessionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isSelected ? Colors.white : Colors.white.withOpacity(0.78);
-
     return GestureDetector(
       onLongPressStart: (d) {
         HapticFeedback.mediumImpact();
@@ -514,58 +510,31 @@ class _SessionItem extends StatelessWidget {
             HapticFeedback.lightImpact();
             onTap();
           },
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.chat_bubble_rounded,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? Colors.white.withOpacity(0.1)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: TextStyle(
                   color: isSelected
-                      ? SyraColors.accent
-                      : Colors.white.withOpacity(0.55),
-                  size: 18,
+                      ? Colors.white.withOpacity(0.95)
+                      : Colors.white.withOpacity(0.65),
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.w400,
+                  letterSpacing: -0.15,
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 13,
-                          fontWeight:
-                              isSelected ? FontWeight.w700 : FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        subtitle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.52),
-                          fontSize: 11.5,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  trailing,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.45),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ),
@@ -648,7 +617,7 @@ class _MenuDivider extends StatelessWidget {
     return Container(
       height: 1,
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      color: SyraColors.divider.withOpacity(0.9),
+      color: Colors.white.withOpacity(0.05),
     );
   }
 }

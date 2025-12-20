@@ -170,7 +170,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   filled: false,
                   hintText: 'SYRA\'ya sor…',
                   hintStyle: TextStyle(
-                    color: const Color(0xFFCFCFCF).withValues(alpha: 0.50),
+                    color: const Color(0xFFFFFFFF),
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     fontFamily: 'DMSerifDisplay',
@@ -244,8 +244,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
             iconPath,
             width: iconSize ?? 24,
             height: iconSize ?? 24,
-            colorFilter: useColorFilter ? ColorFilter.mode(
-              Colors.white.withValues(alpha: 0.7),
+            colorFilter: useColorFilter ? const ColorFilter.mode(
+              Color(0xFFFFFFFF),
               BlendMode.srcIn,
             ) : null,
           ),
