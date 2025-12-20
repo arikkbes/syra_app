@@ -1,5 +1,5 @@
 # ═══════════════════════════════════════════════════════════════
-# ⛔ SYRA DESIGN CORE — DO NOT EDIT
+# ⛔ SYRA DESIGN CORE — DO NOT EDITttt
 # ═══════════════════════════════════════════════════════════════
 # LOCKED: Design system dependencies and assets
 # Changes to theme/design tokens must go through design review
@@ -10,7 +10,8 @@ description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
 
-version: 1.0.4+51
+version: 1.0.5+0
+
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
