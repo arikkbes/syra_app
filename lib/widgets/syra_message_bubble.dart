@@ -214,7 +214,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         constraints: BoxConstraints(maxWidth: 720), // Desktop max width
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 20, // Reading column: 20px both sides
+            horizontal: 16, // Aligned with ChatInputBar left edge
             vertical: 4, // Minimal vertical padding
           ),
           child: SyraMarkdown(
