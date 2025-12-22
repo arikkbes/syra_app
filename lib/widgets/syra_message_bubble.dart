@@ -207,7 +207,10 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
       );
     }
 
-    // Assistant: NO bubble, ChatGPT style (reading column) with Premium Markdown
+    // Assistant: NO bubble, ChatGPT style (reading column)
+    final text = widget.text ?? "";
+    final needsMarkdown = _containsMarkdown(text);
+
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
@@ -217,13 +220,55 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
             horizontal: 16, // Aligned with ChatInputBar left edge
             vertical: 4, // Minimal vertical padding
           ),
-          child: SyraMarkdown(
-            data: widget.text ?? "",
-            selectable: true,
-          ),
+          child: needsMarkdown
+              ? SyraMarkdown(
+                  data: text,
+                  selectable: true,
+                )
+              : SelectableText(
+                  text,
+                  style: SyraTextStyles.bodyMedium.copyWith(
+                    color: SyraColors.textPrimary,
+                    fontSize: 16,
+                    height: 1.45,
+                    letterSpacing: 0,
+                  ),
+                ),
         ),
       ),
     );
+  }
+
+  /// Check if text contains markdown formatting
+  bool _containsMarkdown(String text) {
+    // Fenced code blocks
+    if (text.contains('```')) return true;
+    // Inline code: `...`
+    if (text.contains(RegExp(r'`.+`'))) return true;
+    // Links: [text](url)
+    if (text.contains(RegExp(r'\[.+\]\(.+\)'))) return true;
+    // Bold: **text** or __text__
+    if (text.contains(RegExp(r'\*\*.+\*\*'))) return true;
+    if (text.contains(RegExp(r'__.+__'))) return true;
+    // Italic: *text* or _text_ (single markers with content)
+    if (text.contains(RegExp(r'(?<!\*)\*[^*]+\*(?!\*)'))) return true;
+    if (text.contains(RegExp(r'(?<!_)_[^_]+_(?!_)'))) return true;
+
+    // Line-based patterns
+    final lines = text.split('\n');
+    for (final line in lines) {
+      final trimmed = line.trimLeft();
+      // Headers: # at start
+      if (trimmed.startsWith('#')) return true;
+      // Blockquote: > at start
+      if (trimmed.startsWith('> ')) return true;
+      // Unordered list: - or * followed by space
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) return true;
+      // Ordered list: number followed by . and space
+      if (RegExp(r'^\d+\. ').hasMatch(trimmed)) return true;
+    }
+
+    return false;
   }
 
   Widget _buildImage() {

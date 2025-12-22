@@ -29,29 +29,29 @@ class SyraMarkdown extends StatelessWidget {
         'code': SyraCodeElementBuilder(),
       },
       styleSheet: MarkdownStyleSheet(
-        // Paragraph text (main body) - Increased from 16 to 18 for Claude-like reading size
+        // Paragraph text - Inter 16, consistent with app bodyMedium
         p: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 18,
-          height: 1.42,
+          fontSize: 16,
+          height: 1.45,
           fontWeight: FontWeight.w400,
-          letterSpacing: 0.15,
+          letterSpacing: 0,
         ),
         // Bold text
         strong: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 0.15,
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
         ),
         // Italic text
         em: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
-          fontSize: 18,
+          fontSize: 16,
           fontStyle: FontStyle.italic,
-          letterSpacing: 0.15,
+          letterSpacing: 0,
         ),
-        // Inline code (chip style) - Increased from 13 to 14
+        // Inline code (chip style)
         code: SyraTextStyles.bodyMedium.copyWith(
           fontFamily: 'monospace',
           fontSize: 14,
@@ -70,43 +70,43 @@ class SyraMarkdown extends StatelessWidget {
         ),
         // Code block padding
         codeblockPadding: EdgeInsets.all(SyraSpacing.md),
-        // Lists - Increased from 16 to 18
+        // Lists
         listBullet: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.accent.withValues(alpha: 0.8),
-          fontSize: 18,
+          fontSize: 16,
         ),
         listIndent: 20,
-        // Links - Increased from 16 to 18
+        // Links
         a: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.accent.withValues(alpha: 0.9),
-          fontSize: 18,
+          fontSize: 16,
           decoration: TextDecoration.underline,
           decorationColor: SyraColors.accent.withValues(alpha: 0.5),
-          letterSpacing: 0.15,
+          letterSpacing: 0,
         ),
-        // Headings - Proportionally increased
+        // Headings - modest sizes
         h1: SyraTextStyles.bodyMedium.copyWith(
-          color: SyraColors.textPrimary,
-          fontSize: 26,
-          fontWeight: FontWeight.w700,
-          height: 1.3,
-        ),
-        h2: SyraTextStyles.bodyMedium.copyWith(
-          color: SyraColors.textPrimary,
-          fontSize: 22,
-          fontWeight: FontWeight.w600,
-          height: 1.3,
-        ),
-        h3: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textPrimary,
           fontSize: 20,
           fontWeight: FontWeight.w600,
           height: 1.3,
         ),
-        // Blockquote - Increased from 16 to 18
+        h2: SyraTextStyles.bodyMedium.copyWith(
+          color: SyraColors.textPrimary,
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+        ),
+        h3: SyraTextStyles.bodyMedium.copyWith(
+          color: SyraColors.textPrimary,
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          height: 1.3,
+        ),
+        // Blockquote
         blockquote: SyraTextStyles.bodyMedium.copyWith(
           color: SyraColors.textSecondary,
-          fontSize: 18,
+          fontSize: 16,
           fontStyle: FontStyle.italic,
         ),
         blockquoteDecoration: BoxDecoration(
