@@ -238,7 +238,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // Use jumpTo for instant scroll without animation during streaming
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_scrollController.hasClients) {
-              _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+              _scrollController
+                  .jumpTo(_scrollController.position.maxScrollExtent);
             }
           });
         }
@@ -401,7 +402,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: BorderSide(color: SyraTokens.accent.withOpacity(0.6)),
+                borderSide:
+                    BorderSide(color: SyraTokens.accent.withOpacity(0.6)),
               ),
             ),
             onSubmitted: (v) {
@@ -467,7 +469,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       await _loadChatSessions();
       BlurToast.show(context, 'Sohbet adı güncellendi');
     } else {
-      BlurToast.show(context, result.errorMessage ?? 'Sohbet adı değiştirilemedi');
+      BlurToast.show(
+          context, result.errorMessage ?? 'Sohbet adı değiştirilemedi');
     }
   }
 
@@ -974,7 +977,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           _selectedMode = mode;
         });
       },
-      anchorPosition: Offset(centerX, 72), // Below Dynamic Island (56px header + 16px padding)
+      anchorPosition: Offset(
+          centerX, 72), // Below Dynamic Island (56px header + 16px padding)
       onShow: () {
         setState(() {
           _isModeSelectorOpen = true;
@@ -1084,7 +1088,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
 
     // Scroll to bottom after user message (with animation)
-    Future.delayed(const Duration(milliseconds: 100), () => _scrollToBottom(smooth: false));
+    Future.delayed(const Duration(milliseconds: 100),
+        () => _scrollToBottom(smooth: false));
 
     // 1 saniye sonra buton tekrar aktif olacak (anti-spam timeout)
     Future.delayed(const Duration(seconds: 1), () {
@@ -1463,113 +1468,128 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 ),
 
               // Chat screen - slides to the right
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                transform: Matrix4.translationValues(
-                  _sidebarOpen ? MediaQuery.of(context).size.width * 0.85 : 0,
-                  0,
-                  0,
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(_sidebarOpen ? 24 : 0),
-                  child: Container(
-                    color: SyraTokens.background,
-                    child: SafeArea(
-                      child: Align(
-                        alignment: Alignment.topCenter,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 720),
-                          child: Stack(
-                            children: [
-                              // Ana içerik: AppBar + Mesajlar
-                              Column(
-                                children: [
-                                  ChatAppBar(
-                                    selectedMode: _selectedMode,
-                                    modeAnchorLink: _modeAnchorLink,
-                                    onMenuTap: _toggleSidebar,
-                                    onModeTap: _handleModeSelection,
-                                    onDocumentUpload: _handleDocumentUpload,
-                                    isModeSelectorOpen: _isModeSelectorOpen,
-                                  ),
-                                  Expanded(
-                                    child: RepaintBoundary(
-                                      key: _chatBackgroundKey,
-                                      child: ChatMessageList(
-                                        isEmpty: _messages.isEmpty,
-                                        isTarotMode: _isTarotMode,
-                                        onSuggestionTap: (text) {
-                                          setState(() {
-                                            _controller.text = text;
-                                          });
-                                          _inputFocusNode.requestFocus();
-                                          _controller.selection =
-                                              TextSelection.fromPosition(
-                                            TextPosition(offset: _controller.text.length),
-                                          );
-                                        },
-                                        messages: _messages,
-                                        scrollController: _scrollController,
-                                        isTyping: _isTyping,
-                                        swipedMessageId: _swipedMessageId,
-                                        swipeOffset: _swipeOffset,
-                                        onMessageLongPress: (msg) =>
-                                            _showMessageMenu(context, msg),
-                                        onSwipeUpdate: (msg, delta) {
-                                          setState(() {
-                                            _swipedMessageId = msg["id"];
-                                            _swipeOffset =
-                                                (_swipeOffset + delta).clamp(0, 30);
-                                          });
-                                        },
-                                        onSwipeEnd: (msg, shouldReply) {
-                                          if (shouldReply) {
-                                            setState(() => _replyingTo = msg);
-                                          }
-                                          setState(() {
-                                            _swipeOffset = 0;
-                                            _swipedMessageId = null;
-                                          });
-                                        },
+              GestureDetector(
+                // Swipe only works on chat screen area (not sidebar)
+                onHorizontalDragEnd: (details) {
+                  if (_sidebarOpen &&
+                      details.primaryVelocity != null &&
+                      details.primaryVelocity! < -300) {
+                    setState(() {
+                      _sidebarOpen = false;
+                    });
+                  }
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  transform: Matrix4.translationValues(
+                    _sidebarOpen ? MediaQuery.of(context).size.width * 0.70 : 0,
+                    0,
+                    0,
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(_sidebarOpen ? 24 : 0),
+                    child: Container(
+                      color: SyraTokens.background,
+                      child: SafeArea(
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 720),
+                            child: Stack(
+                              children: [
+                                // Ana içerik: AppBar + Mesajlar
+                                Column(
+                                  children: [
+                                    ChatAppBar(
+                                      selectedMode: _selectedMode,
+                                      modeAnchorLink: _modeAnchorLink,
+                                      onMenuTap: _toggleSidebar,
+                                      onModeTap: _handleModeSelection,
+                                      onDocumentUpload: _handleDocumentUpload,
+                                      isModeSelectorOpen: _isModeSelectorOpen,
+                                    ),
+                                    Expanded(
+                                      child: RepaintBoundary(
+                                        key: _chatBackgroundKey,
+                                        child: ChatMessageList(
+                                          isEmpty: _messages.isEmpty,
+                                          isTarotMode: _isTarotMode,
+                                          onSuggestionTap: (text) {
+                                            setState(() {
+                                              _controller.text = text;
+                                            });
+                                            _inputFocusNode.requestFocus();
+                                            _controller.selection =
+                                                TextSelection.fromPosition(
+                                              TextPosition(
+                                                  offset:
+                                                      _controller.text.length),
+                                            );
+                                          },
+                                          messages: _messages,
+                                          scrollController: _scrollController,
+                                          isTyping: _isTyping,
+                                          swipedMessageId: _swipedMessageId,
+                                          swipeOffset: _swipeOffset,
+                                          onMessageLongPress: (msg) =>
+                                              _showMessageMenu(context, msg),
+                                          onSwipeUpdate: (msg, delta) {
+                                            setState(() {
+                                              _swipedMessageId = msg["id"];
+                                              _swipeOffset =
+                                                  (_swipeOffset + delta)
+                                                      .clamp(0, 30);
+                                            });
+                                          },
+                                          onSwipeEnd: (msg, shouldReply) {
+                                            if (shouldReply) {
+                                              setState(() => _replyingTo = msg);
+                                            }
+                                            setState(() {
+                                              _swipeOffset = 0;
+                                              _swipedMessageId = null;
+                                            });
+                                          },
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  // Input bar için boşluk (glass bar'ın üzerinde olması için)
-                                  const SizedBox(height: 80),
-                                ],
-                              ),
-                              // Input bar - En üstte, floating
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: ChatInputBar(
-                                  controller: _controller,
-                                  focusNode: _inputFocusNode,
-                                  isSending: _isSending,
-                                  isLoading: _isLoading,
-                                  isListening: _isListening,
-                                  replyingTo: _replyingTo,
-                                  pendingImage: _pendingImage,
-                                  pendingImageUrl: _pendingImageUrl,
-                                  onAttachmentTap: _handleAttachment,
-                                  onVoiceInputTap: _handleVoiceInput,
-                                  onSendMessage: _sendMessage,
-                                  onCancelReply: () =>
-                                      setState(() => _replyingTo = null),
-                                  onClearImage: _clearPendingImage,
-                                  onTextChanged: () => setState(() {}),
-                                  onCameraTap: () =>
-                                      _pickImageForPreview(ImageSource.camera),
-                                  onGalleryTap: () =>
-                                      _pickImageForPreview(ImageSource.gallery),
-                                  onModeTap: _handleModeSelection,
-                                  currentMode: _getModeDisplayName(),
-                                  chatBackgroundKey: _chatBackgroundKey,
+                                    // Input bar için boşluk (glass bar'ın üzerinde olması için)
+                                    const SizedBox(height: 80),
+                                  ],
                                 ),
-                              ),
-                            ],
+                                // Input bar - En üstte, floating
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: ChatInputBar(
+                                    controller: _controller,
+                                    focusNode: _inputFocusNode,
+                                    isSending: _isSending,
+                                    isLoading: _isLoading,
+                                    isListening: _isListening,
+                                    replyingTo: _replyingTo,
+                                    pendingImage: _pendingImage,
+                                    pendingImageUrl: _pendingImageUrl,
+                                    onAttachmentTap: _handleAttachment,
+                                    onVoiceInputTap: _handleVoiceInput,
+                                    onSendMessage: _sendMessage,
+                                    onCancelReply: () =>
+                                        setState(() => _replyingTo = null),
+                                    onClearImage: _clearPendingImage,
+                                    onTextChanged: () => setState(() {}),
+                                    onCameraTap: () => _pickImageForPreview(
+                                        ImageSource.camera),
+                                    onGalleryTap: () => _pickImageForPreview(
+                                        ImageSource.gallery),
+                                    onModeTap: _handleModeSelection,
+                                    currentMode: _getModeDisplayName(),
+                                    chatBackgroundKey: _chatBackgroundKey,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
