@@ -14,12 +14,15 @@ import '../../theme/syra_theme.dart';
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatAppBar extends StatelessWidget {
+  static const double baseHeight = 56.0;
+
   final String selectedMode;
   final LayerLink modeAnchorLink;
   final VoidCallback onMenuTap;
   final VoidCallback onModeTap;
   final VoidCallback onDocumentUpload;
   final bool isModeSelectorOpen;
+  final double topPadding;
 
   const ChatAppBar({
     super.key,
@@ -29,6 +32,7 @@ class ChatAppBar extends StatelessWidget {
     required this.onModeTap,
     required this.onDocumentUpload,
     this.isModeSelectorOpen = false,
+    this.topPadding = 0,
   });
 
   @override
@@ -37,9 +41,11 @@ class ChatAppBar extends StatelessWidget {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
         child: Container(
-          height: 56,
-          padding: EdgeInsets.symmetric(
-            horizontal: SyraSpacing.md,
+          height: baseHeight + topPadding,
+          padding: EdgeInsets.only(
+            top: topPadding,
+            left: SyraSpacing.md,
+            right: SyraSpacing.md,
           ),
           decoration: BoxDecoration(
             color: SyraColors.background.withValues(alpha: 0.85),

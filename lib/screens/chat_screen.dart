@@ -1424,218 +1424,239 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // ✅ FIX: build() BLOĞU BAŞTAN TEMİZ (parantez dengesi düzgün)
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      child: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          backgroundColor: SyraTokens.background,
-          body: Stack(
-            children: [
-              const SyraBackground(),
+    final topInset = MediaQuery.of(context).padding.top;
 
-              // Sidebar - Behind the chat screen
-              if (_sidebarOpen)
-                ClaudeSidebar(
-                  onClose: () => setState(() => _sidebarOpen = false),
-                  userName: FirebaseAuth.instance.currentUser?.displayName ??
-                      'Kullanıcı',
-                  userEmail: FirebaseAuth.instance.currentUser?.email,
-                  sessions: _chatSessions,
-                  currentSessionId: _currentSessionId,
-                  onSelectSession: (id) async => _loadSelectedChat(id),
-                  onRenameSession: _renameSessionFromSidebar,
-                  onArchiveSession: _archiveSessionFromSidebar,
-                  onDeleteSession: _deleteSessionFromSidebar,
-                  onNewChat: _startNewChat,
-                  onTarotMode: _startTarotMode,
-                  onKimDahaCok: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (_) => const KimDahaCokScreen(),
-                      ),
-                    );
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: PopScope(
+        canPop: false,
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Scaffold(
+            backgroundColor: SyraTokens.background,
+            body: Stack(
+              children: [
+                const SyraBackground(),
+
+                // Sidebar - Behind the chat screen
+                if (_sidebarOpen)
+                  ClaudeSidebar(
+                    onClose: () => setState(() => _sidebarOpen = false),
+                    userName: FirebaseAuth.instance.currentUser?.displayName ??
+                        'Kullanıcı',
+                    userEmail: FirebaseAuth.instance.currentUser?.email,
+                    sessions: _chatSessions,
+                    currentSessionId: _currentSessionId,
+                    onSelectSession: (id) async => _loadSelectedChat(id),
+                    onRenameSession: _renameSessionFromSidebar,
+                    onArchiveSession: _archiveSessionFromSidebar,
+                    onDeleteSession: _deleteSessionFromSidebar,
+                    onNewChat: _startNewChat,
+                    onTarotMode: _startTarotMode,
+                    onKimDahaCok: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const KimDahaCokScreen(),
+                        ),
+                      );
+                    },
+                    onSettingsTap: () {
+                      Navigator.push(
+                        context,
+                        CupertinoPageRoute(
+                          builder: (_) => const SettingsScreen(),
+                        ),
+                      );
+                    },
+                  ),
+
+                // Chat screen - slides to the right
+                GestureDetector(
+                  // Swipe only works on chat screen area (not sidebar)
+                  onHorizontalDragEnd: (details) {
+                    if (_sidebarOpen &&
+                        details.primaryVelocity != null &&
+                        details.primaryVelocity! < -300) {
+                      setState(() {
+                        _sidebarOpen = false;
+                      });
+                    }
                   },
-                  onSettingsTap: () {
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (_) => const SettingsScreen(),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
+                    transform: Matrix4.translationValues(
+                      _sidebarOpen
+                          ? MediaQuery.of(context).size.width * 0.70
+                          : 0,
+                      0,
+                      0,
+                    ),
+                    child: ClipRRect(
+                      borderRadius:
+                          BorderRadius.circular(_sidebarOpen ? 24 : 0),
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 720),
+                          child: Stack(
+                            children: [
+                              // Layer 1: SyraBackground (visible texture for blur)
+                              const Positioned.fill(
+                                child: SyraBackground(),
+                              ),
+
+                              // Layer 2: Optional light overlay for better contrast
+                              Positioned.fill(
+                                child: Container(
+                                  color:
+                                      SyraTokens.background.withOpacity(0.90),
+                                ),
+                              ),
+
+                              // Layer 3: ChatMessageList (full screen with top padding)
+                              Positioned.fill(
+                                top: 0,
+                                child: ChatMessageList(
+                                  isEmpty: _messages.isEmpty,
+                                  isTarotMode: _isTarotMode,
+                                  headerHeight:
+                                      topInset + ChatAppBar.baseHeight,
+                                  onSuggestionTap: (text) {
+                                    setState(() {
+                                      _controller.text = text;
+                                    });
+                                    _inputFocusNode.requestFocus();
+                                    _controller.selection =
+                                        TextSelection.fromPosition(
+                                      TextPosition(
+                                          offset: _controller.text.length),
+                                    );
+                                  },
+                                  messages: _messages,
+                                  scrollController: _scrollController,
+                                  isTyping: _isTyping,
+                                  swipedMessageId: _swipedMessageId,
+                                  swipeOffset: _swipeOffset,
+                                  onMessageLongPress: (msg) =>
+                                      _showMessageMenu(context, msg),
+                                  onSwipeUpdate: (msg, delta) {
+                                    setState(() {
+                                      _swipedMessageId = msg["id"];
+                                      _swipeOffset =
+                                          (_swipeOffset + delta).clamp(0, 30);
+                                    });
+                                  },
+                                  onSwipeEnd: (msg, shouldReply) {
+                                    if (shouldReply) {
+                                      setState(() => _replyingTo = msg);
+                                    }
+                                    setState(() {
+                                      _swipeOffset = 0;
+                                      _swipedMessageId = null;
+                                    });
+                                  },
+                                ),
+                              ),
+
+                              // Layer 4: Input bar overlay at bottom
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: ChatInputBar(
+                                  controller: _controller,
+                                  focusNode: _inputFocusNode,
+                                  isSending: _isSending,
+                                  isLoading: _isLoading,
+                                  isListening: _isListening,
+                                  replyingTo: _replyingTo,
+                                  pendingImage: _pendingImage,
+                                  pendingImageUrl: _pendingImageUrl,
+                                  onAttachmentTap: _handleAttachment,
+                                  onVoiceInputTap: _handleVoiceInput,
+                                  onSendMessage: _sendMessage,
+                                  onCancelReply: () =>
+                                      setState(() => _replyingTo = null),
+                                  onClearImage: _clearPendingImage,
+                                  onTextChanged: () => setState(() {}),
+                                  onCameraTap: () =>
+                                      _pickImageForPreview(ImageSource.camera),
+                                  onGalleryTap: () =>
+                                      _pickImageForPreview(ImageSource.gallery),
+                                  onModeTap: _handleModeSelection,
+                                  currentMode: _getModeDisplayName(),
+                                  chatBackgroundKey: _chatBackgroundKey,
+                                ),
+                              ),
+
+                              // Layer 5: ChatAppBar overlay at top (blurs content behind it)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: ChatAppBar(
+                                  selectedMode: _selectedMode,
+                                  modeAnchorLink: _modeAnchorLink,
+                                  onMenuTap: _toggleSidebar,
+                                  onModeTap: _handleModeSelection,
+                                  onDocumentUpload: _handleDocumentUpload,
+                                  isModeSelectorOpen: _isModeSelectorOpen,
+                                  topPadding: topInset,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    );
-                  },
+                    ),
+                  ),
                 ),
 
-              // Chat screen - slides to the right
-              GestureDetector(
-                // Swipe only works on chat screen area (not sidebar)
-                onHorizontalDragEnd: (details) {
-                  if (_sidebarOpen &&
-                      details.primaryVelocity != null &&
-                      details.primaryVelocity! < -300) {
-                    setState(() {
-                      _sidebarOpen = false;
-                    });
-                  }
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  transform: Matrix4.translationValues(
-                    _sidebarOpen ? MediaQuery.of(context).size.width * 0.70 : 0,
-                    0,
-                    0,
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(_sidebarOpen ? 24 : 0),
-                    child: Container(
-                      color: SyraTokens.background,
-                      child: SafeArea(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(maxWidth: 720),
-                            child: Stack(
-                              children: [
-                                // Ana içerik: AppBar + Mesajlar
-                                Column(
-                                  children: [
-                                    ChatAppBar(
-                                      selectedMode: _selectedMode,
-                                      modeAnchorLink: _modeAnchorLink,
-                                      onMenuTap: _toggleSidebar,
-                                      onModeTap: _handleModeSelection,
-                                      onDocumentUpload: _handleDocumentUpload,
-                                      isModeSelectorOpen: _isModeSelectorOpen,
-                                    ),
-                                    Expanded(
-                                      child: RepaintBoundary(
-                                        key: _chatBackgroundKey,
-                                        child: ChatMessageList(
-                                          isEmpty: _messages.isEmpty,
-                                          isTarotMode: _isTarotMode,
-                                          onSuggestionTap: (text) {
-                                            setState(() {
-                                              _controller.text = text;
-                                            });
-                                            _inputFocusNode.requestFocus();
-                                            _controller.selection =
-                                                TextSelection.fromPosition(
-                                              TextPosition(
-                                                  offset:
-                                                      _controller.text.length),
-                                            );
-                                          },
-                                          messages: _messages,
-                                          scrollController: _scrollController,
-                                          isTyping: _isTyping,
-                                          swipedMessageId: _swipedMessageId,
-                                          swipeOffset: _swipeOffset,
-                                          onMessageLongPress: (msg) =>
-                                              _showMessageMenu(context, msg),
-                                          onSwipeUpdate: (msg, delta) {
-                                            setState(() {
-                                              _swipedMessageId = msg["id"];
-                                              _swipeOffset =
-                                                  (_swipeOffset + delta)
-                                                      .clamp(0, 30);
-                                            });
-                                          },
-                                          onSwipeEnd: (msg, shouldReply) {
-                                            if (shouldReply) {
-                                              setState(() => _replyingTo = msg);
-                                            }
-                                            setState(() {
-                                              _swipeOffset = 0;
-                                              _swipedMessageId = null;
-                                            });
-                                          },
-                                        ),
-                                      ),
-                                    ),
-                                    // Input bar için boşluk (glass bar'ın üzerinde olması için)
-                                    const SizedBox(height: 80),
-                                  ],
-                                ),
-                                // Input bar - En üstte, floating
-                                Positioned(
-                                  bottom: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: ChatInputBar(
-                                    controller: _controller,
-                                    focusNode: _inputFocusNode,
-                                    isSending: _isSending,
-                                    isLoading: _isLoading,
-                                    isListening: _isListening,
-                                    replyingTo: _replyingTo,
-                                    pendingImage: _pendingImage,
-                                    pendingImageUrl: _pendingImageUrl,
-                                    onAttachmentTap: _handleAttachment,
-                                    onVoiceInputTap: _handleVoiceInput,
-                                    onSendMessage: _sendMessage,
-                                    onCancelReply: () =>
-                                        setState(() => _replyingTo = null),
-                                    onClearImage: _clearPendingImage,
-                                    onTextChanged: () => setState(() {}),
-                                    onCameraTap: () => _pickImageForPreview(
-                                        ImageSource.camera),
-                                    onGalleryTap: () => _pickImageForPreview(
-                                        ImageSource.gallery),
-                                    onModeTap: _handleModeSelection,
-                                    currentMode: _getModeDisplayName(),
-                                    chatBackgroundKey: _chatBackgroundKey,
-                                  ),
-                                ),
-                              ],
+                // Loading overlay for relationship upload
+                if (_isUploadingRelationshipFile)
+                  Container(
+                    color: Colors.black.withOpacity(0.7),
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(
+                            color: SyraTokens.accent,
+                            strokeWidth: 3,
+                          ),
+                          const SizedBox(height: 20),
+                          Text(
+                            'Sohbet analiz ediliyor...',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.9),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
-                        ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Bu işlem 10-30 saniye sürebilir',
+                            style: TextStyle(
+                              color: Colors.white.withOpacity(0.6),
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
-                ),
-              ),
-
-              // Loading overlay for relationship upload
-              if (_isUploadingRelationshipFile)
-                Container(
-                  color: Colors.black.withOpacity(0.7),
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(
-                          color: SyraTokens.accent,
-                          strokeWidth: 3,
-                        ),
-                        const SizedBox(height: 20),
-                        Text(
-                          'Sohbet analiz ediliyor...',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Bu işlem 10-30 saniye sürebilir',
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.6),
-                            fontSize: 13,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
+              ],
+            ), // Stack
+          ), // Scaffold
+        ), // GestureDetector
+      ), // PopScope
+    ); // AnnotatedRegion
   }
 
   String _getModeDisplayName() {

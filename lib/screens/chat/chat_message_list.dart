@@ -25,6 +25,9 @@ class ChatMessageList extends StatelessWidget {
   final Function(Map<String, dynamic>, double) onSwipeUpdate;
   final Function(Map<String, dynamic>, bool) onSwipeEnd;
 
+  // Layout props
+  final double headerHeight;
+
   const ChatMessageList({
     super.key,
     required this.isEmpty,
@@ -38,6 +41,7 @@ class ChatMessageList extends StatelessWidget {
     required this.onMessageLongPress,
     required this.onSwipeUpdate,
     required this.onSwipeEnd,
+    this.headerHeight = 56.0,
   });
 
   @override
@@ -133,7 +137,7 @@ class ChatMessageList extends StatelessWidget {
   Widget _buildMessageList() {
     return ListView.builder(
       controller: scrollController,
-      padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+      padding: EdgeInsets.fromLTRB(0, headerHeight + 16, 0, 96),
       itemCount: messages.length + (isTyping ? 1 : 0),
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
