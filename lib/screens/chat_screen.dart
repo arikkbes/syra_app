@@ -24,6 +24,7 @@ import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_bottom_panel.dart';
+import '../widgets/syra_glass_sheet.dart';
 
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
@@ -1564,7 +1565,39 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
                               ),
 
-                              // Layer 4: Input bar overlay at bottom
+                              // Layer 4: Bottom Glass Sheet (background for input area)
+                              // Claude-style MATTE glass with dual feather fade + scrim overlay
+                              // Aligned with ChatInputBar: 16px horizontal padding, rounded top corners
+                              // Settings: blur 6.5, tint 0.04, fadeTop 96, fadeBottom 28, scrim 0.075
+                              Positioned(
+                                bottom: 0,
+                                left: 0,
+                                right: 0,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16),
+                                  child: IgnorePointer(
+                                    child: SyraGlassSheetBottom(
+                                      blurSigma: 6.5,
+                                      fadeTopHeight: 96.0,
+                                      fadeBottomHeight: 16.0,
+                                      borderRadius: const BorderRadius.only(
+                                        topLeft: Radius.circular(23),
+                                        topRight: Radius.circular(23),
+                                      ),
+                                      child: SizedBox(
+                                        // Height: safe coverage of input area + bottom safe area
+                                        height: 100 +
+                                            MediaQuery.of(context)
+                                                .padding
+                                                .bottom,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                              // Layer 5: Input bar overlay at bottom
                               Positioned(
                                 bottom: 0,
                                 left: 0,
@@ -1595,19 +1628,25 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
                               ),
 
-                              // Layer 5: ChatAppBar overlay at top (blurs content behind it)
+                              // Layer 6: Top Glass Sheet with ChatAppBar
+                              // Claude-style glass region from status bar through header with soft fade
+                              // Settings: blurSigma 12, tintAlpha 0.08, fadeHeight 64, fadeDirection: bottom
                               Positioned(
                                 top: 0,
                                 left: 0,
                                 right: 0,
-                                child: ChatAppBar(
-                                  selectedMode: _selectedMode,
-                                  modeAnchorLink: _modeAnchorLink,
-                                  onMenuTap: _toggleSidebar,
-                                  onModeTap: _handleModeSelection,
-                                  onDocumentUpload: _handleDocumentUpload,
-                                  isModeSelectorOpen: _isModeSelectorOpen,
-                                  topPadding: topInset,
+                                child: SyraGlassSheetTop(
+                                  blurSigma: 12.0,
+                                  fadeHeight: 64.0,
+                                  child: ChatAppBar(
+                                    selectedMode: _selectedMode,
+                                    modeAnchorLink: _modeAnchorLink,
+                                    onMenuTap: _toggleSidebar,
+                                    onModeTap: _handleModeSelection,
+                                    onDocumentUpload: _handleDocumentUpload,
+                                    isModeSelectorOpen: _isModeSelectorOpen,
+                                    topPadding: topInset,
+                                  ),
                                 ),
                               ),
                             ],

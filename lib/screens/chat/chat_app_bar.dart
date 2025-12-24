@@ -1,16 +1,17 @@
 // lib/screens/chat/chat_app_bar.dart
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// PREMIUM CHAT APP BAR - Claude Style
-/// ═══════════════════════════════════════════════════════════════
+/// ═════════════════════════════════════════════════════════════ ///
 /// Clean, minimal header with:
 /// - Left: Hamburger menu icon button
 /// - Center: Text-based selector (SYRA • Mode + chevron)
 /// - Right: Single profile/ghost icon button
+///
+/// NOTE: BackdropFilter blur removed - now handled by SyraGlassSheetTop
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatAppBar extends StatelessWidget {
@@ -37,67 +38,64 @@ class ChatAppBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          height: baseHeight + topPadding,
-          padding: EdgeInsets.only(
-            top: topPadding,
-            left: SyraSpacing.md,
-            right: SyraSpacing.md,
-          ),
-          decoration: BoxDecoration(
-            color: SyraColors.background.withValues(alpha: 0.85),
-            // NOTE: Claude-style header has NO bottom divider line.
-          ),
-          child: Row(
-            children: [
-              // Left: Menu button
-              _TapScale(
-                onTap: onMenuTap,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(SyraRadius.sm),
-                  ),
-                  child: Icon(
-                    Icons.menu_rounded,
-                    color: SyraColors.iconStroke,
-                    size: 22,
-                  ),
-                ),
+    // NOTE: Blur is now handled by SyraGlassSheetTop in ChatScreen
+    // This widget only contains the content (no BackdropFilter)
+    return Container(
+      height: baseHeight + topPadding,
+      padding: EdgeInsets.only(
+        top: topPadding,
+        left: SyraSpacing.md,
+        right: SyraSpacing.md,
+      ),
+      // Transparent background - glass sheet provides blur/tint
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+      ),
+      child: Row(
+        children: [
+          // Left: Menu button
+          _TapScale(
+            onTap: onMenuTap,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(SyraRadius.sm),
               ),
+              child: Icon(
+                Icons.menu_rounded,
+                color: SyraColors.iconStroke,
+                size: 22,
+              ),
+            ),
+          ),
 
-              // Center: Text-based mode selector (NOT a pill)
-              Expanded(
-                child: Center(
-                  child: _buildModeTrigger(),
-                ),
-              ),
-
-              // Right: Profile/ghost button
-              _TapScale(
-                onTap: onDocumentUpload,
-                child: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(SyraRadius.sm),
-                  ),
-                  child: Icon(
-                    Icons.person_outline_rounded,
-                    color: SyraColors.iconStroke,
-                    size: 22,
-                  ),
-                ),
-              ),
-            ],
+          // Center: Text-based mode selector (NOT a pill)
+          Expanded(
+            child: Center(
+              child: _buildModeTrigger(),
+            ),
           ),
-        ),
+
+          // Right: Profile/ghost button
+          _TapScale(
+            onTap: onDocumentUpload,
+            child: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(SyraRadius.sm),
+              ),
+              child: Icon(
+                Icons.person_outline_rounded,
+                color: SyraColors.iconStroke,
+                size: 22,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

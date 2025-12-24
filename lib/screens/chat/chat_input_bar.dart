@@ -104,14 +104,15 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// GLASSMORPHISM INPUT BAR - Figma glass style
+  /// GLASSMORPHISM INPUT BAR - Claude-style frosted glass
   /// ═══════════════════════════════════════════════════════════════
+  /// Settings: blur 9, tint 0.004, border 0.10, outer shadow for separation
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
-    // GLASS EFFECT: Figma-style glass morphism
+    // GLASS EFFECT: Claude-style frosted glass (crisp but premium)
     return ClipRRect(
       borderRadius: BorderRadius.circular(23),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
         child: Container(
           constraints: const BoxConstraints(
             minHeight: 56,
@@ -119,21 +120,28 @@ class _ChatInputBarState extends State<ChatInputBar> {
           ),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
           decoration: ib.BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.005),
+            color: Colors.white.withValues(alpha: 0.004),
             borderRadius: BorderRadius.circular(23),
             border: Border.all(
-              color: Colors.white.withValues(alpha: 0.1),
+              color: Colors.white.withValues(alpha: 0.10),
               width: 1,
             ),
             boxShadow: [
-              // CSS: 0 -2px 4px inset black 20%
+              // Outer shadow for separation from background glass (crucial for Claude-like depth)
+              ib.BoxShadow(
+                inset: false,
+                offset: const Offset(0, 10),
+                blurRadius: 24,
+                color: Colors.black.withValues(alpha: 0.30),
+              ),
+              // Inset shadow top (refined)
               ib.BoxShadow(
                 inset: true,
                 offset: const Offset(0, -2),
                 blurRadius: 4,
                 color: Colors.black.withValues(alpha: 0.18),
               ),
-              // CSS: 0 2px 4px inset white 40%
+              // Inset shadow bottom (refined)
               ib.BoxShadow(
                 inset: true,
                 offset: const Offset(0, 2),
@@ -244,10 +252,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
             iconPath,
             width: iconSize ?? 24,
             height: iconSize ?? 24,
-            colorFilter: useColorFilter ? const ColorFilter.mode(
-              Color(0xFFFFFFFF),
-              BlendMode.srcIn,
-            ) : null,
+            colorFilter: useColorFilter
+                ? const ColorFilter.mode(
+                    Color(0xFFFFFFFF),
+                    BlendMode.srcIn,
+                  )
+                : null,
           ),
         ),
       ),
