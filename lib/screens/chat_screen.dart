@@ -25,6 +25,7 @@ import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_bottom_panel.dart';
 import '../widgets/syra_top_haze.dart';
+import '../widgets/syra_top_haze_with_holes.dart';
 import '../widgets/syra_bottom_haze.dart';
 import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 
@@ -1630,18 +1631,29 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               // - Small blur for haze (not heavy glass)
                               // - Soft scrim dimming
                               // - Feather fade at bottom (no hard line)
+                              // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
+                              // This prevents vertical seams while keeping buttons' glass tone clean
                               Positioned(
                                 top: 0,
                                 left: 0,
                                 right: 0,
-                                child: SyraTopHaze(
-                                  height: 50.0, // Total haze area
-                                  blurSigma: 0.5, // Micro-blur (subtle haze)
+                                child: SyraTopHazeWithHoles(
+                                  height: topInset +
+                                      70.0, // FULL header height (safe area + bar)
+                                  blurSigma: 1.3, // Micro-blur (subtle haze)
                                   featherHeight: 20.0, // Smooth fade out
                                   scrimTopAlpha: 0.70, // Top dimming
                                   scrimMidAlpha: 0.25, // Mid dimming
                                   scrimMidStop: 0.60, // Transition point
                                   whiteLiftAlpha: 0.03, // Subtle fog lift
+                                  // Button hole positions
+                                  leftButtonCenterX:
+                                      36.0, // 16 padding + 20 radius
+                                  rightButtonCenterX: 36.0, // same from right
+                                  buttonCenterY:
+                                      topInset + 28.0, // center of 56px bar
+                                  holeRadius:
+                                      21.0, // INCREASED: 20 button + 10 margin
                                 ),
                               ),
 

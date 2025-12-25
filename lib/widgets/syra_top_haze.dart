@@ -55,16 +55,18 @@ class SyraTopHaze extends StatelessWidget {
     return IgnorePointer(
       child: SizedBox(
         height: height,
-        child: ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(
-              sigmaX: blurSigma,
-              sigmaY: blurSigma,
-              tileMode: TileMode.clamp,
-            ),
-            child: _buildScrimWithFeather(),
-          ),
-        ),
+        child: blurSigma > 0
+            ? ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(
+                    sigmaX: blurSigma,
+                    sigmaY: blurSigma,
+                    tileMode: TileMode.clamp,
+                  ),
+                  child: _buildScrimWithFeather(),
+                ),
+              )
+            : _buildScrimWithFeather(), // No blur wrapper when sigma is 0
       ),
     );
   }

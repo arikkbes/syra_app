@@ -1,6 +1,8 @@
 // lib/screens/chat/chat_app_bar.dart
 
+import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_inset_shadow/flutter_inset_shadow.dart' as ib;
 import '../../theme/syra_theme.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -12,6 +14,7 @@ import '../../theme/syra_theme.dart';
 /// - Right: Single profile/ghost icon button
 ///
 /// NOTE: BackdropFilter blur removed - now handled by SyraGlassSheetTop
+/// Glass icon buttons now use SAME recipe as ChatInputBar for consistency
 /// ═══════════════════════════════════════════════════════════════
 
 class ChatAppBar extends StatelessWidget {
@@ -53,22 +56,10 @@ class ChatAppBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Left: Menu button
-          _TapScale(
+          // Left: Menu button - using ChatInputBar glass recipe
+          _GlassIconButton(
+            icon: Icons.menu_rounded,
             onTap: onMenuTap,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(SyraRadius.sm),
-              ),
-              child: Icon(
-                Icons.menu_rounded,
-                color: SyraColors.iconStroke,
-                size: 22,
-              ),
-            ),
           ),
 
           // Center: Text-based mode selector (NOT a pill)
@@ -78,22 +69,10 @@ class ChatAppBar extends StatelessWidget {
             ),
           ),
 
-          // Right: Profile/ghost button
-          _TapScale(
+          // Right: Profile button - using ChatInputBar glass recipe
+          _GlassIconButton(
+            icon: Icons.person_outline_rounded,
             onTap: onDocumentUpload,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(SyraRadius.sm),
-              ),
-              child: Icon(
-                Icons.person_outline_rounded,
-                color: SyraColors.iconStroke,
-                size: 22,
-              ),
-            ),
           ),
         ],
       ),
@@ -141,50 +120,88 @@ class ChatAppBar extends StatelessWidget {
                     key: ValueKey('content'),
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // SYRA logo text
+                      // SYRA logo text - clean and minimal
                       Text(
                         'SYRA',
                         style: SyraTextStyles.logoStyle(fontSize: 17).copyWith(
-                          letterSpacing: 1.0,
+                          letterSpacing: 1.2,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-
-                      SizedBox(width: 6),
-
-                      // Dot separator
-                      Container(
-                        width: 3,
-                        height: 3,
-                        decoration: BoxDecoration(
-                          color: SyraColors.textMuted.withValues(alpha: 0.4),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-
-                      SizedBox(width: 6),
-
-                      // Mode label
-                      Text(
-                        modeLabel,
-                        style: TextStyle(
-                          color: modeColor.withValues(alpha: 0.85),
-                          fontSize: 15,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
-                        ),
-                      ),
-
-                      SizedBox(width: 4),
-
-                      // Dropdown arrow (small)
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 18,
-                        color: SyraColors.iconMuted.withValues(alpha: 0.6),
-                      ),
                     ],
                   ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════
+/// GLASS ICON BUTTON - ChatInputBar glass recipe
+/// ═══════════════════════════════════════════════════════════════
+/// EXACT same glass settings as ChatInputBar for visual consistency:
+/// - blur: sigmaX=9 sigmaY=9
+/// - tint: Colors.white alpha 0.004
+/// - border: Colors.white alpha 0.10, width 1
+/// - shadows: outer shadow (0,10 blur 24 black alpha 0.30) + subtle inset shadows
+///
+class _GlassIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _GlassIconButton({
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _TapScale(
+      onTap: onTap,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+          child: Container(
+            width: 40,
+            height: 40,
+            decoration: ib.BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.004),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.10),
+                width: 1,
+              ),
+              boxShadow: [
+                // Outer shadow for separation (same as ChatInputBar)
+                ib.BoxShadow(
+                  inset: false,
+                  offset: const Offset(0, 10),
+                  blurRadius: 24,
+                  color: Colors.black.withValues(alpha: 0.30),
+                ),
+                // Inset shadow top
+                ib.BoxShadow(
+                  inset: true,
+                  offset: const Offset(0, -2),
+                  blurRadius: 4,
+                  color: Colors.black.withValues(alpha: 0.18),
+                ),
+                // Inset shadow bottom
+                ib.BoxShadow(
+                  inset: true,
+                  offset: const Offset(0, 2),
+                  blurRadius: 4,
+                  color: Colors.white.withValues(alpha: 0.30),
+                ),
+              ],
+            ),
+            child: Icon(
+              icon,
+              color: SyraColors.iconStroke,
+              size: 20,
+            ),
           ),
         ),
       ),

@@ -80,6 +80,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     return SafeArea(
       top: false,
+      bottom: false, // Home indicator'a yaklaştırmak için kapatıldı
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: Column(
@@ -110,18 +111,18 @@ class _ChatInputBarState extends State<ChatInputBar> {
   Widget _buildGlassInputBar(bool canSend, bool hasText) {
     // GLASS EFFECT: Claude-style frosted glass (crisp but premium)
     return ClipRRect(
-      borderRadius: BorderRadius.circular(23),
+      borderRadius: BorderRadius.circular(28),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
         child: Container(
           constraints: const BoxConstraints(
-            minHeight: 56,
-            maxHeight: 200,
+            minHeight: 72, // 56 → 72 (daha yüksek)
+            maxHeight: 240, // 200 → 240
           ),
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
           decoration: ib.BoxDecoration(
             color: Colors.white.withValues(alpha: 0.004),
-            borderRadius: BorderRadius.circular(23),
+            borderRadius: BorderRadius.circular(28),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.10),
               width: 1,
@@ -218,7 +219,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                         iconPath: 'assets/icons/waveform.svg',
                         onTap: widget.onVoiceInputTap,
                         useColorFilter: false,
-                        iconSize: 26,
+                        iconSize: 29, // 26 → 29 (3px büyütüldü)
                       ),
                   ],
                 ],
@@ -245,13 +246,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
         onTap();
       },
       child: SizedBox(
-        width: 36,
-        height: 36,
+        width: 39, // 36 → 39 (3px büyütüldü)
+        height: 39, // 36 → 39 (3px büyütüldü)
         child: Center(
           child: SvgPicture.asset(
             iconPath,
-            width: iconSize ?? 24,
-            height: iconSize ?? 24,
+            width: iconSize ?? 27, // 24 → 27 (3px büyütüldü)
+            height: iconSize ?? 27, // 24 → 27 (3px büyütüldü)
             colorFilter: useColorFilter
                 ? const ColorFilter.mode(
                     Color(0xFFFFFFFF),
@@ -274,13 +275,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onSendMessage();
       },
       child: SizedBox(
-        width: 36,
-        height: 36,
+        width: 39, // 36 → 39 (3px büyütüldü)
+        height: 39, // 36 → 39 (3px büyütüldü)
         child: Center(
           child: SvgPicture.asset(
             'assets/icons/arrow-up.svg',
-            width: 26,
-            height: 26,
+            width: 29, // 26 → 29 (3px büyütüldü)
+            height: 29, // 26 → 29 (3px büyütüldü)
           ),
         ),
       ),
@@ -297,8 +298,8 @@ class _ChatInputBarState extends State<ChatInputBar> {
         widget.onVoiceInputTap();
       },
       child: Container(
-        width: 28,
-        height: 28,
+        width: 31, // 28 → 31 (3px büyütüldü)
+        height: 31, // 28 → 31 (3px büyütüldü)
         decoration: BoxDecoration(
           color: SyraColors.accent.withValues(alpha: 0.15),
           shape: BoxShape.circle,
