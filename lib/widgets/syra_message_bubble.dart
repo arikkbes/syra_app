@@ -2,6 +2,7 @@
 
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
 import 'syra_markdown.dart';
@@ -27,6 +28,11 @@ class SyraMessageBubble extends StatefulWidget {
   final VoidCallback? onLongPress;
   final VoidCallback? onSwipeReply;
   final String? imageUrl;
+  
+  // Feedback params (assistant messages only)
+  final String? feedback; // 'like' | 'dislike' | null
+  final VoidCallback? onCopy;
+  final ValueChanged<String?>? onFeedbackChanged;
 
   const SyraMessageBubble({
     super.key,
@@ -39,6 +45,9 @@ class SyraMessageBubble extends StatefulWidget {
     this.onLongPress,
     this.onSwipeReply,
     this.imageUrl,
+    this.feedback,
+    this.onCopy,
+    this.onFeedbackChanged,
   });
 
   @override
@@ -123,15 +132,66 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                       ),
                     ),
 
-                    if (widget.isUser) SizedBox(width: SyraSpacing.xs),
                   ],
                 ),
+
+                // Action row for assistant messages
+                if (!widget.isUser) _buildActionRow(),
 
                 // Timestamp: hidden (ChatGPT style - no timestamps shown)
               ],
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // ACTION ROW (Copy / Like / Dislike)
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildActionRow() {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: 12, // Aligned with assistant text left edge
+        top: 4,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _ActionButton(
+            icon: Icons.copy_rounded,
+            isSelected: false,
+            onTap: () {
+              if (widget.onCopy != null) {
+                widget.onCopy!();
+              } else {
+                // Fallback: copy text directly
+                final text = widget.text ?? '';
+                Clipboard.setData(ClipboardData(text: text));
+              }
+            },
+          ),
+          const SizedBox(width: 4),
+          _ActionButton(
+            icon: Icons.thumb_up_rounded,
+            isSelected: widget.feedback == 'like',
+            onTap: () {
+              final newFeedback = widget.feedback == 'like' ? null : 'like';
+              widget.onFeedbackChanged?.call(newFeedback);
+            },
+          ),
+          const SizedBox(width: 4),
+          _ActionButton(
+            icon: Icons.thumb_down_rounded,
+            isSelected: widget.feedback == 'dislike',
+            onTap: () {
+              final newFeedback = widget.feedback == 'dislike' ? null : 'dislike';
+              widget.onFeedbackChanged?.call(newFeedback);
+            },
+          ),
+        ],
       ),
     );
   }
@@ -199,7 +259,10 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
               widget.text ?? "",
               style: SyraTextStyles.bodyMedium.copyWith(
                 color: SyraColors.textPrimary,
-                height: 1.5,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 1.45,
+                letterSpacing: 0,
               ),
             ),
           ),
@@ -214,7 +277,7 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
         constraints: BoxConstraints(maxWidth: 720), // Desktop max width
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 16, // Aligned with ChatInputBar left edge
+            horizontal: 12, // Aligned with ChatInputBar left edge (12px)
             vertical: 4, // Minimal vertical padding
           ),
           child: SyraMarkdown(
@@ -408,6 +471,64 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
                 fit: BoxFit.contain,
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ACTION BUTTON (for Copy/Like/Dislike)
+// ═══════════════════════════════════════════════════════════════
+
+class _ActionButton extends StatefulWidget {
+  final IconData icon;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  State<_ActionButton> createState() => _ActionButtonState();
+}
+
+class _ActionButtonState extends State<_ActionButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = widget.isSelected
+        ? SyraColors.accent
+        : SyraColors.textSecondary.withValues(alpha: 0.5);
+
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _isPressed = true),
+      onTapUp: (_) {
+        setState(() => _isPressed = false);
+        widget.onTap();
+      },
+      onTapCancel: () => setState(() => _isPressed = false),
+      child: AnimatedScale(
+        scale: _isPressed ? 0.92 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        child: Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: widget.isSelected
+                ? SyraColors.accent.withValues(alpha: 0.15)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            widget.icon,
+            size: 18,
+            color: color,
           ),
         ),
       ),

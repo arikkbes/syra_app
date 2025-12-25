@@ -45,6 +45,7 @@ import 'chat/chat_message_list.dart';
 import 'chat/chat_input_bar.dart';
 import '../widgets/minimal_mode_selector.dart';
 import '../widgets/claude_sidebar.dart';
+import '../widgets/measure_size.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -72,6 +73,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _isSending = false; // Anti-spam flag
   bool _userScrolledUp = false; // Track if user manually scrolled
   int _scrollCallCount = 0; // Debounce scroll during streaming
+  
+  double _inputBarHeight = 0.0; // Measured height of ChatInputBar
 
   Map<String, dynamic>? _replyingTo;
 
@@ -187,6 +190,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (!mounted) return;
 
     if (result.success && result.messages != null) {
+      // Inject local feedback from SharedPreferences
+      await ChatSessionService.injectLocalFeedback(result.messages!);
+      
       setState(() {
         _currentSessionId = sessionId;
         _messages.clear();
@@ -317,6 +323,41 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       context: ctx,
       actions: actions,
     );
+  }
+
+  /// Handle copy message action
+  void _handleCopyMessage(Map<String, dynamic> msg) {
+    final text = msg["text"];
+    if (text != null) {
+      Clipboard.setData(ClipboardData(text: text));
+      BlurToast.show(context, "Metin kopyalandı");
+    }
+  }
+
+  /// Handle feedback change (like/dislike)
+  Future<void> _handleFeedbackChanged(Map<String, dynamic> msg, String? newFeedback) async {
+    final messageId = msg['id'] as String?;
+    if (messageId == null || _currentSessionId == null) return;
+
+    // Optimistic update
+    setState(() {
+      msg['feedback'] = newFeedback;
+    });
+
+    // Persist to Firestore + SharedPreferences
+    final result = await ChatSessionService.setMessageFeedback(
+      sessionId: _currentSessionId!,
+      messageId: messageId,
+      feedback: newFeedback,
+    );
+
+    if (!result.success && mounted) {
+      // Revert on failure
+      setState(() {
+        msg['feedback'] = null;
+      });
+      BlurToast.show(context, result.errorMessage ?? 'Geri bildirim kaydedilemedi');
+    }
   }
 
   /// Navigate to premium screen based on premium status
@@ -1531,6 +1572,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   isTarotMode: _isTarotMode,
                                   headerHeight:
                                       topInset + ChatAppBar.baseHeight,
+                                  bottomOverlayHeight: _inputBarHeight,
                                   onSuggestionTap: (text) {
                                     setState(() {
                                       _controller.text = text;
@@ -1565,6 +1607,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       _swipedMessageId = null;
                                     });
                                   },
+                                  onCopyMessage: _handleCopyMessage,
+                                  onFeedbackChanged: _handleFeedbackChanged,
                                 ),
                               ),
 
@@ -1576,7 +1620,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 builder: (context) {
                                   final bottomInset =
                                       MediaQuery.of(context).padding.bottom;
-                                  final hazeHeight = bottomInset + 100.0;
+                                  final hazeHeight = bottomInset + 60.0;
 
                                   return Positioned(
                                     bottom: 0,
@@ -1600,29 +1644,36 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 bottom: 0,
                                 left: 0,
                                 right: 0,
-                                child: ChatInputBar(
-                                  controller: _controller,
-                                  focusNode: _inputFocusNode,
-                                  isSending: _isSending,
-                                  isLoading: _isLoading,
-                                  isListening: _isListening,
-                                  replyingTo: _replyingTo,
-                                  pendingImage: _pendingImage,
-                                  pendingImageUrl: _pendingImageUrl,
-                                  onAttachmentTap: _handleAttachment,
-                                  onVoiceInputTap: _handleVoiceInput,
-                                  onSendMessage: _sendMessage,
-                                  onCancelReply: () =>
-                                      setState(() => _replyingTo = null),
-                                  onClearImage: _clearPendingImage,
-                                  onTextChanged: () => setState(() {}),
-                                  onCameraTap: () =>
-                                      _pickImageForPreview(ImageSource.camera),
-                                  onGalleryTap: () =>
-                                      _pickImageForPreview(ImageSource.gallery),
-                                  onModeTap: _handleModeSelection,
-                                  currentMode: _getModeDisplayName(),
-                                  chatBackgroundKey: _chatBackgroundKey,
+                                child: MeasureSize(
+                                  onChange: (size) {
+                                    setState(() {
+                                      _inputBarHeight = size.height;
+                                    });
+                                  },
+                                  child: ChatInputBar(
+                                    controller: _controller,
+                                    focusNode: _inputFocusNode,
+                                    isSending: _isSending,
+                                    isLoading: _isLoading,
+                                    isListening: _isListening,
+                                    replyingTo: _replyingTo,
+                                    pendingImage: _pendingImage,
+                                    pendingImageUrl: _pendingImageUrl,
+                                    onAttachmentTap: _handleAttachment,
+                                    onVoiceInputTap: _handleVoiceInput,
+                                    onSendMessage: _sendMessage,
+                                    onCancelReply: () =>
+                                        setState(() => _replyingTo = null),
+                                    onClearImage: _clearPendingImage,
+                                    onTextChanged: () => setState(() {}),
+                                    onCameraTap: () =>
+                                        _pickImageForPreview(ImageSource.camera),
+                                    onGalleryTap: () =>
+                                        _pickImageForPreview(ImageSource.gallery),
+                                    onModeTap: _handleModeSelection,
+                                    currentMode: _getModeDisplayName(),
+                                    chatBackgroundKey: _chatBackgroundKey,
+                                  ),
                                 ),
                               ),
 
@@ -1639,12 +1690,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 right: 0,
                                 child: SyraTopHazeWithHoles(
                                   height: topInset +
-                                      70.0, // FULL header height (safe area + bar)
-                                  blurSigma: 1.3, // Micro-blur (subtle haze)
-                                  featherHeight: 20.0, // Smooth fade out
-                                  scrimTopAlpha: 0.70, // Top dimming
+                                      60.0, // FULL header height (safe area + bar)
+                                  blurSigma: 1.0, // Micro-blur (subtle haze)
+                                  featherHeight: 40.0, // Smooth fade out
+                                  scrimTopAlpha: 0.45, // Top dimming
                                   scrimMidAlpha: 0.25, // Mid dimming
-                                  scrimMidStop: 0.60, // Transition point
+                                  scrimMidStop: 0.52, // Transition point
                                   whiteLiftAlpha: 0.03, // Subtle fog lift
                                   // Button hole positions
                                   leftButtonCenterX:
@@ -1653,7 +1704,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   buttonCenterY:
                                       topInset + 28.0, // center of 56px bar
                                   holeRadius:
-                                      21.0, // INCREASED: 20 button + 10 margin
+                                      20.0, // INCREASED: 20 button + 10 margin
                                 ),
                               ),
 

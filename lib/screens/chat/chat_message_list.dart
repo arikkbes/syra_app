@@ -24,9 +24,14 @@ class ChatMessageList extends StatelessWidget {
   final Function(Map<String, dynamic>) onMessageLongPress;
   final Function(Map<String, dynamic>, double) onSwipeUpdate;
   final Function(Map<String, dynamic>, bool) onSwipeEnd;
+  
+  // Feedback callbacks
+  final Function(Map<String, dynamic>)? onCopyMessage;
+  final Function(Map<String, dynamic>, String?)? onFeedbackChanged;
 
   // Layout props
   final double headerHeight;
+  final double bottomOverlayHeight;
 
   const ChatMessageList({
     super.key,
@@ -41,7 +46,10 @@ class ChatMessageList extends StatelessWidget {
     required this.onMessageLongPress,
     required this.onSwipeUpdate,
     required this.onSwipeEnd,
+    this.onCopyMessage,
+    this.onFeedbackChanged,
     this.headerHeight = 56.0,
+    this.bottomOverlayHeight = 0.0,
   });
 
   @override
@@ -135,9 +143,12 @@ class ChatMessageList extends StatelessWidget {
   }
 
   Widget _buildMessageList() {
+    // Calculate dynamic bottom padding
+    final bottomPadding = bottomOverlayHeight + 16;
+    
     return ListView.builder(
       controller: scrollController,
-      padding: EdgeInsets.fromLTRB(0, headerHeight + 16, 0, 96),
+      padding: EdgeInsets.fromLTRB(12, headerHeight + 8, 12, bottomPadding),
       itemCount: messages.length + (isTyping ? 1 : 0),
       physics: const BouncingScrollPhysics(),
       itemBuilder: (context, index) {
@@ -150,9 +161,12 @@ class ChatMessageList extends StatelessWidget {
         final isUser = msg["sender"] == "user";
 
         // Sender-aware spacing (ChatGPT style)
+        // For first message (index 0), use minimal top margin
         final bool isSameSender =
             index > 0 && messages[index - 1]["sender"] == msg["sender"];
-        final double topMargin = isSameSender ? 8.0 : 16.0;
+        final double topMargin = index == 0 
+            ? 0.0  // First message: no extra top margin
+            : (isSameSender ? 8.0 : 16.0);
 
         final bool isSwiped =
             swipedMessageId == msg["id"] && swipeOffset != 0.0;
@@ -188,6 +202,14 @@ class ChatMessageList extends StatelessWidget {
                   hasGreenFlag: !isUser && (msg['hasGreen'] == true),
                   onLongPress: () => onMessageLongPress(msg),
                   imageUrl: msg["imageUrl"],
+                  // Feedback params (assistant only)
+                  feedback: !isUser ? msg['feedback'] as String? : null,
+                  onCopy: !isUser && onCopyMessage != null 
+                      ? () => onCopyMessage!(msg) 
+                      : null,
+                  onFeedbackChanged: !isUser && onFeedbackChanged != null
+                      ? (newFeedback) => onFeedbackChanged!(msg, newFeedback)
+                      : null,
                 ),
               ),
             ),

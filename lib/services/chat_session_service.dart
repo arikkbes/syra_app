@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_session.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -424,6 +425,112 @@ class ChatSessionService {
         errorMessage: "Mesaj kaydedilirken hata oluştu.",
         debugMessage: "Error: $e",
       );
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MESSAGE FEEDBACK (Like/Dislike)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Set feedback for a specific message
+  /// 
+  /// @param sessionId - The session containing the message
+  /// @param messageId - The message ID (stored as 'id' field in message doc)
+  /// @param feedback - 'like', 'dislike', or null to clear
+  /// 
+  /// Persists to Firestore (primary) and SharedPreferences (fallback)
+  static Future<SessionResult> setMessageFeedback({
+    required String sessionId,
+    required String messageId,
+    required String? feedback, // 'like' | 'dislike' | null
+  }) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        return SessionResult.error(
+          errorMessage: "Kullanıcı girişi gerekli",
+          debugMessage: "User not authenticated",
+        );
+      }
+
+      debugPrint("📝 [ChatSessionService] Setting feedback for message $messageId: $feedback");
+
+      // 1. Save to SharedPreferences (local fallback)
+      await _saveFeedbackToPrefs(messageId, feedback);
+
+      // 2. Update Firestore
+      try {
+        final messagesRef = _firestore
+            .collection(_usersCollection)
+            .doc(user.uid)
+            .collection(_sessionsSubcollection)
+            .doc(sessionId)
+            .collection(_messagesSubcollection);
+
+        // Find message by 'id' field
+        final querySnapshot = await messagesRef
+            .where('id', isEqualTo: messageId)
+            .limit(1)
+            .get();
+
+        if (querySnapshot.docs.isEmpty) {
+          debugPrint("⚠️ [ChatSessionService] Message not found in Firestore: $messageId");
+          // Still return success since we saved to SharedPreferences
+          return SessionResult.success();
+        }
+
+        final messageDoc = querySnapshot.docs.first;
+        await messageDoc.reference.update({
+          'feedback': feedback,
+          'feedbackAt': FieldValue.serverTimestamp(),
+        });
+
+        debugPrint("✅ [ChatSessionService] Feedback saved to Firestore");
+      } catch (firestoreError) {
+        debugPrint("⚠️ [ChatSessionService] Firestore save failed, using local fallback: $firestoreError");
+        // Continue - we already saved to SharedPreferences
+      }
+
+      return SessionResult.success();
+    } catch (e, stackTrace) {
+      debugPrint("❌ [ChatSessionService] Error in setMessageFeedback: $e\n$stackTrace");
+      return SessionResult.error(
+        errorMessage: "Geri bildirim kaydedilemedi.",
+        debugMessage: "Error: $e",
+      );
+    }
+  }
+
+  /// Save feedback to SharedPreferences (local fallback)
+  static Future<void> _saveFeedbackToPrefs(String messageId, String? feedback) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = "msg_feedback_$messageId";
+    
+    if (feedback == null || feedback.isEmpty) {
+      await prefs.remove(key);
+    } else {
+      await prefs.setString(key, feedback);
+    }
+  }
+
+  /// Load feedback from SharedPreferences
+  static Future<String?> _loadFeedbackFromPrefs(String messageId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final key = "msg_feedback_$messageId";
+    return prefs.getString(key);
+  }
+
+  /// Inject feedback from SharedPreferences into messages
+  /// Call this when loading messages to merge local feedback
+  static Future<void> injectLocalFeedback(List<Map<String, dynamic>> messages) async {
+    for (final msg in messages) {
+      final messageId = msg['id'] as String?;
+      if (messageId != null && msg['feedback'] == null) {
+        final localFeedback = await _loadFeedbackFromPrefs(messageId);
+        if (localFeedback != null) {
+          msg['feedback'] = localFeedback;
+        }
+      }
     }
   }
 }

@@ -58,6 +58,15 @@ class SyraApp extends StatelessWidget {
       title: 'SYRA',
       debugShowCheckedModeBanner: false,
       theme: SyraTheme.theme,
+      builder: (context, child) {
+        // Clamp text scaling to 1.0 for consistent typography
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.noScaling,
+          ),
+          child: child!,
+        );
+      },
       home: const _AuthGate(),
       routes: {
         '/login': (_) => const LoginScreen(),

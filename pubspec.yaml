@@ -10,7 +10,7 @@ description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
 
-version: 1.0.5+8
+version: 1.0.5+7
 
 
 environment:
@@ -31,6 +31,9 @@ dependencies:
   # 💾 Local storage - Hive (native dependency yok → iOS crashsiz)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  
+  # 💾 Shared Preferences (for feedback fallback)
+  shared_preferences: ^2.3.3
 
   # 🔥 Firebase (Flutter 3.38 resmi stabil kombinasyonu)
   firebase_core: ^3.7.0
@@ -51,7 +54,7 @@ dependencies:
   image_picker: ^1.0.8
 
   # 📝 Markdown rendering
-  flutter_markdown: ^0.7.4+1
+  flutter_markdown_plus: 1.0.6
   markdown: ^7.2.2
 
   # 📁 File picker
