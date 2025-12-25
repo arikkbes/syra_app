@@ -24,7 +24,9 @@ import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_bottom_panel.dart';
-import '../widgets/syra_glass_sheet.dart';
+import '../widgets/syra_top_haze.dart';
+import '../widgets/syra_bottom_haze.dart';
+import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
@@ -1565,36 +1567,31 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
                               ),
 
-                              // Layer 4: Bottom Glass Sheet (background for input area)
-                              // Claude-style MATTE glass with dual feather fade + scrim overlay
-                              // Aligned with ChatInputBar: 16px horizontal padding, rounded top corners
-                              // Settings: blur 6.5, tint 0.04, fadeTop 96, fadeBottom 28, scrim 0.075
-                              Positioned(
-                                bottom: 0,
-                                left: 0,
-                                right: 0,
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16),
-                                  child: IgnorePointer(
-                                    child: SyraGlassSheetBottom(
-                                      blurSigma: 6.5,
-                                      fadeTopHeight: 96.0,
-                                      fadeBottomHeight: 16.0,
-                                      borderRadius: const BorderRadius.only(
-                                        topLeft: Radius.circular(23),
-                                        topRight: Radius.circular(23),
-                                      ),
-                                      child: SizedBox(
-                                        // Height: safe coverage of input area + bottom safe area
-                                        height: 100 +
-                                            MediaQuery.of(context)
-                                                .padding
-                                                .bottom,
-                                      ),
+                              // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
+                              // Subtle foggy/haze effect at bottom, fades smoothly into content
+                              // No horizontal padding - full width
+                              // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
+                              Builder(
+                                builder: (context) {
+                                  final bottomInset =
+                                      MediaQuery.of(context).padding.bottom;
+                                  final hazeHeight = bottomInset + 100.0;
+
+                                  return Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: SyraBottomHaze(
+                                      height: hazeHeight,
+                                      blurSigma: 0.5,
+                                      featherHeight: 28.0,
+                                      scrimBottomAlpha: 0.35,
+                                      scrimMidAlpha: 0.10,
+                                      scrimMidStop: 0.65,
+                                      whiteLiftAlpha: 0.02,
                                     ),
-                                  ),
-                                ),
+                                  );
+                                },
                               ),
 
                               // Layer 5: Input bar overlay at bottom
@@ -1628,25 +1625,39 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
                               ),
 
-                              // Layer 6: Top Glass Sheet with ChatAppBar
-                              // Claude-style glass region from status bar through header with soft fade
-                              // Settings: blurSigma 12, tintAlpha 0.08, fadeHeight 64, fadeDirection: bottom
+                              // Layer 6: Top Haze (micro-blur + scrim + feather fade)
+                              // Claude/Sonnet style: subtle foggy/haze effect
+                              // - Small blur for haze (not heavy glass)
+                              // - Soft scrim dimming
+                              // - Feather fade at bottom (no hard line)
                               Positioned(
                                 top: 0,
                                 left: 0,
                                 right: 0,
-                                child: SyraGlassSheetTop(
-                                  blurSigma: 12.0,
-                                  fadeHeight: 64.0,
-                                  child: ChatAppBar(
-                                    selectedMode: _selectedMode,
-                                    modeAnchorLink: _modeAnchorLink,
-                                    onMenuTap: _toggleSidebar,
-                                    onModeTap: _handleModeSelection,
-                                    onDocumentUpload: _handleDocumentUpload,
-                                    isModeSelectorOpen: _isModeSelectorOpen,
-                                    topPadding: topInset,
-                                  ),
+                                child: SyraTopHaze(
+                                  height: 50.0, // Total haze area
+                                  blurSigma: 0.5, // Micro-blur (subtle haze)
+                                  featherHeight: 20.0, // Smooth fade out
+                                  scrimTopAlpha: 0.70, // Top dimming
+                                  scrimMidAlpha: 0.25, // Mid dimming
+                                  scrimMidStop: 0.60, // Transition point
+                                  whiteLiftAlpha: 0.03, // Subtle fog lift
+                                ),
+                              ),
+
+                              // Layer 7: ChatAppBar (transparent, sits on top of scrim)
+                              Positioned(
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                child: ChatAppBar(
+                                  selectedMode: _selectedMode,
+                                  modeAnchorLink: _modeAnchorLink,
+                                  onMenuTap: _toggleSidebar,
+                                  onModeTap: _handleModeSelection,
+                                  onDocumentUpload: _handleDocumentUpload,
+                                  isModeSelectorOpen: _isModeSelectorOpen,
+                                  topPadding: topInset,
                                 ),
                               ),
                             ],

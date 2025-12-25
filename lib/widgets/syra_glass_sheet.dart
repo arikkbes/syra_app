@@ -104,22 +104,10 @@ class SyraGlassSheet extends StatelessWidget {
       ),
     );
 
-    // Apply fade mask if needed
-    if (fadeDirection != FadeDirection.none ||
-        fadeTopHeight > 0 ||
-        fadeBottomHeight > 0) {
-      background = ShaderMask(
-        shaderCallback: (Rect bounds) {
-          return _buildFadeGradient(bounds).createShader(bounds);
-        },
-        blendMode: BlendMode.dstIn, // Masks the background, not the content
-        child: background,
-      );
-    }
-
     // Add matte scrim overlay if enabled (for Claude-style matte glass)
+    // Combine background + scrim BEFORE applying fade mask so both fade together
     if (enableMatteScrim) {
-      return Stack(
+      background = Stack(
         children: [
           background,
           // Matte scrim gradient overlay
@@ -137,6 +125,19 @@ class SyraGlassSheet extends StatelessWidget {
             ),
           ),
         ],
+      );
+    }
+
+    // Apply fade mask to the combined background+scrim stack
+    if (fadeDirection != FadeDirection.none ||
+        fadeTopHeight > 0 ||
+        fadeBottomHeight > 0) {
+      background = ShaderMask(
+        shaderCallback: (Rect bounds) {
+          return _buildFadeGradient(bounds).createShader(bounds);
+        },
+        blendMode: BlendMode.dstIn, // Masks the background+scrim, not the content
+        child: background,
       );
     }
 
@@ -172,48 +173,58 @@ class SyraGlassSheet extends StatelessWidget {
     switch (fadeDirection) {
       case FadeDirection.top:
         // Fade from bottom edge upward (for bottom glass sheet)
+        // Fade from transparent at top to full opacity
+        final fadeEnd = (fadeHeight / bounds.height).clamp(0.0, 1.0);
         return LinearGradient(
-          begin: Alignment.bottomCenter,
-          end: Alignment.topCenter,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
           colors: const [
+            Colors.transparent, // Fade at top
+            Colors.white, // Full opacity by fadeEnd
             Colors.white, // Full opacity at bottom
-            Colors.transparent, // Fade to transparent at top
           ],
           stops: [
             0.0,
-            fadeHeight / bounds.height,
+            fadeEnd,
+            1.0,
           ],
         );
 
       case FadeDirection.bottom:
-        // Fade from top edge downward
+        // Fade from top edge downward - keep full opacity until near bottom, then fade
+        final fadeStart = (1.0 - fadeHeight / bounds.height).clamp(0.0, 1.0);
         return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: const [
             Colors.white, // Full opacity at top
+            Colors.white, // Full opacity until fade starts
             Colors.transparent, // Fade to transparent at bottom
           ],
           stops: [
             0.0,
-            fadeHeight / bounds.height,
+            fadeStart,
+            1.0,
           ],
         );
 
       case FadeDirection.both:
         // Fade both top and bottom edges
+        final fadeStop = (fadeHeight / bounds.height).clamp(0.0, 1.0);
         return LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: const [
             Colors.transparent, // Fade at top
             Colors.white, // Full opacity in middle
+            Colors.white, // Full opacity in middle
             Colors.transparent, // Fade at bottom
           ],
           stops: [
             0.0,
-            fadeHeight / bounds.height,
-            1.0 - (fadeHeight / bounds.height),
+            fadeStop,
+            1.0 - fadeStop,
+            1.0, // Explicit stop at 1.0 to avoid abrupt edge
           ],
         );
 
@@ -248,10 +259,21 @@ class SyraGlassSheetTop extends StatelessWidget {
     return SyraGlassSheet(
       blurSigma: blurSigma,
       tintColor: Colors.black,
-      tintAlpha: 0.08,
+      tintAlpha: 0.05, // Reduced from 0.08 for lighter dimming
       fadeHeight: fadeHeight,
       fadeDirection: FadeDirection.bottom, // Fade from top into content
-      child: child,
+      enableMatteScrim: true, // Enable subtle matte scrim
+      matteScrimAlphaTop: 0.03, // Subtle dim at top
+      matteScrimAlphaBottom: 0.08, // Slightly more dim at bottom
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          child, // ChatAppBar
+          IgnorePointer(
+            child: SizedBox(height: fadeHeight), // Extend glass area downward
+          ),
+        ],
+      ),
     );
   }
 }

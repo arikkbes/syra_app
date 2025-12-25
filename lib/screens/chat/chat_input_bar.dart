@@ -81,7 +81,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
