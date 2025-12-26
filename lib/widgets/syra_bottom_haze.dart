@@ -98,6 +98,7 @@ class SyraBottomHaze extends StatelessWidget {
         ),
 
         // Subtle white lift for fog/haze appearance
+        // Using cool blue-white to prevent yellow tint
         Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -105,9 +106,8 @@ class SyraBottomHaze extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent, // Fade from clear at top
-                Colors.white.withOpacity(whiteLiftAlpha * 0.5), // Less at mid
-                Colors.white
-                    .withOpacity(whiteLiftAlpha), // Subtle fog at bottom
+                const Color(0xFFE8F0F8).withOpacity(whiteLiftAlpha * 0.5),
+                const Color(0xFFE8F0F8).withOpacity(whiteLiftAlpha),
               ],
               stops: [
                 0.0,
