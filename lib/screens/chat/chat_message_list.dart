@@ -115,8 +115,10 @@ class ChatMessageList extends StatelessWidget {
             // Hero Title
             Text(
               isTarotMode ? "Kartlar hazır..." : "Bugün neyi çözüyoruz?",
-              style: SyraTextStyles.displayMedium.copyWith(
+              style: TextStyle(
+                fontFamily: 'Literata',
                 fontSize: 24,
+                fontWeight: FontWeight.w400,
                 color: isTarotMode ? SyraColors.accent : SyraColors.textPrimary,
               ),
               textAlign: TextAlign.center,
@@ -128,7 +130,10 @@ class ChatMessageList extends StatelessWidget {
               isTarotMode
                   ? "İstersen önce birkaç cümleyle durumu anlat."
                   : "Mesajını, ilişkinizi ya da aklındaki soruyu anlat.",
-              style: SyraTextStyles.bodySmall.copyWith(
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
                 color: SyraColors.textMuted,
               ),
               textAlign: TextAlign.center,

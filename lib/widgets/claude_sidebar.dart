@@ -222,7 +222,8 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
         GestureDetector(
           onHorizontalDragEnd: (details) {
             // Swipe left to close
-            if (details.primaryVelocity != null && details.primaryVelocity! < -300) {
+            if (details.primaryVelocity != null &&
+                details.primaryVelocity! < -300) {
               _close();
             }
           },
@@ -282,9 +283,8 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
 
   Widget _buildMenuList() {
     // Filter sessions with messages
-    final filteredSessions = widget.sessions
-        .where((s) => s.messageCount > 0)
-        .toList();
+    final filteredSessions =
+        widget.sessions.where((s) => s.messageCount > 0).toList();
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -319,30 +319,30 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
         const _MenuDivider(),
         const SizedBox(height: 16),
         Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
           child: Text(
             'Recents',
             style: TextStyle(
               fontFamily: 'Geist',
-              color: Colors.white.withOpacity(0.4),
-              fontSize: 11,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.3,
+              color: Colors.white.withOpacity(0.42),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.25,
             ),
           ),
         ),
         // Session items directly in ListView
         ...filteredSessions.map((s) => _SessionItem(
-          title: s.title,
-          subtitle: _subtitle(s),
-          trailing: _timeLabel(s.lastUpdatedAt),
-          isSelected: s.id == widget.currentSessionId,
-          onTap: () {
-            _close();
-            widget.onSelectSession(s.id);
-          },
-          onOpenMenuAt: (pos) => _openSessionMenuAt(s, pos),
-        )),
+              title: s.title,
+              subtitle: _subtitle(s),
+              trailing: _timeLabel(s.lastUpdatedAt),
+              isSelected: s.id == widget.currentSessionId,
+              onTap: () {
+                _close();
+                widget.onSelectSession(s.id);
+              },
+              onOpenMenuAt: (pos) => _openSessionMenuAt(s, pos),
+            )),
         if (widget.sessions.length > 10 && widget.onOpenAllSessions != null)
           Align(
             alignment: Alignment.centerLeft,
@@ -420,7 +420,8 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
                 },
                 borderRadius: BorderRadius.circular(12),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   child: Row(
                     children: [
                       Container(
@@ -532,9 +533,9 @@ class _SessionItem extends StatelessWidget {
                   fontFamily: 'Geist',
                   color: isSelected
                       ? Colors.white.withOpacity(0.95)
-                      : Colors.white.withOpacity(0.65),
-                  fontSize: 13.5,
-                  fontWeight: FontWeight.w400,
+                      : Colors.white.withOpacity(0.70),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
                   letterSpacing: -0.15,
                 ),
               ),
@@ -573,9 +574,8 @@ class _MenuItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isPremium
-                  ? SyraColors.accent
-                  : Colors.white.withOpacity(0.8),
+              color:
+                  isPremium ? SyraColors.accent : Colors.white.withOpacity(0.8),
               size: 22,
             ),
             const SizedBox(width: 14),
@@ -584,8 +584,8 @@ class _MenuItem extends StatelessWidget {
               style: TextStyle(
                 fontFamily: 'Geist',
                 color: Colors.white.withOpacity(0.9),
-                fontSize: 15,
-                fontWeight: FontWeight.w400,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
               ),
             ),
             if (isPremium) ...[

@@ -38,15 +38,19 @@ class ChatEmptyState extends StatelessWidget {
         ? "İstersen önce birkaç cümleyle durumu anlat."
         : "Mesajını, ilişkini ya da aklındaki soruyu anlat.";
 
-    final titleStyle = SyraTextStyles.displayMedium.copyWith(
+    final titleStyle = TextStyle(
+      fontFamily: 'Literata',
       fontSize: isDesktop ? 34 : 30,
+      fontWeight: FontWeight.w400,
       height: isDesktop ? (42 / 34) : (38 / 30),
       color: (isTarotMode ? SyraColors.accent : SyraColors.textPrimary)
           .withValues(alpha: 0.92),
     );
 
-    final subtitleStyle = SyraTextStyles.bodyMedium.copyWith(
+    final subtitleStyle = TextStyle(
+      fontFamily: 'Geist',
       fontSize: isDesktop ? 15 : 14,
+      fontWeight: FontWeight.w500,
       height: 22 / (isDesktop ? 15 : 14),
       color: SyraColors.textSecondary.withValues(alpha: 0.72),
     );

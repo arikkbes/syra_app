@@ -168,7 +168,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   fontFamily: 'Geist',
                   color: Color(0xFFCFCFCF),
                   fontSize: 15,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: FontWeight.w500,
                   height: 1.4,
                 ),
                 decoration: InputDecoration(
@@ -181,9 +181,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   hintText: 'Bugün nasıl hissediyorsun?',
                   hintStyle: TextStyle(
                     fontFamily: 'Geist',
-                    color: const Color(0xFFFFFFFF).withOpacity(0.55),
+                    color: const Color(0xFFFFFFFF).withOpacity(0.6),
                     fontSize: 15,
-                    fontWeight: FontWeight.w400,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 onSubmitted: (_) {
