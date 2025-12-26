@@ -31,6 +31,7 @@ import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 
 import 'premium_screen.dart';
 import 'settings/settings_screen.dart';
+import 'settings/settings_modal_sheet.dart';
 import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'premium_management_screen.dart';
@@ -1547,15 +1548,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     );
                   },
                   onSettingsTap: () {
-                    setState(() {
-                      _sidebarOpen = false;
-                      _dragOffset = 0.0;
-                    });
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (_) => const SettingsScreen(),
-                      ),
+                    // DO NOT close sidebar - sheet will appear over it
+                    // Show Claude-style modal settings sheet
+                    showModalBottomSheet(
+                      context: context,
+                      useRootNavigator: true,
+                      isScrollControlled: true,
+                      backgroundColor: Colors.transparent,
+                      barrierColor: Colors.black.withOpacity(0.40),
+                      builder: (_) => SyraSettingsModalSheet(hostContext: context),
                     );
                   },
                 ),

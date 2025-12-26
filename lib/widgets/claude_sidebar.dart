@@ -295,12 +295,13 @@ class _ClaudeSidebarState extends State<ClaudeSidebar> {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
 
     // Claude-style: minimal glass pill button with transparent background
+    // NOTE: onClose() removed so sidebar stays open when settings modal appears
     return Padding(
       padding: EdgeInsets.fromLTRB(16, 16, 16, bottomPadding + 16),
       child: GestureDetector(
         onTap: () {
           HapticFeedback.mediumImpact();
-          widget.onClose();
+          // Sidebar stays open - modal sheet will appear over it
           widget.onSettingsTap?.call();
         },
         child: Container(
