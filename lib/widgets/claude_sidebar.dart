@@ -268,9 +268,10 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
           const Text(
             'SYRA',
             style: TextStyle(
+              fontFamily: 'Literata',
               color: Colors.white,
               fontSize: 22,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
               letterSpacing: 0.5,
             ),
           ),
@@ -322,6 +323,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
           child: Text(
             'Recents',
             style: TextStyle(
+              fontFamily: 'Geist',
               color: Colors.white.withOpacity(0.4),
               fontSize: 11,
               fontWeight: FontWeight.w500,
@@ -527,6 +529,7 @@ class _SessionItem extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.left,
                 style: TextStyle(
+                  fontFamily: 'Geist',
                   color: isSelected
                       ? Colors.white.withOpacity(0.95)
                       : Colors.white.withOpacity(0.65),
@@ -579,6 +582,7 @@ class _MenuItem extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
+                fontFamily: 'Geist',
                 color: Colors.white.withOpacity(0.9),
                 fontSize: 15,
                 fontWeight: FontWeight.w400,

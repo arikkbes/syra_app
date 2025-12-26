@@ -123,10 +123,20 @@ class ChatAppBar extends StatelessWidget {
                       // SYRA logo text - clean and minimal
                       Text(
                         'SYRA',
-                        style: SyraTextStyles.logoStyle(fontSize: 17).copyWith(
+                        style: TextStyle(
+                          fontFamily: 'Geist',
+                          fontSize: 17,
                           letterSpacing: 1.2,
                           fontWeight: FontWeight.w600,
+                          color: SyraColors.textPrimary,
                         ),
+                      ),
+                      SizedBox(width: 4),
+                      // Chevron down icon to indicate mode selector
+                      Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: SyraColors.textSecondary.withOpacity(0.6),
                       ),
                     ],
                   ),

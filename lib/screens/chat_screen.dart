@@ -325,12 +325,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
   }
 
-  /// Handle copy message action
+  /// Handle copy message action (silent - no toast)
   void _handleCopyMessage(Map<String, dynamic> msg) {
     final text = msg["text"];
     if (text != null) {
       Clipboard.setData(ClipboardData(text: text));
-      BlurToast.show(context, "Metin kopyalandı");
+      // NO TOAST - checkmark animation in button provides feedback
     }
   }
 

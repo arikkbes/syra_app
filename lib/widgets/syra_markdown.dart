@@ -29,23 +29,26 @@ class SyraMarkdown extends StatelessWidget {
         'code': SyraCodeElementBuilder(),
       },
       styleSheet: MarkdownStyleSheet(
-        // Paragraph text (main body) - Claude-like typography: 16px, w400, height 1.45
-        p: SyraTextStyles.bodyMedium.copyWith(
+        // Paragraph text (main body) - Claude-like typography: Literata, 16px, w400, height 1.55
+        p: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 16,
-          height: 1.45,
+          height: 1.55,
           fontWeight: FontWeight.w400,
           letterSpacing: 0,
         ),
         // Bold text
-        strong: SyraTextStyles.bodyMedium.copyWith(
+        strong: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 16,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           letterSpacing: 0,
         ),
         // Italic text
-        em: SyraTextStyles.bodyMedium.copyWith(
+        em: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 16,
           fontStyle: FontStyle.italic,
@@ -71,13 +74,15 @@ class SyraMarkdown extends StatelessWidget {
         // Code block padding
         codeblockPadding: EdgeInsets.all(SyraSpacing.md),
         // Lists
-        listBullet: SyraTextStyles.bodyMedium.copyWith(
+        listBullet: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.accent.withValues(alpha: 0.8),
           fontSize: 16,
         ),
         listIndent: 20,
         // Links
-        a: SyraTextStyles.bodyMedium.copyWith(
+        a: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.accent.withValues(alpha: 0.9),
           fontSize: 16,
           decoration: TextDecoration.underline,
@@ -85,26 +90,30 @@ class SyraMarkdown extends StatelessWidget {
           letterSpacing: 0,
         ),
         // Headings
-        h1: SyraTextStyles.bodyMedium.copyWith(
+        h1: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 26,
           fontWeight: FontWeight.w700,
           height: 1.3,
         ),
-        h2: SyraTextStyles.bodyMedium.copyWith(
+        h2: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 22,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           height: 1.3,
         ),
-        h3: SyraTextStyles.bodyMedium.copyWith(
+        h3: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textPrimary,
           fontSize: 20,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           height: 1.3,
         ),
         // Blockquote
-        blockquote: SyraTextStyles.bodyMedium.copyWith(
+        blockquote: TextStyle(
+          fontFamily: 'Literata',
           color: SyraColors.textSecondary,
           fontSize: 16,
           fontStyle: FontStyle.italic,

@@ -165,6 +165,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                 textInputAction: TextInputAction.newline,
                 onChanged: (_) => widget.onTextChanged(),
                 style: const TextStyle(
+                  fontFamily: 'Geist',
                   color: Color(0xFFCFCFCF),
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
@@ -177,12 +178,12 @@ class _ChatInputBarState extends State<ChatInputBar> {
                   enabledBorder: InputBorder.none,
                   focusedBorder: InputBorder.none,
                   filled: false,
-                  hintText: 'SYRA\'ya sor…',
+                  hintText: 'Bugün nasıl hissediyorsun?',
                   hintStyle: TextStyle(
-                    color: const Color(0xFFFFFFFF),
+                    fontFamily: 'Geist',
+                    color: const Color(0xFFFFFFFF).withOpacity(0.55),
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
-                    fontFamily: 'DMSerifDisplay',
                   ),
                 ),
                 onSubmitted: (_) {

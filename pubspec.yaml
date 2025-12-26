@@ -10,7 +10,7 @@ description: SYRA - İlişki Danışmanın
 publish_to: 'none'
 
 
-version: 1.0.5+7
+version: 1.0.5+9
 
 
 environment:
@@ -116,3 +116,33 @@ flutter:
       fonts:
         - asset: assets/fonts/DMSerifDisplay-Regular.ttf
           weight: 400
+
+    # Geist - Sans-serif for UI elements
+    # NOTE: Using Geist-Medium as fallback for regular weight if Geist-Regular doesn't exist
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 400
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Geist-LightItalic.ttf
+          weight: 300
+          style: italic
+
+    # Literata - Serif for assistant messages
+    - family: Literata
+      fonts:
+        - asset: assets/fonts/Literata-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Literata-Bold.ttf
+          weight: 700
+
+    # Literata7pt - Alternative serif for assistant messages
+    - family: Literata7pt
+      fonts:
+        - asset: assets/fonts/Literata7pt-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Literata7pt-Bold.ttf
+          weight: 700

@@ -152,6 +152,9 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   // ═══════════════════════════════════════════════════════════════
 
   Widget _buildActionRow() {
+    final likeIsSelected = widget.feedback == 'like';
+    final dislikeIsSelected = widget.feedback == 'dislike';
+    
     return Padding(
       padding: const EdgeInsets.only(
         left: 12, // Aligned with assistant text left edge
@@ -163,11 +166,12 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
           _ActionButton(
             icon: Icons.copy_rounded,
             isSelected: false,
+            isCopyButton: true, // Enable checkmark animation
             onTap: () {
               if (widget.onCopy != null) {
                 widget.onCopy!();
               } else {
-                // Fallback: copy text directly
+                // Fallback: copy text directly (NO TOAST)
                 final text = widget.text ?? '';
                 Clipboard.setData(ClipboardData(text: text));
               }
@@ -175,19 +179,25 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
           ),
           const SizedBox(width: 4),
           _ActionButton(
-            icon: Icons.thumb_up_rounded,
-            isSelected: widget.feedback == 'like',
+            icon: Icons.thumb_up_rounded, // Filled icon (selected state)
+            outlineIcon: Icons.thumb_up_outlined, // Outline icon (unselected state)
+            isSelected: likeIsSelected,
+            isLikeButton: true, // Enable slide animation
+            dislikeIsSelected: dislikeIsSelected, // Pass dislike state for slide
             onTap: () {
-              final newFeedback = widget.feedback == 'like' ? null : 'like';
+              final newFeedback = likeIsSelected ? null : 'like';
               widget.onFeedbackChanged?.call(newFeedback);
             },
           ),
           const SizedBox(width: 4),
           _ActionButton(
-            icon: Icons.thumb_down_rounded,
-            isSelected: widget.feedback == 'dislike',
+            icon: Icons.thumb_down_rounded, // Filled icon (selected state)
+            outlineIcon: Icons.thumb_down_outlined, // Outline icon (unselected state)
+            isSelected: dislikeIsSelected,
+            isDislikeButton: true, // Enable slide animation
+            likeIsSelected: likeIsSelected, // Pass like state for slide
             onTap: () {
-              final newFeedback = widget.feedback == 'dislike' ? null : 'dislike';
+              final newFeedback = dislikeIsSelected ? null : 'dislike';
               widget.onFeedbackChanged?.call(newFeedback);
             },
           ),
@@ -484,54 +494,250 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
 
 class _ActionButton extends StatefulWidget {
   final IconData icon;
+  final IconData? outlineIcon; // Outline version of icon (unselected)
   final bool isSelected;
   final VoidCallback onTap;
+  final bool isCopyButton;
+  final bool isDislikeButton; // Is this the dislike button?
+  final bool isLikeButton; // Is this the like button?
+  final bool likeIsSelected; // Is the like button selected? (for slide animation)
+  final bool dislikeIsSelected; // Is the dislike button selected? (for slide animation)
 
   const _ActionButton({
     required this.icon,
+    this.outlineIcon,
     required this.isSelected,
     required this.onTap,
+    this.isCopyButton = false,
+    this.isDislikeButton = false,
+    this.isLikeButton = false,
+    this.likeIsSelected = false,
+    this.dislikeIsSelected = false,
   });
 
   @override
   State<_ActionButton> createState() => _ActionButtonState();
 }
 
-class _ActionButtonState extends State<_ActionButton> {
+class _ActionButtonState extends State<_ActionButton> with TickerProviderStateMixin {
   bool _isPressed = false;
+  bool _showCheckmark = false;
+  late AnimationController _checkmarkController;
+  late Animation<double> _checkmarkAnimation;
+  late AnimationController _fillController;
+  late Animation<double> _fillAnimation;
+  late AnimationController _slideController;
+  late Animation<Offset> _slideAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // Checkmark animation (for copy button)
+    _checkmarkController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 200),
+    );
+    _checkmarkAnimation = CurvedAnimation(
+      parent: _checkmarkController,
+      curve: Curves.easeOut,
+    );
+
+    // Fill animation (for like/dislike)
+    _fillController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+    _fillAnimation = CurvedAnimation(
+      parent: _fillController,
+      curve: Curves.easeInOut,
+    );
+
+    // Slide animation (bidirectional)
+    // - Dislike slides left when like is selected
+    // - Like slides right when dislike is selected
+    _slideController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    
+    // Dislike slides left (-1.2), Like slides right (+1.2)
+    final slideDirection = widget.isDislikeButton ? -1.2 : (widget.isLikeButton ? 1.2 : 0.0);
+    _slideAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset(slideDirection, 0),
+    ).animate(CurvedAnimation(
+      parent: _slideController,
+      curve: Curves.easeInOut,
+    ));
+
+    // Set initial state
+    if (widget.isSelected && !widget.isCopyButton) {
+      _fillController.value = 1.0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_ActionButton oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Animate fill when selection changes (like/dislike only)
+    if (!widget.isCopyButton && widget.isSelected != oldWidget.isSelected) {
+      if (widget.isSelected) {
+        _fillController.forward();
+      } else {
+        _fillController.reverse();
+      }
+    }
+
+    // Slide animation for Dislike: when like is selected, dislike slides left
+    if (widget.isDislikeButton && widget.likeIsSelected != oldWidget.likeIsSelected) {
+      if (widget.likeIsSelected) {
+        _slideController.forward();
+      } else {
+        _slideController.reverse();
+      }
+    }
+
+    // Slide animation for Like: when dislike is selected, like slides right
+    if (widget.isLikeButton && widget.dislikeIsSelected != oldWidget.dislikeIsSelected) {
+      if (widget.dislikeIsSelected) {
+        _slideController.forward();
+      } else {
+        _slideController.reverse();
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _checkmarkController.dispose();
+    _fillController.dispose();
+    _slideController.dispose();
+    super.dispose();
+  }
+
+  void _handleTap() {
+    widget.onTap();
+    
+    // Copy button: show checkmark animation
+    if (widget.isCopyButton) {
+      setState(() => _showCheckmark = true);
+      _checkmarkController.forward();
+      
+      Future.delayed(const Duration(milliseconds: 1200), () {
+        if (mounted) {
+          _checkmarkController.reverse().then((_) {
+            if (mounted) {
+              setState(() => _showCheckmark = false);
+            }
+          });
+        }
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final color = widget.isSelected
-        ? SyraColors.accent
-        : SyraColors.textSecondary.withValues(alpha: 0.5);
+    // Claude-style colors
+    final tileColor = Colors.white.withOpacity(0.10); // Neutral gray tile
+    final iconColor = Colors.white.withOpacity(0.85); // Icon color
+    final subtleIconColor = Colors.white.withOpacity(0.55); // Unselected
 
-    return GestureDetector(
+    final displayIcon = _showCheckmark ? Icons.check_rounded : widget.icon;
+
+    Widget buttonContent = GestureDetector(
       onTapDown: (_) => setState(() => _isPressed = true),
       onTapUp: (_) {
         setState(() => _isPressed = false);
-        widget.onTap();
+        _handleTap();
       },
       onTapCancel: () => setState(() => _isPressed = false),
       child: AnimatedScale(
         scale: _isPressed ? 0.92 : 1.0,
         duration: const Duration(milliseconds: 100),
         child: Container(
-          width: 32,
-          height: 32,
+          width: 36,
+          height: 36,
           decoration: BoxDecoration(
-            color: widget.isSelected
-                ? SyraColors.accent.withValues(alpha: 0.15)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
+            // Claude-style tile: only show when selected (like/dislike only)
+            color: widget.isSelected && !widget.isCopyButton ? tileColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
           ),
-          child: Icon(
-            widget.icon,
-            size: 18,
-            color: color,
+          child: Center(
+            child: widget.isCopyButton
+                ? (_showCheckmark
+                    ? ScaleTransition(
+                        scale: _checkmarkAnimation,
+                        child: Icon(
+                          displayIcon,
+                          size: 20,
+                          color: iconColor,
+                        ),
+                      )
+                    : Icon(
+                        displayIcon,
+                        size: 20,
+                        color: subtleIconColor,
+                      ))
+                : AnimatedBuilder(
+                    animation: _fillAnimation,
+                    builder: (context, child) {
+                      // For like/dislike: use outline when unselected, filled when selected
+                      final currentIcon = widget.isSelected 
+                          ? widget.icon  // Filled icon
+                          : (widget.outlineIcon ?? widget.icon); // Outline icon
+                      
+                      return Icon(
+                        currentIcon,
+                        size: 20,
+                        color: widget.isSelected ? iconColor : subtleIconColor,
+                      );
+                    },
+                  ),
           ),
         ),
       ),
     );
+
+    // Wrap dislike button with slide + fade animation (slides left when like is selected)
+    if (widget.isDislikeButton) {
+      return AnimatedBuilder(
+        animation: _slideController,
+        builder: (context, child) {
+          // Calculate opacity: 1.0 at start, 0.0 at end
+          final opacity = 1.0 - _slideController.value;
+          
+          return Opacity(
+            opacity: opacity,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: buttonContent,
+            ),
+          );
+        },
+      );
+    }
+
+    // Wrap like button with slide + fade animation (slides right when dislike is selected)
+    if (widget.isLikeButton) {
+      return AnimatedBuilder(
+        animation: _slideController,
+        builder: (context, child) {
+          // Calculate opacity: 1.0 at start, 0.0 at end
+          final opacity = 1.0 - _slideController.value;
+          
+          return Opacity(
+            opacity: opacity,
+            child: SlideTransition(
+              position: _slideAnimation,
+              child: buttonContent,
+            ),
+          );
+        },
+      );
+    }
+
+    return buttonContent;
   }
 }

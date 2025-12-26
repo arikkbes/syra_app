@@ -135,6 +135,7 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                     minLines: 1,
                     onChanged: (_) => onTextChanged(),
                     style: TextStyle(
+                      fontFamily: 'Geist',
                       color: SyraColors.textPrimary,
                       fontSize: 15,
                       height: 1.4,
@@ -146,10 +147,12 @@ class SyraLiquidGlassChatBar extends StatelessWidget {
                         vertical: 10,
                       ),
                       border: InputBorder.none,
-                      hintText: "Message",
+                      hintText: "Bugün nasıl hissediyorsun?",
                       hintStyle: TextStyle(
-                        color: SyraColors.textMuted.withOpacity(0.6),
+                        fontFamily: 'Geist',
+                        color: SyraColors.textMuted.withOpacity(0.55),
                         fontSize: 15,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                     onSubmitted: (_) => canSend ? onSendMessage() : null,
