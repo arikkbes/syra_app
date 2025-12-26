@@ -79,6 +79,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Map<String, dynamic>? _replyingTo;
 
   bool _sidebarOpen = false;
+  double _dragOffset =
+      0.0; // Claude-style: track drag position for smooth panel sliding
 
   double _swipeOffset = 0.0;
   String? _swipedMessageId;
@@ -235,7 +237,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   void _toggleSidebar() {
-    setState(() => _sidebarOpen = !_sidebarOpen);
+    final screenWidth = MediaQuery.of(context).size.width;
+    final maxDragOffset = (screenWidth * 0.72).clamp(260.0, screenWidth - 80.0);
+
+    setState(() {
+      _sidebarOpen = !_sidebarOpen;
+      _dragOffset = _sidebarOpen ? maxDragOffset : 0.0;
+    });
+    HapticFeedback.lightImpact();
   }
 
   void _scrollToBottom({bool smooth = true}) {
@@ -1487,325 +1496,340 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             backgroundColor: SyraTokens.background,
             body: Stack(
               children: [
+                // Layer 0: Background (always visible)
                 const SyraBackground(),
 
-                // Sidebar - Behind the chat screen
-                if (_sidebarOpen)
-                  ClaudeSidebar(
-                    onClose: () => setState(() => _sidebarOpen = false),
-                    userName: FirebaseAuth.instance.currentUser?.displayName ??
-                        'Kullanıcı',
-                    userEmail: FirebaseAuth.instance.currentUser?.email,
-                    sessions: _chatSessions,
-                    currentSessionId: _currentSessionId,
-                    onSelectSession: (id) async => _loadSelectedChat(id),
-                    onRenameSession: _renameSessionFromSidebar,
-                    onArchiveSession: _archiveSessionFromSidebar,
-                    onDeleteSession: _deleteSessionFromSidebar,
-                    onNewChat: _startNewChat,
-                    onTarotMode: _startTarotMode,
-                    onKimDahaCok: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (_) => const KimDahaCokScreen(),
-                        ),
-                      );
-                    },
-                    onSettingsTap: () {
-                      Navigator.push(
-                        context,
-                        CupertinoPageRoute(
-                          builder: (_) => const SettingsScreen(),
-                        ),
-                      );
-                    },
-                  ),
-
-                // Chat screen - slides to the right
-                // Left edge swipe zone to open sidebar when closed
-                Stack(
-                  children: [
-                    // Left edge swipe detector (only when sidebar is CLOSED)
-                    if (!_sidebarOpen)
-                      Positioned(
-                        left: 0,
-                        top: 0,
-                        bottom: 0,
-                        width: 20,
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.translucent,
-                          onHorizontalDragEnd: (details) {
-                            if (details.primaryVelocity != null &&
-                                details.primaryVelocity! > 400) {
-                              setState(() {
-                                _sidebarOpen = true;
-                              });
-                            }
-                          },
-                        ),
+                // Layer 1: Sidebar - ALWAYS present, sits behind the chat panel
+                ClaudeSidebar(
+                  onClose: () => setState(() {
+                    _sidebarOpen = false;
+                    _dragOffset = 0.0;
+                  }),
+                  userName: FirebaseAuth.instance.currentUser?.displayName ??
+                      'Kullanıcı',
+                  userEmail: FirebaseAuth.instance.currentUser?.email,
+                  sessions: _chatSessions,
+                  currentSessionId: _currentSessionId,
+                  onSelectSession: (id) async {
+                    await _loadSelectedChat(id);
+                    setState(() {
+                      _sidebarOpen = false;
+                      _dragOffset = 0.0;
+                    });
+                  },
+                  onRenameSession: _renameSessionFromSidebar,
+                  onArchiveSession: _archiveSessionFromSidebar,
+                  onDeleteSession: _deleteSessionFromSidebar,
+                  onNewChat: () {
+                    _startNewChat();
+                    setState(() {
+                      _sidebarOpen = false;
+                      _dragOffset = 0.0;
+                    });
+                  },
+                  onTarotMode: () {
+                    _startTarotMode();
+                    setState(() {
+                      _sidebarOpen = false;
+                      _dragOffset = 0.0;
+                    });
+                  },
+                  onKimDahaCok: () {
+                    setState(() {
+                      _sidebarOpen = false;
+                      _dragOffset = 0.0;
+                    });
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => const KimDahaCokScreen(),
                       ),
+                    );
+                  },
+                  onSettingsTap: () {
+                    setState(() {
+                      _sidebarOpen = false;
+                      _dragOffset = 0.0;
+                    });
+                    Navigator.push(
+                      context,
+                      CupertinoPageRoute(
+                        builder: (_) => const SettingsScreen(),
+                      ),
+                    );
+                  },
+                ),
 
-                    // Main chat panel
-                    GestureDetector(
-                      // Swipe only works on chat screen area (not sidebar)
-                      onHorizontalDragEnd: (details) {
-                        if (_sidebarOpen &&
-                            details.primaryVelocity != null &&
-                            details.primaryVelocity! < -300) {
-                          setState(() {
-                            _sidebarOpen = false;
-                          });
+                // Layer 2: Chat panel - slides over sidebar like a card (Claude-style)
+                Builder(
+                  builder: (context) {
+                    final screenWidth = MediaQuery.of(context).size.width;
+                    final maxDragOffset =
+                        (screenWidth * 0.72).clamp(260.0, screenWidth - 80.0);
+
+                    // Calculate current offset based on state
+                    final targetOffset = _sidebarOpen ? maxDragOffset : 0.0;
+                    final currentOffset = _dragOffset.clamp(0.0, maxDragOffset);
+
+                    // Use drag offset during drag, animated offset otherwise
+                    final displayOffset = _dragOffset != 0.0 || _sidebarOpen
+                        ? currentOffset
+                        : targetOffset;
+
+                    return GestureDetector(
+                      onHorizontalDragStart: (details) {
+                        // Only allow drag from left edge when closed, or anywhere when open
+                        if (!_sidebarOpen && details.localPosition.dx > 30) {
+                          return;
                         }
                       },
-                      child: Builder(
-                        builder: (context) {
-                          final w = MediaQuery.of(context).size.width;
-                          final dx = _sidebarOpen
-                              ? (w * 0.72).clamp(260.0, w - 140.0)
-                              : 0.0;
+                      onHorizontalDragUpdate: (details) {
+                        setState(() {
+                          _dragOffset = (_dragOffset + details.delta.dx)
+                              .clamp(0.0, maxDragOffset);
+                        });
+                      },
+                      onHorizontalDragEnd: (details) {
+                        final velocity = details.primaryVelocity ?? 0;
+                        final threshold = maxDragOffset * 0.4;
 
-                          return AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                            transform: Matrix4.translationValues(dx, 0, 0),
-                            // Outer decoration for shadow and border (Claude-like panel separation)
-                            decoration: _sidebarOpen
-                                ? BoxDecoration(
-                                    borderRadius: const BorderRadius.only(
-                                      topLeft: Radius.circular(28),
-                                      bottomLeft: Radius.circular(28),
-                                    ),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.06),
-                                      width: 1,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black.withOpacity(0.50),
-                                        blurRadius: 50,
-                                        offset: const Offset(22, 0),
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                            child: ClipRRect(
-                              borderRadius: _sidebarOpen
-                                  ? const BorderRadius.only(
-                                      topLeft: Radius.circular(28),
-                                      bottomLeft: Radius.circular(28),
-                                    )
-                                  : BorderRadius.zero,
-                              child: Align(
-                                alignment: Alignment.topCenter,
-                                child: ConstrainedBox(
-                                  constraints:
-                                      const BoxConstraints(maxWidth: 720),
-                                  child: Stack(
-                                    children: [
-                                      // Layer 1: SyraBackground (visible texture for blur)
-                                      const Positioned.fill(
-                                        child: SyraBackground(),
-                                      ),
+                        // Determine final state based on velocity and position
+                        bool shouldOpen;
+                        if (velocity.abs() > 500) {
+                          shouldOpen = velocity > 0;
+                        } else {
+                          shouldOpen = _dragOffset > threshold;
+                        }
 
-                                      // Layer 2: Optional light overlay for better contrast
-                                      // When sidebar is open, use surface color for distinct panel feel
-                                      Positioned.fill(
-                                        child: Container(
-                                          color: _sidebarOpen
-                                              ? SyraTokens.surface
-                                                  .withOpacity(0.96)
-                                              : SyraTokens.background
-                                                  .withOpacity(0.90),
-                                        ),
-                                      ),
+                        setState(() {
+                          _sidebarOpen = shouldOpen;
+                          _dragOffset = shouldOpen ? maxDragOffset : 0.0;
+                        });
 
-                                      // Layer 3: ChatMessageList (full screen with top padding)
-                                      Positioned.fill(
-                                        top: 0,
-                                        child: ChatMessageList(
-                                          isEmpty: _messages.isEmpty,
-                                          isTarotMode: _isTarotMode,
-                                          headerHeight:
-                                              topInset + ChatAppBar.baseHeight,
-                                          bottomOverlayHeight: _inputBarHeight,
-                                          onSuggestionTap: (text) {
-                                            setState(() {
-                                              _controller.text = text;
-                                            });
-                                            _inputFocusNode.requestFocus();
-                                            _controller.selection =
-                                                TextSelection.fromPosition(
-                                              TextPosition(
-                                                  offset:
-                                                      _controller.text.length),
-                                            );
-                                          },
-                                          messages: _messages,
-                                          scrollController: _scrollController,
-                                          isTyping: _isTyping,
-                                          swipedMessageId: _swipedMessageId,
-                                          swipeOffset: _swipeOffset,
-                                          onMessageLongPress: (msg) =>
-                                              _showMessageMenu(context, msg),
-                                          onSwipeUpdate: (msg, delta) {
-                                            setState(() {
-                                              _swipedMessageId = msg["id"];
-                                              _swipeOffset =
-                                                  (_swipeOffset + delta)
-                                                      .clamp(0, 30);
-                                            });
-                                          },
-                                          onSwipeEnd: (msg, shouldReply) {
-                                            if (shouldReply) {
-                                              setState(() => _replyingTo = msg);
-                                            }
-                                            setState(() {
-                                              _swipeOffset = 0;
-                                              _swipedMessageId = null;
-                                            });
-                                          },
-                                          onCopyMessage: _handleCopyMessage,
-                                          onFeedbackChanged:
-                                              _handleFeedbackChanged,
-                                        ),
-                                      ),
+                        if (shouldOpen || !shouldOpen) {
+                          HapticFeedback.lightImpact();
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration:
+                            _dragOffset == 0.0 || _dragOffset == maxDragOffset
+                                ? const Duration(milliseconds: 300)
+                                : Duration.zero,
+                        curve: Curves.easeOutCubic,
+                        transform: Matrix4.translationValues(
+                          _sidebarOpen ? maxDragOffset : _dragOffset,
+                          0,
+                          0,
+                        ),
+                        decoration: (_sidebarOpen || _dragOffset > 0)
+                            ? BoxDecoration(
+                                borderRadius: const BorderRadius.only(
+                                  topLeft: Radius.circular(28),
+                                  bottomLeft: Radius.circular(28),
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.65),
+                                    blurRadius: 40,
+                                    offset: const Offset(-20, 0),
+                                  ),
+                                ],
+                              )
+                            : null,
+                        child: ClipRRect(
+                          borderRadius: (_sidebarOpen || _dragOffset > 0)
+                              ? const BorderRadius.only(
+                                  topLeft: Radius.circular(28),
+                                  bottomLeft: Radius.circular(28),
+                                )
+                              : BorderRadius.zero,
+                          child: Container(
+                            color: SyraTokens.background,
+                            child: Stack(
+                              children: [
+                                // Layer 1: SyraBackground (visible texture for blur)
+                                const Positioned.fill(
+                                  child: SyraBackground(),
+                                ),
 
-                                      // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
-                                      // Subtle foggy/haze effect at bottom, fades smoothly into content
-                                      // No horizontal padding - full width
-                                      // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
-                                      Builder(
-                                        builder: (context) {
-                                          final bottomInset =
-                                              MediaQuery.of(context)
-                                                  .padding
-                                                  .bottom;
-                                          final hazeHeight = bottomInset + 60.0;
-
-                                          return Positioned(
-                                            bottom: 0,
-                                            left: 0,
-                                            right: 0,
-                                            child: SyraBottomHaze(
-                                              height: hazeHeight,
-                                              blurSigma: 0.5,
-                                              featherHeight: 28.0,
-                                              scrimBottomAlpha: 0.35,
-                                              scrimMidAlpha: 0.10,
-                                              scrimMidStop: 0.65,
-                                              whiteLiftAlpha: 0.02,
-                                            ),
-                                          );
-                                        },
-                                      ),
-
-                                      // Layer 5: Input bar overlay at bottom
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: MeasureSize(
-                                          onChange: (size) {
-                                            setState(() {
-                                              _inputBarHeight = size.height;
-                                            });
-                                          },
-                                          child: ChatInputBar(
-                                            controller: _controller,
-                                            focusNode: _inputFocusNode,
-                                            isSending: _isSending,
-                                            isLoading: _isLoading,
-                                            isListening: _isListening,
-                                            replyingTo: _replyingTo,
-                                            pendingImage: _pendingImage,
-                                            pendingImageUrl: _pendingImageUrl,
-                                            onAttachmentTap: _handleAttachment,
-                                            onVoiceInputTap: _handleVoiceInput,
-                                            onSendMessage: _sendMessage,
-                                            onCancelReply: () => setState(
-                                                () => _replyingTo = null),
-                                            onClearImage: _clearPendingImage,
-                                            onTextChanged: () =>
-                                                setState(() {}),
-                                            onCameraTap: () =>
-                                                _pickImageForPreview(
-                                                    ImageSource.camera),
-                                            onGalleryTap: () =>
-                                                _pickImageForPreview(
-                                                    ImageSource.gallery),
-                                            onModeTap: _handleModeSelection,
-                                            currentMode: _getModeDisplayName(),
-                                            chatBackgroundKey:
-                                                _chatBackgroundKey,
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Layer 6: Top Haze (micro-blur + scrim + feather fade)
-                                      // Claude/Sonnet style: subtle foggy/haze effect
-                                      // - Small blur for haze (not heavy glass)
-                                      // - Soft scrim dimming
-                                      // - Feather fade at bottom (no hard line)
-                                      // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
-                                      // This prevents vertical seams while keeping buttons' glass tone clean
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: SyraTopHazeWithHoles(
-                                          height: topInset +
-                                              60.0, // FULL header height (safe area + bar)
-                                          blurSigma:
-                                              1.0, // Micro-blur (subtle haze)
-                                          featherHeight:
-                                              40.0, // Smooth fade out
-                                          scrimTopAlpha: 0.45, // Top dimming
-                                          scrimMidAlpha: 0.25, // Mid dimming
-                                          scrimMidStop:
-                                              0.52, // Transition point
-                                          whiteLiftAlpha:
-                                              0.03, // Subtle fog lift
-                                          // Button hole positions
-                                          leftButtonCenterX:
-                                              36.0, // 16 padding + 20 radius
-                                          rightButtonCenterX:
-                                              36.0, // same from right
-                                          buttonCenterY: topInset +
-                                              28.0, // center of 56px bar
-                                          holeRadius:
-                                              20.0, // INCREASED: 20 button + 10 margin
-                                        ),
-                                      ),
-
-                                      // Layer 7: ChatAppBar (transparent, sits on top of scrim)
-                                      Positioned(
-                                        top: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: ChatAppBar(
-                                          selectedMode: _selectedMode,
-                                          modeAnchorLink: _modeAnchorLink,
-                                          onMenuTap: _toggleSidebar,
-                                          onModeTap: _handleModeSelection,
-                                          onDocumentUpload:
-                                              _handleDocumentUpload,
-                                          isModeSelectorOpen:
-                                              _isModeSelectorOpen,
-                                          topPadding: topInset,
-                                        ),
-                                      ),
-                                    ],
+                                // Layer 2: Optional light overlay for better contrast
+                                // When sidebar is open, use surface color for distinct panel feel
+                                Positioned.fill(
+                                  child: Container(
+                                    color: (_sidebarOpen || _dragOffset > 0)
+                                        ? SyraTokens.surface.withOpacity(0.96)
+                                        : SyraTokens.background
+                                            .withOpacity(0.90),
                                   ),
                                 ),
-                              ),
+
+                                // Layer 3: ChatMessageList (full screen with top padding)
+                                Positioned.fill(
+                                  top: 0,
+                                  child: ChatMessageList(
+                                    isEmpty: _messages.isEmpty,
+                                    isTarotMode: _isTarotMode,
+                                    headerHeight:
+                                        topInset + ChatAppBar.baseHeight,
+                                    bottomOverlayHeight: _inputBarHeight,
+                                    onSuggestionTap: (text) {
+                                      setState(() {
+                                        _controller.text = text;
+                                      });
+                                      _inputFocusNode.requestFocus();
+                                      _controller.selection =
+                                          TextSelection.fromPosition(
+                                        TextPosition(
+                                            offset: _controller.text.length),
+                                      );
+                                    },
+                                    messages: _messages,
+                                    scrollController: _scrollController,
+                                    isTyping: _isTyping,
+                                    swipedMessageId: _swipedMessageId,
+                                    swipeOffset: _swipeOffset,
+                                    onMessageLongPress: (msg) =>
+                                        _showMessageMenu(context, msg),
+                                    onSwipeUpdate: (msg, delta) {
+                                      setState(() {
+                                        _swipedMessageId = msg["id"];
+                                        _swipeOffset =
+                                            (_swipeOffset + delta).clamp(0, 30);
+                                      });
+                                    },
+                                    onSwipeEnd: (msg, shouldReply) {
+                                      if (shouldReply) {
+                                        setState(() => _replyingTo = msg);
+                                      }
+                                      setState(() {
+                                        _swipeOffset = 0;
+                                        _swipedMessageId = null;
+                                      });
+                                    },
+                                    onCopyMessage: _handleCopyMessage,
+                                    onFeedbackChanged: _handleFeedbackChanged,
+                                  ),
+                                ),
+
+                                // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
+                                // Subtle foggy/haze effect at bottom, fades smoothly into content
+                                // No horizontal padding - full width
+                                // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
+                                Builder(
+                                  builder: (context) {
+                                    final bottomInset =
+                                        MediaQuery.of(context).padding.bottom;
+                                    final hazeHeight = bottomInset + 60.0;
+
+                                    return Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: SyraBottomHaze(
+                                        height: hazeHeight,
+                                        blurSigma: 0.5,
+                                        featherHeight: 28.0,
+                                        scrimBottomAlpha: 0.35,
+                                        scrimMidAlpha: 0.10,
+                                        scrimMidStop: 0.65,
+                                        whiteLiftAlpha: 0.02,
+                                      ),
+                                    );
+                                  },
+                                ),
+
+                                // Layer 5: Input bar overlay at bottom
+                                Positioned(
+                                  bottom: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: MeasureSize(
+                                    onChange: (size) {
+                                      setState(() {
+                                        _inputBarHeight = size.height;
+                                      });
+                                    },
+                                    child: ChatInputBar(
+                                      controller: _controller,
+                                      focusNode: _inputFocusNode,
+                                      isSending: _isSending,
+                                      isLoading: _isLoading,
+                                      isListening: _isListening,
+                                      replyingTo: _replyingTo,
+                                      pendingImage: _pendingImage,
+                                      pendingImageUrl: _pendingImageUrl,
+                                      onAttachmentTap: _handleAttachment,
+                                      onVoiceInputTap: _handleVoiceInput,
+                                      onSendMessage: _sendMessage,
+                                      onCancelReply: () =>
+                                          setState(() => _replyingTo = null),
+                                      onClearImage: _clearPendingImage,
+                                      onTextChanged: () => setState(() {}),
+                                      onCameraTap: () => _pickImageForPreview(
+                                          ImageSource.camera),
+                                      onGalleryTap: () => _pickImageForPreview(
+                                          ImageSource.gallery),
+                                      onModeTap: _handleModeSelection,
+                                      currentMode: _getModeDisplayName(),
+                                      chatBackgroundKey: _chatBackgroundKey,
+                                    ),
+                                  ),
+                                ),
+
+                                // Layer 6: Top Haze (micro-blur + scrim + feather fade)
+                                // Claude/Sonnet style: subtle foggy/haze effect
+                                // - Small blur for haze (not heavy glass)
+                                // - Soft scrim dimming
+                                // - Feather fade at bottom (no hard line)
+                                // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
+                                // This prevents vertical seams while keeping buttons' glass tone clean
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: SyraTopHazeWithHoles(
+                                    height: topInset +
+                                        60.0, // FULL header height (safe area + bar)
+                                    blurSigma: 1.0, // Micro-blur (subtle haze)
+                                    featherHeight: 40.0, // Smooth fade out
+                                    scrimTopAlpha: 0.45, // Top dimming
+                                    scrimMidAlpha: 0.25, // Mid dimming
+                                    scrimMidStop: 0.52, // Transition point
+                                    whiteLiftAlpha: 0.03, // Subtle fog lift
+                                    // Button hole positions
+                                    leftButtonCenterX:
+                                        36.0, // 16 padding + 20 radius
+                                    rightButtonCenterX: 36.0, // same from right
+                                    buttonCenterY:
+                                        topInset + 28.0, // center of 56px bar
+                                    holeRadius:
+                                        20.0, // INCREASED: 20 button + 10 margin
+                                  ),
+                                ),
+
+                                // Layer 7: ChatAppBar (transparent, sits on top of scrim)
+                                Positioned(
+                                  top: 0,
+                                  left: 0,
+                                  right: 0,
+                                  child: ChatAppBar(
+                                    selectedMode: _selectedMode,
+                                    modeAnchorLink: _modeAnchorLink,
+                                    onMenuTap: _toggleSidebar,
+                                    onModeTap: _handleModeSelection,
+                                    onDocumentUpload: _handleDocumentUpload,
+                                    isModeSelectorOpen: _isModeSelectorOpen,
+                                    topPadding: topInset,
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ), // Stack for chat panel
+                    );
+                  },
+                ),
 
                 // Loading overlay for relationship upload
                 if (_isUploadingRelationshipFile)

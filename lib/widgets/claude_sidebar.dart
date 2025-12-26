@@ -61,46 +61,7 @@ class ClaudeSidebar extends StatefulWidget {
   State<ClaudeSidebar> createState() => _ClaudeSidebarState();
 }
 
-class _ClaudeSidebarState extends State<ClaudeSidebar>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _dimAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 240),
-      vsync: this,
-    );
-
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(-1.0, 0.0),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _dimAnimation = Tween<double>(
-      begin: 0.0,
-      end: 0.10,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
-
-    _controller.forward();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  Future<void> _close() async {
-    HapticFeedback.lightImpact();
-    await _controller.reverse();
-    if (mounted) widget.onClose();
-  }
-
+class _ClaudeSidebarState extends State<ClaudeSidebar> {
   String _subtitle(ChatSession s) {
     final last = (s.lastMessage ?? '').trim();
     if (last.isNotEmpty) return last;
@@ -148,7 +109,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
     Future<void> runAction(FutureOr<void> Function() fn) async {
       Navigator.of(context).pop(); // popover kapat
       await Future.delayed(const Duration(milliseconds: 80));
-      await _close(); // sidebar kapat
+      widget.onClose(); // sidebar kapat
       fn();
     }
 
@@ -206,58 +167,26 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
     final screenWidth = MediaQuery.of(context).size.width;
     final sidebarWidth = (screenWidth * 0.82).clamp(280.0, 360.0);
 
-    return Stack(
-      children: [
-        AnimatedBuilder(
-          animation: _dimAnimation,
-          builder: (context, child) {
-            return GestureDetector(
-              onTap: _close,
-              child: Container(
-                color: Colors.black.withOpacity(_dimAnimation.value),
-              ),
-            );
-          },
+    // Claude-style: Sidebar is always static, no animation
+    // Chat screen slides over it
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        width: sidebarWidth,
+        decoration: BoxDecoration(
+          color: SyraTokens.background,
         ),
-        GestureDetector(
-          onHorizontalDragEnd: (details) {
-            // Swipe left to close
-            if (details.primaryVelocity != null &&
-                details.primaryVelocity! < -300) {
-              _close();
-            }
-          },
-          child: SlideTransition(
-            position: _slideAnimation,
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                width: sidebarWidth,
-                decoration: BoxDecoration(
-                  color: SyraTokens.background,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.4),
-                      blurRadius: 32,
-                      offset: const Offset(8, 0),
-                    ),
-                  ],
-                ),
-                child: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      Expanded(child: _buildMenuList()),
-                      _buildProfileSection(),
-                    ],
-                  ),
-                ),
-              ),
-            ),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHeader(),
+              Expanded(child: _buildMenuList()),
+              _buildProfileSection(),
+            ],
           ),
         ),
-      ],
+      ),
     );
   }
 
@@ -294,7 +223,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
           icon: Icons.chat_bubble_outline_rounded,
           label: 'Yeni Sohbet',
           onTap: () {
-            _close();
+            widget.onClose();
             widget.onNewChat?.call();
           },
         ),
@@ -303,7 +232,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
           icon: Icons.auto_fix_high_rounded,
           label: 'Tarot Modu',
           onTap: () {
-            _close();
+            widget.onClose();
             widget.onTarotMode?.call();
           },
         ),
@@ -311,7 +240,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
           icon: Icons.favorite_border_rounded,
           label: 'Kim Daha Çok Seviyor?',
           onTap: () {
-            _close();
+            widget.onClose();
             widget.onKimDahaCok?.call();
           },
         ),
@@ -338,7 +267,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               trailing: _timeLabel(s.lastUpdatedAt),
               isSelected: s.id == widget.currentSessionId,
               onTap: () {
-                _close();
+                widget.onClose();
                 widget.onSelectSession(s.id);
               },
               onOpenMenuAt: (pos) => _openSessionMenuAt(s, pos),
@@ -350,7 +279,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               padding: const EdgeInsets.only(left: 10, top: 6),
               child: TextButton(
                 onPressed: () {
-                  _close();
+                  widget.onClose();
                   widget.onOpenAllSessions?.call();
                 },
                 child: Text(
@@ -415,7 +344,7 @@ class _ClaudeSidebarState extends State<ClaudeSidebar>
               child: InkWell(
                 onTap: () {
                   HapticFeedback.mediumImpact();
-                  _close();
+                  widget.onClose();
                   widget.onSettingsTap?.call();
                 },
                 borderRadius: BorderRadius.circular(12),
