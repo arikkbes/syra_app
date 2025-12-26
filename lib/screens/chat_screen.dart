@@ -238,7 +238,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   void _toggleSidebar() {
     final screenWidth = MediaQuery.of(context).size.width;
-    final maxDragOffset = (screenWidth * 0.72).clamp(260.0, screenWidth - 80.0);
+    final maxDragOffset = (screenWidth * 0.72).clamp(260.0, 320.0);
 
     setState(() {
       _sidebarOpen = !_sidebarOpen;
@@ -1564,8 +1564,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                 Builder(
                   builder: (context) {
                     final screenWidth = MediaQuery.of(context).size.width;
+                    // Match sidebar width (72% clamped to 260-320)
                     final maxDragOffset =
-                        (screenWidth * 0.72).clamp(260.0, screenWidth - 80.0);
+                        (screenWidth * 0.72).clamp(260.0, 320.0);
 
                     // Calculate current offset based on state
                     final targetOffset = _sidebarOpen ? maxDragOffset : 0.0;
@@ -1621,6 +1622,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           0,
                           0,
                         ),
+                        // Reduced shadow for lighter look
                         decoration: (_sidebarOpen || _dragOffset > 0)
                             ? BoxDecoration(
                                 borderRadius: const BorderRadius.only(
@@ -1629,9 +1631,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.65),
-                                    blurRadius: 40,
-                                    offset: const Offset(-20, 0),
+                                    color: Colors.black.withOpacity(0.35),
+                                    blurRadius: 30,
+                                    offset: const Offset(-12, 0),
                                   ),
                                 ],
                               )
