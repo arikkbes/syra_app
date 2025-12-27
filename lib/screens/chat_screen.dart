@@ -1556,7 +1556,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       isScrollControlled: true,
                       backgroundColor: Colors.transparent,
                       barrierColor: Colors.black.withOpacity(0.40),
-                      builder: (_) => SyraSettingsModalSheet(hostContext: context),
+                      builder: (_) =>
+                          SyraSettingsModalSheet(hostContext: context),
                     );
                   },
                 ),
@@ -1656,10 +1657,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 ),
 
                                 // Layer 2: Optional light overlay for better contrast
-                                // Keep same background color to prevent white flash
+                                // When sidebar is open, use surface color for distinct panel feel
                                 Positioned.fill(
                                   child: Container(
-                                    color: SyraTokens.background,
+                                    color: (_sidebarOpen || _dragOffset > 0)
+                                        ? SyraTokens.surface.withOpacity(0.96)
+                                        : SyraTokens.background
+                                            .withOpacity(0.90),
                                   ),
                                 ),
 
@@ -1714,12 +1718,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                 // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
                                 // Subtle foggy/haze effect at bottom, fades smoothly into content
                                 // No horizontal padding - full width
-                                // Settings: stronger blur for visible glass effect
+                                // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
                                 Builder(
                                   builder: (context) {
                                     final bottomInset =
                                         MediaQuery.of(context).padding.bottom;
-                                    final hazeHeight = bottomInset + 100.0;
+                                    final hazeHeight = bottomInset + 60.0;
 
                                     return Positioned(
                                       bottom: 0,
@@ -1727,11 +1731,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       right: 0,
                                       child: SyraBottomHaze(
                                         height: hazeHeight,
-                                        blurSigma: 15.0, // Stronger blur
-                                        featherHeight: 40.0, // Longer fade
-                                        scrimBottomAlpha: 0.40,
-                                        scrimMidAlpha: 0.12,
-                                        scrimMidStop: 0.60,
+                                        blurSigma: 0.5,
+                                        featherHeight: 20.0,
+                                        scrimBottomAlpha: 0.35,
+                                        scrimMidAlpha: 0.10,
+                                        scrimMidStop: 0.65,
                                         whiteLiftAlpha: 0.02,
                                       ),
                                     );
@@ -1740,7 +1744,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
                                 // Layer 5: Input bar overlay at bottom
                                 Positioned(
-                                  bottom: 0,
+                                  bottom: 12,
                                   left: 0,
                                   right: 0,
                                   child: MeasureSize(
@@ -1778,7 +1782,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
                                 // Layer 6: Top Haze (micro-blur + scrim + feather fade)
                                 // Claude/Sonnet style: subtle foggy/haze effect
-                                // - Stronger blur for visible glass effect
+                                // - Small blur for haze (not heavy glass)
                                 // - Soft scrim dimming
                                 // - Feather fade at bottom (no hard line)
                                 // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
@@ -1789,12 +1793,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   right: 0,
                                   child: SyraTopHazeWithHoles(
                                     height: topInset +
-                                        80.0, // Extended for better fade
-                                    blurSigma: 15.0, // Stronger blur for visible glass
-                                    featherHeight: 50.0, // Longer fade zone
-                                    scrimTopAlpha: 0.50, // Top dimming
-                                    scrimMidAlpha: 0.20, // Mid dimming
-                                    scrimMidStop: 0.50, // Transition point
+                                        60.0, // FULL header height (safe area + bar)
+                                    blurSigma: 0.9, // Micro-blur (subtle haze)
+                                    featherHeight: 60.0, // Smooth fade out
+                                    scrimTopAlpha: 0.35, // Top dimming
+                                    scrimMidAlpha: 0.25, // Mid dimming
+                                    scrimMidStop: 0.42, // Transition point
                                     whiteLiftAlpha: 0.02, // Subtle fog lift
                                     // Button hole positions
                                     leftButtonCenterX:

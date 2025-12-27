@@ -235,46 +235,60 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   Widget _buildTextBubble() {
-    // User: Claude-style subtle bubble with border (NOT accent color)
+    // User: Keep bubble style
     if (widget.isUser) {
-      return Container(
-        constraints: BoxConstraints(maxWidth: 280),
-        padding: EdgeInsets.symmetric(
-          horizontal: SyraSpacing.md,
-          vertical: SyraSpacing.sm + 2,
-        ),
-        decoration: BoxDecoration(
-          // Subtle dark fill - close to background
-          color: Colors.white.withOpacity(0.06),
-          borderRadius: BorderRadius.circular(SyraRadius.lg),
-          // Thin border for definition
-          border: Border.all(
-            color: Colors.white.withOpacity(0.12),
-            width: 1,
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(SyraRadius.lg),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: SyraGlass.blurSubtle,
+            sigmaY: SyraGlass.blurSubtle,
           ),
-        ),
-        child: Text(
-          widget.text ?? "",
-          style: SyraTextStyles.bodyMedium.copyWith(
-            color: SyraColors.textPrimary,
-            fontSize: 16,
-            fontWeight: FontWeight.w400,
-            height: 1.45,
-            letterSpacing: 0,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: 280),
+            padding: EdgeInsets.symmetric(
+              horizontal: SyraSpacing.md,
+              vertical: SyraSpacing.sm + 2,
+            ),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  SyraColors.accent.withValues(alpha: 0.15),
+                  SyraColors.accent.withValues(alpha: 0.08),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(SyraRadius.lg),
+              border: Border.all(
+                color: SyraColors.accent.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: Text(
+              widget.text ?? "",
+              style: SyraTextStyles.bodyMedium.copyWith(
+                color: SyraColors.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.w400,
+                height: 1.45,
+                letterSpacing: 0,
+              ),
+            ),
           ),
         ),
       );
     }
 
-    // Assistant: NO bubble, ChatGPT/Claude style (reading column) with Premium Markdown
+    // Assistant: NO bubble, ChatGPT style (reading column) with Premium Markdown
     return Align(
       alignment: Alignment.centerLeft,
       child: ConstrainedBox(
         constraints: BoxConstraints(maxWidth: 720), // Desktop max width
         child: Container(
           padding: EdgeInsets.symmetric(
-            horizontal: 16, // Slightly more padding for readability
-            vertical: 2, // Minimal vertical padding
+            horizontal: 12, // Aligned with ChatInputBar left edge (12px)
+            vertical: 4, // Minimal vertical padding
           ),
           child: SyraMarkdown(
             data: widget.text ?? "",

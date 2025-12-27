@@ -82,7 +82,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
       top: false,
       bottom: false, // Home indicator'a yaklaştırmak için kapatıldı
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8), // Bottom: 16 → 8
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
