@@ -235,46 +235,32 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   Widget _buildTextBubble() {
-    // User: Keep bubble style
+    // User: Claude-style subtle bubble (dark fill + thin border, NOT accent color)
     if (widget.isUser) {
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(SyraRadius.lg),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: SyraGlass.blurSubtle,
-            sigmaY: SyraGlass.blurSubtle,
+      return Container(
+        constraints: BoxConstraints(maxWidth: 280),
+        padding: EdgeInsets.symmetric(
+          horizontal: SyraSpacing.md,
+          vertical: SyraSpacing.sm + 2,
+        ),
+        decoration: BoxDecoration(
+          // Subtle dark fill - close to background
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(SyraRadius.lg),
+          // Thin border for definition
+          border: Border.all(
+            color: Colors.white.withOpacity(0.12),
+            width: 1,
           ),
-          child: Container(
-            constraints: BoxConstraints(maxWidth: 280),
-            padding: EdgeInsets.symmetric(
-              horizontal: SyraSpacing.md,
-              vertical: SyraSpacing.sm + 2,
-            ),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  SyraColors.accent.withValues(alpha: 0.15),
-                  SyraColors.accent.withValues(alpha: 0.08),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(SyraRadius.lg),
-              border: Border.all(
-                color: SyraColors.accent.withValues(alpha: 0.2),
-                width: 1,
-              ),
-            ),
-            child: Text(
-              widget.text ?? "",
-              style: SyraTextStyles.bodyMedium.copyWith(
-                color: SyraColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                height: 1.45,
-                letterSpacing: 0,
-              ),
-            ),
+        ),
+        child: Text(
+          widget.text ?? "",
+          style: SyraTextStyles.bodyMedium.copyWith(
+            color: SyraColors.textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 1.45,
+            letterSpacing: 0,
           ),
         ),
       );

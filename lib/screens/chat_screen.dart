@@ -1656,14 +1656,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   child: SyraBackground(),
                                 ),
 
-                                // Layer 2: Optional light overlay for better contrast
-                                // When sidebar is open, use surface color for distinct panel feel
+                                // Layer 2: Background overlay - same color always to prevent flash
                                 Positioned.fill(
                                   child: Container(
-                                    color: (_sidebarOpen || _dragOffset > 0)
-                                        ? SyraTokens.surface.withOpacity(0.96)
-                                        : SyraTokens.background
-                                            .withOpacity(0.90),
+                                    color: SyraTokens.background,
                                   ),
                                 ),
 
@@ -1732,7 +1728,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       child: SyraBottomHaze(
                                         height: hazeHeight,
                                         blurSigma: 0.5,
-                                        featherHeight: 20.0,
+                                        featherHeight: 28.0,
                                         scrimBottomAlpha: 0.35,
                                         scrimMidAlpha: 0.10,
                                         scrimMidStop: 0.65,
@@ -1794,12 +1790,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   child: SyraTopHazeWithHoles(
                                     height: topInset +
                                         60.0, // FULL header height (safe area + bar)
-                                    blurSigma: 0.9, // Micro-blur (subtle haze)
-                                    featherHeight: 60.0, // Smooth fade out
-                                    scrimTopAlpha: 0.35, // Top dimming
+                                    blurSigma: 1.0, // Micro-blur (subtle haze)
+                                    featherHeight: 40.0, // Smooth fade out
+                                    scrimTopAlpha: 0.45, // Top dimming
                                     scrimMidAlpha: 0.25, // Mid dimming
-                                    scrimMidStop: 0.42, // Transition point
-                                    whiteLiftAlpha: 0.02, // Subtle fog lift
+                                    scrimMidStop: 0.52, // Transition point
+                                    whiteLiftAlpha: 0.03, // Subtle fog lift
                                     // Button hole positions
                                     leftButtonCenterX:
                                         36.0, // 16 padding + 20 radius
