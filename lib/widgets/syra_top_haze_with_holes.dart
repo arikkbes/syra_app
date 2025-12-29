@@ -47,9 +47,8 @@ class SyraTopHazeWithHoles extends StatelessWidget {
           // iOS: ONLY native UIVisualEffectView - no Flutter overlay
           // This gives clean Claude iOS-like blur in screen recordings
           if (kUseNativeIOSBlur && Platform.isIOS) {
-            return Container(
+            return SizedBox(
               height: height,
-              color: Colors.red.withOpacity(0.5), // DEBUG: Remove after testing
               child: const UiKitView(
                 viewType: 'syra_native_blur_view',
                 creationParams: null,
