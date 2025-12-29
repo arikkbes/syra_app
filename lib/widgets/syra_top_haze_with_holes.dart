@@ -10,7 +10,6 @@ import 'syra_top_haze.dart';
 const bool kUseNativeIOSBlur = true;
 
 class SyraTopHazeWithHoles extends StatelessWidget {
-  /// Same parameters as SyraTopHaze
   final double height;
   final double blurSigma;
   final double featherHeight;
@@ -18,17 +17,9 @@ class SyraTopHazeWithHoles extends StatelessWidget {
   final double scrimMidAlpha;
   final double scrimMidStop;
   final double whiteLiftAlpha;
-
-  /// Left button position from left edge (padding + button center)
   final double leftButtonCenterX;
-
-  /// Right button position from right edge (padding + button center)
   final double rightButtonCenterX;
-
-  /// Vertical center of buttons (from top, typically topInset + ~28)
   final double buttonCenterY;
-
-  /// Radius of the hole (button radius + margin, typically ~26)
   final double holeRadius;
 
   const SyraTopHazeWithHoles({
@@ -40,10 +31,10 @@ class SyraTopHazeWithHoles extends StatelessWidget {
     this.scrimMidAlpha = 0.25,
     this.scrimMidStop = 0.60,
     this.whiteLiftAlpha = 0.03,
-    this.leftButtonCenterX = 36.0, // 16 padding + 20 button radius
-    this.rightButtonCenterX = 36.0, // same from right
-    this.buttonCenterY = 28.0, // vertical center of 56px bar
-    this.holeRadius = 26.0, // 20 button radius + 6 margin
+    this.leftButtonCenterX = 36.0,
+    this.rightButtonCenterX = 36.0,
+    this.buttonCenterY = 28.0,
+    this.holeRadius = 26.0,
   });
 
   @override
@@ -53,42 +44,21 @@ class SyraTopHazeWithHoles extends StatelessWidget {
         builder: (context, constraints) {
           final maxWidth = constraints.maxWidth;
 
-          // iOS: Native UIVisualEffectView (premium blur in screen recordings)
+          // iOS: ONLY native UIVisualEffectView - no Flutter overlay
+          // This gives clean Claude iOS-like blur in screen recordings
           if (kUseNativeIOSBlur && Platform.isIOS) {
-            return SizedBox(
+            return Container(
               height: height,
-              child: Stack(
-                children: [
-                  // 1) Native blur base layer
-                  const Positioned.fill(
-                    child: UiKitView(
-                      viewType: 'syra_native_blur_view',
-                      creationParams: null,
-                      creationParamsCodec: StandardMessageCodec(),
-                    ),
-                  ),
-
-                  // 2) Minimal scrim (NO BackdropFilter, NO white lift) with holes
-                  Positioned.fill(
-                    child: ClipPath(
-                      clipper: _ButtonHolesClipper(
-                        leftButtonCenterX: leftButtonCenterX,
-                        rightButtonCenterX: maxWidth - rightButtonCenterX,
-                        buttonCenterY: buttonCenterY,
-                        holeRadius: holeRadius,
-                      ),
-                      child: _IOSMinimalTopScrim(
-                        height: height,
-                        featherHeight: featherHeight,
-                      ),
-                    ),
-                  ),
-                ],
+              color: Colors.red.withOpacity(0.5), // DEBUG: Remove after testing
+              child: const UiKitView(
+                viewType: 'syra_native_blur_view',
+                creationParams: null,
+                creationParamsCodec: StandardMessageCodec(),
               ),
             );
           }
 
-          // Android (and fallback): Use BackdropFilter + SyraTopHaze as before
+          // Android (and fallback): Use BackdropFilter + SyraTopHaze
           return SizedBox(
             height: height,
             child: ClipRect(
@@ -107,7 +77,7 @@ class SyraTopHazeWithHoles extends StatelessWidget {
                   ),
                   child: SyraTopHaze(
                     height: height,
-                    blurSigma: 0, // Blur already applied above
+                    blurSigma: 0,
                     featherHeight: featherHeight,
                     scrimTopAlpha: scrimTopAlpha,
                     scrimMidAlpha: scrimMidAlpha,
@@ -123,68 +93,6 @@ class SyraTopHazeWithHoles extends StatelessWidget {
     );
   }
 }
-
-/// iOS-only: minimal scrim with a feathered fade (no blur, no white lift)
-class _IOSMinimalTopScrim extends StatelessWidget {
-  final double height;
-  final double featherHeight;
-
-  const _IOSMinimalTopScrim({
-    required this.height,
-    required this.featherHeight,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    // Feather fade starts near bottom
-    final featherStart = ((height - featherHeight) / height).clamp(0.0, 1.0);
-
-    // Keep these iOS values low to avoid muddy look.
-    const top = 0.22; // 0.18–0.26 sweet spot
-    const mid = 0.10; // 0.08–0.14 sweet spot
-
-    final scrim = Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.black.withOpacity(top),
-            Colors.black.withOpacity(mid),
-            Colors.transparent,
-          ],
-          stops: const [0.0, 0.55, 1.0],
-        ),
-      ),
-    );
-
-    // Feather mask to avoid a hard line at the bottom
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: const [
-            Colors.white,
-            Colors.white,
-            Colors.transparent,
-          ],
-          stops: [
-            0.0,
-            featherStart,
-            1.0,
-          ],
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn,
-      child: scrim,
-    );
-  }
-}
-
-/// ═══════════════════════════════════════════════════════════════
-/// BUTTON HOLES CLIPPER - Creates circular exclusion zones
-/// ═══════════════════════════════════════════════════════════════
 
 class _ButtonHolesClipper extends CustomClipper<Path> {
   final double leftButtonCenterX;
@@ -216,7 +124,6 @@ class _ButtonHolesClipper extends CustomClipper<Path> {
           radius: holeRadius,
         ),
       );
-
     return path;
   }
 
