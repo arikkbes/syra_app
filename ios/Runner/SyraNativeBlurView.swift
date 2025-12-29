@@ -10,7 +10,7 @@ final class SyraNativeBlurView: NSObject, FlutterPlatformView {
     container.backgroundColor = .clear
     container.isOpaque = false
 
-    let effect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+    let effect = UIBlurEffect(style: .systemMaterialDark)
     blurView = UIVisualEffectView(effect: effect)
     blurView.frame = container.bounds
     blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
