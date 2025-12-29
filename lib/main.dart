@@ -10,7 +10,7 @@ import 'screens/signup_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/premium_screen.dart';
 import 'screens/premium_management_screen.dart';
-import 'screens/settings/settings_screen.dart';
+import 'screens/settings/settings_modal_sheet.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
@@ -74,7 +74,7 @@ class SyraApp extends StatelessWidget {
         '/chat': (_) => const ChatScreen(),
         '/premium': (_) => const PremiumScreen(),
         '/premium-management': (_) => const PremiumManagementScreen(),
-        '/settings': (_) => const SettingsScreen(),
+        '/settings': (_) => const _SettingsRouteWrapper(),
       },
     );
   }
@@ -250,6 +250,55 @@ class _AuthGate extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// ═══════════════════════════════════════════════════════════════
+/// SETTINGS ROUTE WRAPPER
+/// ═══════════════════════════════════════════════════════════════
+/// Thin wrapper that immediately opens SyraSettingsModalSheet
+/// and then pops - so all /settings routes use the same modal UI
+/// ═══════════════════════════════════════════════════════════════
+class _SettingsRouteWrapper extends StatefulWidget {
+  const _SettingsRouteWrapper();
+
+  @override
+  State<_SettingsRouteWrapper> createState() => _SettingsRouteWrapperState();
+}
+
+class _SettingsRouteWrapperState extends State<_SettingsRouteWrapper> {
+  @override
+  void initState() {
+    super.initState();
+    // Open modal sheet after build completes
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openSettingsSheet();
+    });
+  }
+
+  void _openSettingsSheet() {
+    showModalBottomSheet(
+      context: context,
+      useRootNavigator: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.40),
+      builder: (_) => SyraSettingsModalSheet(hostContext: context),
+    ).then((_) {
+      // When sheet is closed, pop this wrapper screen
+      if (mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Empty scaffold while modal is showing
+    return const Scaffold(
+      backgroundColor: SyraColors.background,
+      body: SizedBox.shrink(),
     );
   }
 }

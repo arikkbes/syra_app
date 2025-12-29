@@ -30,7 +30,6 @@ import '../widgets/syra_bottom_haze.dart';
 import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 
 import 'premium_screen.dart';
-import 'settings/settings_screen.dart';
 import 'settings/settings_modal_sheet.dart';
 import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';

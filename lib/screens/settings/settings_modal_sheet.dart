@@ -1,7 +1,7 @@
 // lib/screens/settings/settings_modal_sheet.dart
 // ═══════════════════════════════════════════════════════════════
-// SYRA PREMIUM SETTINGS MODAL SHEET
-// In-sheet navigation with real glass effects
+// SYRA SETTINGS MODAL SHEET - iOS STYLE
+// Single source of truth for Settings UI
 // ═══════════════════════════════════════════════════════════════
 
 import 'dart:ui';
@@ -15,7 +15,7 @@ import '../../theme/syra_glass.dart';
 import '../../utils/syra_prefs.dart';
 import '../premium_screen.dart';
 
-/// SYRA Premium Settings Modal Sheet
+/// SYRA Settings Modal Sheet - iOS Style with grouped sections
 class SyraSettingsModalSheet extends StatefulWidget {
   final BuildContext hostContext;
 
@@ -143,7 +143,7 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
         // Handle bar
         _buildHandleBar(),
 
-        // Close button
+        // Close button (iOS style - left aligned)
         _buildCloseButton(),
 
         // Content
@@ -153,7 +153,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
             physics: const BouncingScrollPhysics(),
             children: [
-              // HESAP
+              // ═══════════════════════════════════════════════════════════════
+              // HESAP Section
+              // ═══════════════════════════════════════════════════════════════
               _SectionHeader(title: 'Hesap'),
               const SizedBox(height: 8),
               _SettingsCard(
@@ -169,7 +171,7 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                     icon: Icons.workspace_premium_outlined,
                     label: 'Abonelik',
                     trailing: _isPremium ? 'SYRA Plus' : 'Ücretsiz',
-                    showChevron: false, // Tıklanamaz
+                    showChevron: false,
                   ),
                   if (!_isPremium) ...[
                     const _SettingsDivider(),
@@ -199,7 +201,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
 
               const SizedBox(height: 28),
 
-              // AYARLAR
+              // ═══════════════════════════════════════════════════════════════
+              // AYARLAR Section
+              // ═══════════════════════════════════════════════════════════════
               _SectionHeader(title: 'Ayarlar'),
               const SizedBox(height: 8),
               _SettingsCard(
@@ -244,7 +248,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
 
               const SizedBox(height: 28),
 
-              // UYGULAMA
+              // ═══════════════════════════════════════════════════════════════
+              // UYGULAMA Section
+              // ═══════════════════════════════════════════════════════════════
               _SectionHeader(title: 'Uygulama'),
               const SizedBox(height: 8),
               _SettingsCard(
@@ -283,7 +289,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
 
               const SizedBox(height: 28),
 
-              // HESAP YÖNETİMİ
+              // ═══════════════════════════════════════════════════════════════
+              // HESAP YÖNETİMİ Section
+              // ═══════════════════════════════════════════════════════════════
               _SectionHeader(title: 'Hesap Yönetimi'),
               const SizedBox(height: 8),
               _SettingsCard(
@@ -319,7 +327,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
 
               const SizedBox(height: 28),
 
-              // Çıkış yap
+              // ═══════════════════════════════════════════════════════════════
+              // Çıkış yap (iOS style - inside a card, not a big pink button)
+              // ═══════════════════════════════════════════════════════════════
               _SettingsCard(
                 children: [
                   _SettingsRow(
@@ -327,7 +337,13 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                     label: 'Çıkış yap',
                     isDestructive: true,
                     showChevron: false,
-                    onTap: () => HapticFeedback.mediumImpact(),
+                    onTap: () async {
+                      HapticFeedback.mediumImpact();
+                      await FirebaseAuth.instance.signOut();
+                      if (mounted) {
+                        Navigator.of(context).pop();
+                      }
+                    },
                   ),
                 ],
               ),
@@ -481,7 +497,6 @@ class _AnimatedSheetPageState extends State<_AnimatedSheetPage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // Back button - same position as X on main page (left)
           _RealGlassButton(
             icon: Icons.arrow_back_ios_rounded,
             onTap: _handleBack,
@@ -493,7 +508,7 @@ class _AnimatedSheetPageState extends State<_AnimatedSheetPage>
 }
 
 // ═══════════════════════════════════════════════════════════════
-// REAL GLASS BUTTON (Circular) - Clean glass effect
+// REAL GLASS BUTTON (Circular)
 // ═══════════════════════════════════════════════════════════════
 class _RealGlassButton extends StatelessWidget {
   final IconData icon;
@@ -565,7 +580,7 @@ class _SectionHeader extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SETTINGS CARD
+// SETTINGS CARD (iOS grouped style)
 // ═══════════════════════════════════════════════════════════════
 class _SettingsCard extends StatelessWidget {
   final List<Widget> children;

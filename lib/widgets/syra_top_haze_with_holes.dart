@@ -1,8 +1,13 @@
 // lib/widgets/syra_top_haze_with_holes.dart
 
+import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'syra_top_haze.dart';
+
+/// Flag to enable/disable native iOS blur. Set to false to fallback to BackdropFilter on iOS.
+const bool kUseNativeIOSBlur = true;
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA TOP HAZE WITH HOLES - Icon Button Exclusion
@@ -63,6 +68,46 @@ class SyraTopHazeWithHoles extends StatelessWidget {
         builder: (context, constraints) {
           final maxWidth = constraints.maxWidth;
 
+          // iOS: Use native UIVisualEffectView for premium blur in screen recordings
+          if (kUseNativeIOSBlur && Platform.isIOS) {
+            return SizedBox(
+              height: height,
+              child: Stack(
+                children: [
+                  // Native iOS blur base layer
+                  Positioned.fill(
+                    child: UiKitView(
+                      viewType: 'syra_native_blur_view',
+                      creationParams: null,
+                      creationParamsCodec: const StandardMessageCodec(),
+                    ),
+                  ),
+                  // Scrim overlay with holes (same as Android path)
+                  Positioned.fill(
+                    child: ClipPath(
+                      clipper: _ButtonHolesClipper(
+                        leftButtonCenterX: leftButtonCenterX,
+                        rightButtonCenterX: maxWidth - rightButtonCenterX,
+                        buttonCenterY: buttonCenterY,
+                        holeRadius: holeRadius,
+                      ),
+                      child: SyraTopHaze(
+                        height: height,
+                        blurSigma: 0, // Blur provided by native layer
+                        featherHeight: featherHeight,
+                        scrimTopAlpha: scrimTopAlpha,
+                        scrimMidAlpha: scrimMidAlpha,
+                        scrimMidStop: scrimMidStop,
+                        whiteLiftAlpha: whiteLiftAlpha,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // Android (and fallback): Use BackdropFilter
           return SizedBox(
             height: height,
             child: ClipRect(
