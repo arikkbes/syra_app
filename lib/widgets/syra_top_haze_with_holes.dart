@@ -9,21 +9,6 @@ import 'syra_top_haze.dart';
 /// Flag to enable/disable native iOS blur. Set to false to fallback to BackdropFilter on iOS.
 const bool kUseNativeIOSBlur = true;
 
-/// ═══════════════════════════════════════════════════════════════
-/// SYRA TOP HAZE WITH HOLES - Icon Button Exclusion
-/// ═══════════════════════════════════════════════════════════════
-/// Same as SyraTopHaze, but with circular "holes" that exclude
-/// the left/right icon button zones from the scrim overlay.
-///
-/// This prevents the BackdropFilter in glass icon buttons from
-/// sampling the dark scrim, keeping their tone matching ChatInputBar.
-///
-/// Implementation:
-/// - Full-width scrim (no vertical seams)
-/// - ClipPath with evenOdd fill to create circular holes
-/// - Holes positioned under icon buttons (left + right)
-/// ═══════════════════════════════════════════════════════════════
-
 class SyraTopHazeWithHoles extends StatelessWidget {
   /// Same parameters as SyraTopHaze
   final double height;
@@ -68,21 +53,22 @@ class SyraTopHazeWithHoles extends StatelessWidget {
         builder: (context, constraints) {
           final maxWidth = constraints.maxWidth;
 
-          // iOS: Use native UIVisualEffectView for premium blur in screen recordings
+          // iOS: Native UIVisualEffectView (premium blur in screen recordings)
           if (kUseNativeIOSBlur && Platform.isIOS) {
             return SizedBox(
               height: height,
               child: Stack(
                 children: [
-                  // Native iOS blur base layer
-                  Positioned.fill(
+                  // 1) Native blur base layer
+                  const Positioned.fill(
                     child: UiKitView(
                       viewType: 'syra_native_blur_view',
                       creationParams: null,
-                      creationParamsCodec: const StandardMessageCodec(),
+                      creationParamsCodec: StandardMessageCodec(),
                     ),
                   ),
-                  // Scrim overlay with holes (same as Android path)
+
+                  // 2) Minimal scrim (NO BackdropFilter, NO white lift) with holes
                   Positioned.fill(
                     child: ClipPath(
                       clipper: _ButtonHolesClipper(
@@ -91,14 +77,9 @@ class SyraTopHazeWithHoles extends StatelessWidget {
                         buttonCenterY: buttonCenterY,
                         holeRadius: holeRadius,
                       ),
-                      child: SyraTopHaze(
+                      child: _IOSMinimalTopScrim(
                         height: height,
-                        blurSigma: 0, // Blur provided by native layer
                         featherHeight: featherHeight,
-                        scrimTopAlpha: scrimTopAlpha,
-                        scrimMidAlpha: scrimMidAlpha,
-                        scrimMidStop: scrimMidStop,
-                        whiteLiftAlpha: whiteLiftAlpha,
                       ),
                     ),
                   ),
@@ -107,7 +88,7 @@ class SyraTopHazeWithHoles extends StatelessWidget {
             );
           }
 
-          // Android (and fallback): Use BackdropFilter
+          // Android (and fallback): Use BackdropFilter + SyraTopHaze as before
           return SizedBox(
             height: height,
             child: ClipRect(
@@ -143,6 +124,64 @@ class SyraTopHazeWithHoles extends StatelessWidget {
   }
 }
 
+/// iOS-only: minimal scrim with a feathered fade (no blur, no white lift)
+class _IOSMinimalTopScrim extends StatelessWidget {
+  final double height;
+  final double featherHeight;
+
+  const _IOSMinimalTopScrim({
+    required this.height,
+    required this.featherHeight,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Feather fade starts near bottom
+    final featherStart = ((height - featherHeight) / height).clamp(0.0, 1.0);
+
+    // Keep these iOS values low to avoid muddy look.
+    const top = 0.22; // 0.18–0.26 sweet spot
+    const mid = 0.10; // 0.08–0.14 sweet spot
+
+    final scrim = Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Colors.black.withOpacity(top),
+            Colors.black.withOpacity(mid),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.55, 1.0],
+        ),
+      ),
+    );
+
+    // Feather mask to avoid a hard line at the bottom
+    return ShaderMask(
+      shaderCallback: (Rect bounds) {
+        return LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: const [
+            Colors.white,
+            Colors.white,
+            Colors.transparent,
+          ],
+          stops: [
+            0.0,
+            featherStart,
+            1.0,
+          ],
+        ).createShader(bounds);
+      },
+      blendMode: BlendMode.dstIn,
+      child: scrim,
+    );
+  }
+}
+
 /// ═══════════════════════════════════════════════════════════════
 /// BUTTON HOLES CLIPPER - Creates circular exclusion zones
 /// ═══════════════════════════════════════════════════════════════
@@ -164,18 +203,19 @@ class _ButtonHolesClipper extends CustomClipper<Path> {
   Path getClip(Size size) {
     final path = Path()
       ..fillType = PathFillType.evenOdd
-      // Full rect (entire scrim area)
       ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-      // Left button hole
-      ..addOval(Rect.fromCircle(
-        center: Offset(leftButtonCenterX, buttonCenterY),
-        radius: holeRadius,
-      ))
-      // Right button hole
-      ..addOval(Rect.fromCircle(
-        center: Offset(rightButtonCenterX, buttonCenterY),
-        radius: holeRadius,
-      ));
+      ..addOval(
+        Rect.fromCircle(
+          center: Offset(leftButtonCenterX, buttonCenterY),
+          radius: holeRadius,
+        ),
+      )
+      ..addOval(
+        Rect.fromCircle(
+          center: Offset(rightButtonCenterX, buttonCenterY),
+          radius: holeRadius,
+        ),
+      );
 
     return path;
   }
