@@ -33,13 +33,12 @@ import '../widgets/attachment_options_sheet.dart'; // NEW: Modern attachment pic
 
 import 'premium_screen.dart';
 import 'settings/settings_modal_sheet.dart';
-import 'relationship_analysis_result_screen.dart';
 import 'chat_sessions_sheet.dart';
 import 'premium_management_screen.dart';
 import 'tarot_mode_screen.dart';
 
-// ✅ Kim Daha Çok screen import (PATH’i sende farklıysa burayı düzelt)
-import 'kim_daha_cok_screen.dart';
+// RelationshipRadarBody - unified analysis + scoreboard screen
+import 'relationship_radar_body.dart';
 
 // New extracted widgets
 import 'chat/chat_app_bar.dart';
@@ -50,6 +49,9 @@ import '../widgets/claude_sidebar.dart';
 import '../widgets/measure_size.dart';
 
 const bool forcePremiumForTesting = false;
+
+/// Body mode enum for ChatScreen - controls which body is displayed
+enum ChatBodyMode { chat, relationshipRadar }
 
 // ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
@@ -112,6 +114,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   // Relationship upload
   bool _isUploadingRelationshipFile = false;
+  bool _isRelationshipPanelOpen = false; // Anti-spam flag
 
   // LayerLink for anchored mode selector popover
   // This anchors the mode selector popover to the mode label in the app bar
@@ -119,6 +122,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   // GlobalKey for RepaintBoundary (Liquid Glass background capture)
   final GlobalKey _chatBackgroundKey = GlobalKey();
+
+  // Body mode control - chat vs relationship radar
+  ChatBodyMode _bodyMode = ChatBodyMode.chat;
+  RelationshipMemory? _radarMemory; // Active memory for radar view
 
   @override
   void initState() {
@@ -191,6 +198,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Load selected chat messages
   Future<void> _loadSelectedChat(String sessionId) async {
+    // Exit radar mode if active
+    if (_bodyMode == ChatBodyMode.relationshipRadar) {
+      setState(() {
+        _bodyMode = ChatBodyMode.chat;
+        _radarMemory = null;
+      });
+    }
+    
     final result = await ChatSessionService.getSessionMessages(sessionId);
     if (!mounted) return;
 
@@ -388,6 +403,14 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Start a new chat
   Future<void> _startNewChat() async {
+    // Exit radar mode if active
+    if (_bodyMode == ChatBodyMode.relationshipRadar) {
+      setState(() {
+        _bodyMode = ChatBodyMode.chat;
+        _radarMemory = null;
+      });
+    }
+    
     final result = await ChatSessionService.createSession(
       title: 'Yeni Sohbet',
     );
@@ -627,15 +650,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
-      
+
       // Update session in Firestore to mark as archived
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .collection('chat_sessions')
           .doc(session.id)
-          .update({'isArchived': true, 'archivedAt': FieldValue.serverTimestamp()});
-      
+          .update(
+              {'isArchived': true, 'archivedAt': FieldValue.serverTimestamp()});
+
       // Remove from local list
       setState(() {
         _chatSessions.removeWhere((s) => s.id == session.id);
@@ -676,14 +700,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   /// Handle document upload - Relationship Upload (Beta)
   /// Shows either empty state (upload) or filled state (panel with controls)
   void _handleDocumentUpload() async {
+    // Anti-spam: Prevent multiple opens
+    if (_isRelationshipPanelOpen) return;
+    
     // Close keyboard before starting relationship upload
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
 
+    // Set flag to prevent spam
+    _isRelationshipPanelOpen = true;
+
     // Load relationship memory to determine which state to show
     final memory = await RelationshipMemoryService.getMemory();
 
-    if (!mounted) return;
+    if (!mounted) {
+      _isRelationshipPanelOpen = false;
+      return;
+    }
 
     if (memory == null) {
       // EMPTY STATE: Show upload dialog
@@ -793,7 +826,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
         ],
       ),
-    );
+    ).then((_) {
+      // Reset anti-spam flag when panel closes
+      _isRelationshipPanelOpen = false;
+    });
   }
 
   /// Show filled state relationship panel
@@ -805,53 +841,42 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         memory: memory,
         onUpdate: () {
           Navigator.pop(context);
+          _isRelationshipPanelOpen = false; // Reset before re-opening
           _handleDocumentUpload();
         },
         onUpload: () {
           Navigator.pop(context);
           _pickAndUploadRelationshipFile();
         },
-        onViewAnalysis: () {
-          Navigator.pop(context);
-          _openAnalysisFromMemory(memory);
-        },
       ),
-    );
+    ).then((_) {
+      // Reset anti-spam flag when panel closes
+      _isRelationshipPanelOpen = false;
+    });
   }
 
-  /// Open analysis screen with stored memory data
-  void _openAnalysisFromMemory(RelationshipMemory memory) {
-    // Convert memory to analysis result format (V2)
-    final analysisResult = RelationshipAnalysisResult(
-      relationshipId: memory.id,
-      totalMessages: memory.totalMessages ?? 0,
-      totalChunks: memory.totalChunks ?? 0,
-      speakers: memory.speakers,
-      shortSummary: memory.shortSummary ?? '',
-      personalities: memory.personalities != null
-          ? (memory.personalities! as Map<String, dynamic>).map(
-              (key, value) => MapEntry(
-                key,
-                PersonalityProfile.fromJson(value as Map<String, dynamic>),
-              ),
-            )
-          : null,
-      dynamics: memory.dynamics != null
-          ? RelationshipDynamics.fromJson(memory.dynamics! as Map<String, dynamic>)
-          : null,
-      patterns: memory.patterns != null
-          ? RelationshipPatterns.fromJson(memory.patterns! as Map<String, dynamic>)
-          : null,
-    );
+  /// Open relationship radar (unified analysis + scoreboard) as body swap
+  void _openRelationshipRadar(RelationshipMemory memory) {
+    setState(() {
+      _radarMemory = memory;
+      _bodyMode = ChatBodyMode.relationshipRadar;
+      _sidebarOpen = false;
+      _dragOffset = 0.0;
+    });
+  }
 
-    Navigator.push(
-      context,
-      CupertinoPageRoute(
-        builder: (_) => RelationshipAnalysisResultScreen(
-          analysisResult: analysisResult,
-        ),
-      ),
-    );
+  /// Return to chat mode from radar
+  void _closeRelationshipRadar() {
+    setState(() {
+      _bodyMode = ChatBodyMode.chat;
+      _radarMemory = null;
+    });
+  }
+
+  /// Legacy method - kept for potential direct navigation if needed
+  void _openAnalysisFromMemory(RelationshipMemory memory) {
+    // Now redirects to unified radar view
+    _openRelationshipRadar(memory);
   }
 
   /// Pick and upload relationship file
@@ -882,8 +907,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
 
       // Upload and analyze
-      final analysisResult =
-          await RelationshipAnalysisService.analyzeChat(file);
+      await RelationshipAnalysisService.analyzeChat(file);
 
       if (!mounted) return;
 
@@ -894,19 +918,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Show confirmation
       BlurToast.show(context, "✅ Sohbetin alındı, analiz hazır!");
 
-      // Navigate to analysis screen and refresh panel when returning
-      await Navigator.push(
-        context,
-        CupertinoPageRoute(
-          builder: (_) => RelationshipAnalysisResultScreen(
-            analysisResult: analysisResult,
-          ),
-        ),
-      );
-      
-      // Refresh panel after returning from analysis screen
-      if (mounted) {
-        setState(() {});
+      // Load the newly created memory and open radar view
+      final memory = await RelationshipMemoryService.getMemory();
+      if (mounted && memory != null) {
+        _openRelationshipRadar(memory);
       }
     } catch (e) {
       debugPrint('_pickAndUploadRelationshipFile error: $e');
@@ -1572,17 +1587,24 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       _dragOffset = 0.0;
                     });
                   },
-                  onKimDahaCok: () {
-                    setState(() {
-                      _sidebarOpen = false;
-                      _dragOffset = 0.0;
-                    });
-                    Navigator.push(
-                      context,
-                      CupertinoPageRoute(
-                        builder: (_) => const KimDahaCokScreen(),
-                      ),
-                    );
+                  onKimDahaCok: () async {
+                    // Load active memory and open radar
+                    final memory = await RelationshipMemoryService.getMemory();
+                    if (!mounted) return;
+                    
+                    if (memory != null) {
+                      _openRelationshipRadar(memory);
+                    } else {
+                      // No relationship memory - show toast
+                      setState(() {
+                        _sidebarOpen = false;
+                        _dragOffset = 0.0;
+                      });
+                      BlurToast.show(
+                        context,
+                        'Önce bir ilişki yüklemelisin.\nYan menüden "Relationship Upload" kullan.',
+                      );
+                    }
                   },
                   onSettingsTap: () {
                     // DO NOT close sidebar - sheet will appear over it
@@ -1686,7 +1708,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                               : BorderRadius.zero,
                           child: Container(
                             color: SyraTokens.background,
-                            child: Stack(
+                            // Conditional body: Chat vs Radar mode
+                            child: _bodyMode == ChatBodyMode.relationshipRadar && _radarMemory != null
+                                ? RelationshipRadarBody(
+                                    memory: _radarMemory!,
+                                    onMenuTap: _toggleSidebar,
+                                  )
+                                : Stack(
                               children: [
                                 // Layer 1: SyraBackground (visible texture for blur)
                                 const Positioned.fill(
@@ -1823,10 +1851,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                     height: topInset + 60.0,
                                     blurSigma: 8.0, // Subtle blur
                                     featherHeight: 35.0, // Soft fade
-                                    scrimTopAlpha: 0.08, // Very subtle darkening (Claude has almost none)
+                                    scrimTopAlpha:
+                                        0.08, // Very subtle darkening (Claude has almost none)
                                     scrimMidAlpha: 0.02, // Almost transparent
                                     scrimMidStop: 0.50, // Transition point
-                                    whiteLiftAlpha: 0.0, // No white lift (causes muddy look on dark bg)
+                                    whiteLiftAlpha:
+                                        0.0, // No white lift (causes muddy look on dark bg)
                                     // Button hole positions
                                     leftButtonCenterX:
                                         36.0, // 16 padding + 20 radius
@@ -2058,13 +2088,11 @@ class _RelationshipPanelSheet extends StatefulWidget {
   final RelationshipMemory memory;
   final VoidCallback onUpdate;
   final VoidCallback onUpload;
-  final VoidCallback onViewAnalysis;
 
   const _RelationshipPanelSheet({
     required this.memory,
     required this.onUpdate,
     required this.onUpload,
-    required this.onViewAnalysis,
   });
 
   @override
@@ -2234,7 +2262,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Summary
           Text(
             mem.shortSummary ?? 'Özet mevcut değil',
@@ -2246,7 +2274,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
-          
+
           // Date range & speakers
           if (mem.speakers.isNotEmpty || mem.dateRangeFormatted.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -2270,9 +2298,9 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
               ),
             ],
           ],
-          
+
           const SizedBox(height: 20),
-          
+
           // Toggle switch card
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -2310,23 +2338,78 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                Transform.scale(
-                  scale: 0.85,
-                  child: Switch.adaptive(
-                    value: _isActive,
-                    onChanged: _isUpdating ? null : _handleToggle,
-                    activeColor: SyraTokens.accent,
+                // Premium toggle switch
+                GestureDetector(
+                  onTap: _isUpdating ? null : () => _handleToggle(!_isActive),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    width: 52,
+                    height: 30,
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(15),
+                      color: _isActive
+                          ? SyraTokens.accent
+                          : SyraTokens.surface,
+                      border: Border.all(
+                        color: _isActive
+                            ? SyraTokens.accent
+                            : SyraTokens.border,
+                        width: 1.5,
+                      ),
+                      boxShadow: _isActive
+                          ? [
+                              BoxShadow(
+                                color: SyraTokens.accent.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: AnimatedAlign(
+                      duration: const Duration(milliseconds: 200),
+                      curve: Curves.easeInOut,
+                      alignment: _isActive
+                          ? Alignment.centerRight
+                          : Alignment.centerLeft,
+                      child: Container(
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.15),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: _isUpdating
+                            ? const Padding(
+                                padding: EdgeInsets.all(5),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: SyraTokens.accent,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
-          // Primary button - Detaylı Analiz
+
+          // Primary button - Sohbeti Güncelle
           _TapScale(
-            onTap: widget.onViewAnalysis,
+            onTap: widget.onUpload,
             child: Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -2337,10 +2420,10 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.insights_rounded, color: Colors.white, size: 20),
+                  Icon(Icons.sync_rounded, color: Colors.white, size: 20),
                   SizedBox(width: 10),
                   Text(
-                    'Detaylı Analiz',
+                    'Sohbeti Güncelle',
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 16,
@@ -2351,43 +2434,9 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
               ),
             ),
           ),
-          
-          const SizedBox(height: 10),
-          
-          // Secondary button - Sohbeti Güncelle
-          _TapScale(
-            onTap: widget.onUpload,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: SyraTokens.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: SyraTokens.border.withValues(alpha: 0.5),
-                  width: 0.5,
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.sync_rounded, color: SyraTokens.textSecondary, size: 20),
-                  const SizedBox(width: 10),
-                  Text(
-                    'Sohbeti Güncelle',
-                    style: TextStyle(
-                      color: SyraTokens.textSecondary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          
+
           const SizedBox(height: 16),
-          
+
           // Delete button
           Center(
             child: TextButton(
