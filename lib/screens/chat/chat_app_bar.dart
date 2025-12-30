@@ -167,53 +167,61 @@ class _GlassIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // iOS: Skip BackdropFilter since native blur handles it
+    // Android: Use BackdropFilter as before
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
+    
+    Widget buttonContent = Container(
+      width: 40,
+      height: 40,
+      decoration: ib.BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.004),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.10),
+          width: 1,
+        ),
+        boxShadow: [
+          // Outer shadow for separation (same as ChatInputBar)
+          ib.BoxShadow(
+            inset: false,
+            offset: const Offset(0, 10),
+            blurRadius: 24,
+            color: Colors.black.withValues(alpha: 0.30),
+          ),
+          // Inset shadow top
+          ib.BoxShadow(
+            inset: true,
+            offset: const Offset(0, -2),
+            blurRadius: 4,
+            color: Colors.black.withValues(alpha: 0.18),
+          ),
+          // Inset shadow bottom
+          ib.BoxShadow(
+            inset: true,
+            offset: const Offset(0, 2),
+            blurRadius: 4,
+            color: Colors.white.withValues(alpha: 0.30),
+          ),
+        ],
+      ),
+      child: Icon(
+        icon,
+        color: SyraColors.iconStroke,
+        size: 20,
+      ),
+    );
+
     return _TapScale(
       onTap: onTap,
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
-        child: BackdropFilter(
-          filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
-          child: Container(
-            width: 40,
-            height: 40,
-            decoration: ib.BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.004),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.10),
-                width: 1,
+        child: isIOS
+            ? buttonContent // iOS: no BackdropFilter
+            : BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 9, sigmaY: 9),
+                child: buttonContent,
               ),
-              boxShadow: [
-                // Outer shadow for separation (same as ChatInputBar)
-                ib.BoxShadow(
-                  inset: false,
-                  offset: const Offset(0, 10),
-                  blurRadius: 24,
-                  color: Colors.black.withValues(alpha: 0.30),
-                ),
-                // Inset shadow top
-                ib.BoxShadow(
-                  inset: true,
-                  offset: const Offset(0, -2),
-                  blurRadius: 4,
-                  color: Colors.black.withValues(alpha: 0.18),
-                ),
-                // Inset shadow bottom
-                ib.BoxShadow(
-                  inset: true,
-                  offset: const Offset(0, 2),
-                  blurRadius: 4,
-                  color: Colors.white.withValues(alpha: 0.30),
-                ),
-              ],
-            ),
-            child: Icon(
-              icon,
-              color: SyraColors.iconStroke,
-              size: 20,
-            ),
-          ),
-        ),
       ),
     );
   }

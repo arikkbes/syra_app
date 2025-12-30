@@ -4,6 +4,7 @@ import 'dart:io' show Platform;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/rendering.dart';
 import 'syra_top_haze.dart';
 
 /// Flag to enable/disable native iOS blur. Set to false to fallback to BackdropFilter on iOS.
@@ -53,6 +54,7 @@ class SyraTopHazeWithHoles extends StatelessWidget {
                 viewType: 'syra_native_blur_view',
                 creationParams: null,
                 creationParamsCodec: StandardMessageCodec(),
+                hitTestBehavior: PlatformViewHitTestBehavior.transparent,
               ),
             );
           }
