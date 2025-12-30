@@ -35,9 +35,9 @@ import 'package:flutter/rendering.dart';
 /// so we use BackdropFilter for consistent cross-platform appearance.
 /// ═══════════════════════════════════════════════════════════════
 
-/// Set to false to use Flutter BackdropFilter on iOS (recommended).
-/// Native iOS blur cannot be faded with ShaderMask, causing hard edges.
-const bool kUseNativeIOSBlur = false;
+/// Set to true to use native iOS UIVisualEffectView (recommended for iOS).
+/// Native blur has gradient mask for smooth fade - no hard edges.
+const bool kUseNativeIOSBlur = true;
 
 class SyraTopHazeWithHoles extends StatelessWidget {
   final double height;

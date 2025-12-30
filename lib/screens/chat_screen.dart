@@ -1789,12 +1789,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   child: SyraTopHazeWithHoles(
                                     height: topInset +
                                         60.0, // FULL header height (safe area + bar)
-                                    blurSigma: 1.0, // Micro-blur (subtle haze)
-                                    featherHeight: 40.0, // Smooth fade out
-                                    scrimTopAlpha: 0.45, // Top dimming
-                                    scrimMidAlpha: 0.25, // Mid dimming
-                                    scrimMidStop: 0.52, // Transition point
-                                    whiteLiftAlpha: 0.03, // Subtle fog lift
+                                    blurSigma: 12.0, // Claude-style blur (content visible but soft)
+                                    featherHeight: 50.0, // Smooth fade out
+                                    scrimTopAlpha: 0.08, // Very subtle darkening (Claude has almost none)
+                                    scrimMidAlpha: 0.02, // Almost transparent
+                                    scrimMidStop: 0.50, // Transition point
+                                    whiteLiftAlpha: 0.0, // No white lift (causes muddy look on dark bg)
                                     // Button hole positions
                                     leftButtonCenterX:
                                         36.0, // 16 padding + 20 radius
