@@ -10,59 +10,69 @@ import Flutter
 /// This gives Claude-like blur quality with no hard cutoff line.
 /// ═══════════════════════════════════════════════════════════════
 
-final class SyraNativeBlurView: NSObject, FlutterPlatformView {
-    private let containerView: UIView
-    private let blurView: UIVisualEffectView
-    private let gradientMask: CAGradientLayer
+// MARK: - Custom container view that handles layout
+private class BlurContainerView: UIView {
+    let blurView: UIVisualEffectView
+    let gradientMask: CAGradientLayer
     
-    init(frame: CGRect, viewId: Int64, args: Any?) {
-        // Container to hold blur + apply mask
-        containerView = UIView(frame: frame)
-        containerView.backgroundColor = .clear
-        containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        
-        // Native iOS blur - systemUltraThinMaterialDark for subtle glass effect
-        let effect = UIBlurEffect(style: .systemUltraThinMaterialDark)
+    override init(frame: CGRect) {
+        // Native iOS blur - systemMaterialDark for more visible blur effect
+        // Options: .systemUltraThinMaterialDark (subtle), .systemThinMaterialDark, .systemMaterialDark (stronger)
+        let effect = UIBlurEffect(style: .systemThinMaterialDark)
         blurView = UIVisualEffectView(effect: effect)
-        blurView.frame = containerView.bounds
-        blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
         // Gradient mask for fade-out at bottom
         // Black = visible, Clear = invisible
         gradientMask = CAGradientLayer()
-        gradientMask.frame = containerView.bounds
         gradientMask.colors = [
             UIColor.black.cgColor,      // Top: fully visible
-            UIColor.black.cgColor,      // Keep solid until fade starts
+            UIColor.black.cgColor,      // Keep solid for most of the height
             UIColor.clear.cgColor       // Bottom: fade to invisible
         ]
-        // Fade starts at ~60% from top, ends at bottom
-        // Adjust these values to control fade position
-        gradientMask.locations = [0.0, 0.55, 1.0]
+        // Fade only in the last 30% - keeps blur visible longer
+        gradientMask.locations = [0.0, 0.70, 1.0]
         gradientMask.startPoint = CGPoint(x: 0.5, y: 0.0)
         gradientMask.endPoint = CGPoint(x: 0.5, y: 1.0)
         
-        super.init()
+        super.init(frame: frame)
         
-        containerView.addSubview(blurView)
-        containerView.layer.mask = gradientMask
+        backgroundColor = .clear
+        clipsToBounds = true
+        
+        blurView.frame = bounds
+        blurView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        addSubview(blurView)
+        
+        gradientMask.frame = bounds
+        layer.mask = gradientMask
+    }
+    
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        // Update gradient mask frame when bounds change
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        gradientMask.frame = bounds
+        blurView.frame = bounds
+        CATransaction.commit()
+    }
+}
+
+// MARK: - Flutter Platform View
+final class SyraNativeBlurView: NSObject, FlutterPlatformView {
+    private let containerView: BlurContainerView
+    
+    init(frame: CGRect, viewId: Int64, args: Any?) {
+        containerView = BlurContainerView(frame: frame)
+        containerView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        super.init()
     }
     
     func view() -> UIView {
         containerView
-    }
-    
-    /// Update mask frame when view resizes
-    func updateMaskFrame() {
-        gradientMask.frame = containerView.bounds
-    }
-}
-
-// MARK: - Layout update handling
-extension SyraNativeBlurView {
-    /// Called when the view's bounds change
-    func viewDidLayoutSubviews() {
-        gradientMask.frame = containerView.bounds
-        blurView.frame = containerView.bounds
     }
 }

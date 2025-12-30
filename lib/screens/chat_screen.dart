@@ -1655,14 +1655,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   child: SyraBackground(),
                                 ),
 
-                                // Layer 2: Background overlay - same color always to prevent flash
-                                Positioned.fill(
-                                  child: Container(
-                                    color: SyraTokens.background,
-                                  ),
-                                ),
-
-                                // Layer 3: ChatMessageList (full screen with top padding)
+                                // Layer 2: ChatMessageList (full screen with top padding)
                                 Positioned.fill(
                                   top: 0,
                                   child: ChatMessageList(
@@ -1788,7 +1781,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   right: 0,
                                   child: SyraTopHazeWithHoles(
                                     height: topInset +
-                                        60.0, // FULL header height (safe area + bar)
+                                        90.0, // Extended height for more blur coverage + fade area
                                     blurSigma: 12.0, // Claude-style blur (content visible but soft)
                                     featherHeight: 50.0, // Smooth fade out
                                     scrimTopAlpha: 0.08, // Very subtle darkening (Claude has almost none)
