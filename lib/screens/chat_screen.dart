@@ -29,6 +29,7 @@ import '../widgets/syra_top_haze.dart';
 import '../widgets/syra_top_haze_with_holes.dart';
 import '../widgets/syra_bottom_haze.dart';
 import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
+import '../widgets/attachment_options_sheet.dart'; // NEW: Modern attachment picker
 
 import 'premium_screen.dart';
 import 'settings/settings_modal_sheet.dart';
@@ -923,37 +924,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  /// Handle attachment menu - resim gönderme özelliği
+  /// Handle attachment menu - Modern ChatGPT/Claude-style picker
   void _handleAttachment() {
-    SyraBottomPanel.show(
+    showModalBottomSheet(
       context: context,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.image, color: SyraTokens.textPrimary),
-            title: const Text(
-              'Fotoğraf Seç',
-              style: TextStyle(color: SyraTokens.textPrimary),
-            ),
-            onTap: () async {
-              Navigator.pop(context);
-              await _pickImageForPreview(ImageSource.gallery);
-            },
-          ),
-          ListTile(
-            leading:
-                const Icon(Icons.camera_alt, color: SyraTokens.textPrimary),
-            title: const Text(
-              'Kamera',
-              style: TextStyle(color: SyraTokens.textPrimary),
-            ),
-            onTap: () async {
-              Navigator.pop(context);
-              await _pickImageForPreview(ImageSource.camera);
-            },
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.40),
+      isScrollControlled: true,
+      builder: (context) => AttachmentOptionsSheet(
+        onImageSelected: (File imageFile) async {
+          // Seçilen resmi preview'e ekle ve upload et
+          setState(() {
+            _pendingImage = imageFile;
+            _pendingImageUrl = null; // Henüz upload edilmedi
+          });
+          // Arka planda Firebase'e upload et
+          _uploadPendingImage();
+        },
+        onFileTap: () {
+          // İleride dosya yükleme özelliği için
+          BlurToast.show(context, "Dosya yükleme yakında eklenecek");
+        },
       ),
     );
   }

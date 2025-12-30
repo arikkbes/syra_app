@@ -3,7 +3,9 @@
 <plist version="1.0">
 <dict>
 
-	<!-- App Base Config -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- APP BASE CONFIG -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -27,13 +29,17 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 
-	<!-- Launch -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- LAUNCH -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 
-	<!-- Orientation -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- ORIENTATION -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -48,23 +54,27 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 
-	<!-- System Performance -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- SYSTEM PERFORMANCE -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 
-	<!-- 🔥 REQUIRED APP PERMISSIONS (SYRA) -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- REQUIRED APP PERMISSIONS (SYRA) -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 
 	<!-- Kamera -->
 	<key>NSCameraUsageDescription</key>
 	<string>SYRA, fotoğraf çekebilmeniz için kamera erişimi ister.</string>
 
-	<!-- Fotoğraf Galerisi -->
+	<!-- Fotoğraf Galerisi (Okuma) -->
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>SYRA, galeriden fotoğraf seçebilmeniz için erişim ister.</string>
 
-	<!-- Fotoğraf Ekleme (bazı sürümlerde zorunlu) -->
+	<!-- Fotoğraf Ekleme (Yazma - bazı sürümlerde zorunlu) -->
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>SYRA, fotoğraf kaydedebilmek için izninize ihtiyaç duyar.</string>
 
@@ -72,9 +82,32 @@
 	<key>NSMicrophoneUsageDescription</key>
 	<string>SYRA, sesinizi metne dönüştürebilmek için mikrofon erişimi ister.</string>
 
-	<!-- Speech-to-Text -->
+	<!-- Speech-to-Text (Konuşma Tanıma) -->
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>SYRA, konuşmalarınızı metne dönüştürmek için konuşma tanıma erişimine ihtiyaç duyar.</string>
+
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- APP TRANSPORT SECURITY -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- Firebase ve HTTPS için güvenlik ayarları -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- BACKGROUND MODES (Opsiyonel - Eğer background audio kullanıyorsanız) -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- Uncomment if needed:
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>fetch</string>
+	</array>
+	-->
 
 </dict>
 </plist>

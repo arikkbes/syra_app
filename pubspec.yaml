@@ -52,6 +52,9 @@ dependencies:
 
   # 📸 Image picker
   image_picker: ^1.0.8
+  
+  # 📷 Photo manager for gallery access
+  photo_manager: ^3.5.1
 
   # 📝 Markdown rendering
   flutter_markdown_plus: 1.0.6

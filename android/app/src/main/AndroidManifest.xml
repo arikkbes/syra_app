@@ -1,32 +1,50 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ===== SYRA REQUIRED PERMISSIONS ===== -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- SYRA REQUIRED PERMISSIONS -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
 
-    <!-- Kamera -->
-    <uses-permission android:name="android.permission.CAMERA" />
+	<!-- Internet & Network -->
+	<uses-permission android:name="android.permission.INTERNET" />
+	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- Galeri / Fotoğraflar -->
-    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28" />
-    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+	<!-- Kamera -->
+	<uses-permission android:name="android.permission.CAMERA" />
+	<uses-feature android:name="android.hardware.camera" android:required="false" />
+	<uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
 
-    <!-- Mikrofon -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+	<!-- Galeri / Fotoğraflar -->
+	<!-- Android 13+ (API 33+) -->
+	<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+	<uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
 
-    <!-- Speech-to-text & API iletişimi -->
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+	<!-- Android 14+ (API 34+) - Partial access -->
+	<uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
+	<!-- Android 12 ve altı (API 32-) -->
+	<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="32" />
+	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+                     android:maxSdkVersion="29" />
 
-    <!-- ===== APPLICATION ===== -->
-    <application
+	<!-- Mikrofon (Sesli giriş için) -->
+	<uses-permission android:name="android.permission.RECORD_AUDIO" />
+	<uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+
+	<!-- Vibration (Haptic feedback için - opsiyonel) -->
+	<uses-permission android:name="android.permission.VIBRATE" />
+
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- APPLICATION -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<application
         android:label="syra"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="false"
+        android:requestLegacyExternalStorage="true">
 
-        <activity
+		<activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
@@ -35,26 +53,49 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <meta-data
+
+			<meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme"
             />
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
-        </activity>
 
-        <meta-data
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN"/>
+				<category android:name="android.intent.category.LAUNCHER"/>
+			</intent-filter>
+		</activity>
+
+		<!-- Flutter Embedding -->
+		<meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-    </application>
+	</application>
 
-    <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-    </queries>
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<!-- QUERIES (Android 11+ için gerekli) -->
+	<!-- ═══════════════════════════════════════════════════════════════ -->
+	<queries>
+		<!-- Text processing intent -->
+		<intent>
+			<action android:name="android.intent.action.PROCESS_TEXT"/>
+			<data android:mimeType="text/plain"/>
+		</intent>
+
+		<!-- File picker intent -->
+		<intent>
+			<action android:name="android.intent.action.GET_CONTENT" />
+		</intent>
+
+		<!-- Camera intent -->
+		<intent>
+			<action android:name="android.media.action.IMAGE_CAPTURE" />
+		</intent>
+
+		<!-- Gallery intent -->
+		<intent>
+			<action android:name="android.intent.action.PICK" />
+			<data android:mimeType="image/*" />
+		</intent>
+	</queries>
 
 </manifest>
