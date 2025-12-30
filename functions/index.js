@@ -7,7 +7,7 @@
 
 import { onRequest } from "firebase-functions/v2/https";
 import { syraChatHandler } from "./src/http/syraChatHandler.js";
-import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisHandler.js";
+import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisHandlerV2.js";
 import { tarotReadingHandler } from "./src/http/tarotReadingHandler.js";
 import { relationshipStatsHandler } from "./src/http/relationshipStatsHandler.js";
 

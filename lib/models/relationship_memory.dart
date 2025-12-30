@@ -1,66 +1,129 @@
 /// ═══════════════════════════════════════════════════════════════
-/// RELATIONSHIP MEMORY MODEL
+/// RELATIONSHIP MEMORY MODEL V2
 /// ═══════════════════════════════════════════════════════════════
 /// Model for stored relationship memory data
+/// Updated for new chunked pipeline architecture
 /// ═══════════════════════════════════════════════════════════════
 library;
 
 class RelationshipMemory {
+  final String? id;
+  final List<String> speakers;
   final int? totalMessages;
+  final int? totalChunks;
   final String? startDate;
   final String? endDate;
   final String? shortSummary;
-  final List<dynamic>? energyTimeline;
-  final List<dynamic>? keyMoments;
-  final Map<String, dynamic>? stats;
-  final String? lastUploadAt;
-  final String? source;
-  final String? lastAnalysisId;
+  final Map<String, dynamic>? personalities;
+  final Map<String, dynamic>? dynamics;
+  final Map<String, dynamic>? patterns;
+  final String? createdAt;
+  final String? updatedAt;
   final bool isActive;
 
   RelationshipMemory({
+    this.id,
+    this.speakers = const [],
     this.totalMessages,
+    this.totalChunks,
     this.startDate,
     this.endDate,
     this.shortSummary,
-    this.energyTimeline,
-    this.keyMoments,
-    this.stats,
-    this.lastUploadAt,
-    this.source,
-    this.lastAnalysisId,
+    this.personalities,
+    this.dynamics,
+    this.patterns,
+    this.createdAt,
+    this.updatedAt,
     this.isActive = true,
   });
 
-  factory RelationshipMemory.fromFirestore(Map<String, dynamic> data) {
+  /// Parse from new V2 Firestore structure
+  /// Path: relationships/{uid}/relations/{relationshipId}
+  factory RelationshipMemory.fromFirestore(Map<String, dynamic> data, {String? docId}) {
+    // Extract masterSummary fields
+    final masterSummary = data['masterSummary'] as Map<String, dynamic>? ?? {};
+    final dateRange = data['dateRange'] as Map<String, dynamic>? ?? {};
+    
+    return RelationshipMemory(
+      id: docId ?? data['id'] as String?,
+      speakers: (data['speakers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      totalMessages: data['totalMessages'] as int?,
+      totalChunks: data['totalChunks'] as int?,
+      startDate: dateRange['start'] as String?,
+      endDate: dateRange['end'] as String?,
+      shortSummary: masterSummary['shortSummary'] as String?,
+      personalities: masterSummary['personalities'] as Map<String, dynamic>?,
+      dynamics: masterSummary['dynamics'] as Map<String, dynamic>?,
+      patterns: masterSummary['patterns'] as Map<String, dynamic>?,
+      createdAt: _parseTimestamp(data['createdAt']),
+      updatedAt: _parseTimestamp(data['updatedAt']),
+      isActive: data['isActive'] ?? true,
+    );
+  }
+
+  /// Legacy parser for old format (backward compatibility)
+  factory RelationshipMemory.fromLegacy(Map<String, dynamic> data) {
     return RelationshipMemory(
       totalMessages: data['totalMessages'] as int?,
       startDate: data['startDate'] as String?,
       endDate: data['endDate'] as String?,
       shortSummary: data['shortSummary'] as String?,
-      energyTimeline: data['energyTimeline'] as List<dynamic>?,
-      keyMoments: data['keyMoments'] as List<dynamic>?,
-      stats: data['stats'] as Map<String, dynamic>?,
-      lastUploadAt: data['lastUploadAt'] as String?,
-      source: data['source'] as String?,
-      lastAnalysisId: data['lastAnalysisId'] as String?,
-      isActive: data['isActive'] ?? true, // Default to true if missing
+      isActive: data['isActive'] ?? true,
     );
+  }
+
+  static String? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is String) return value;
+    // Firestore Timestamp
+    if (value is Map && value['_seconds'] != null) {
+      return DateTime.fromMillisecondsSinceEpoch(
+        (value['_seconds'] as int) * 1000,
+      ).toIso8601String();
+    }
+    return null;
   }
 
   Map<String, dynamic> toMap() {
     return {
+      if (id != null) 'id': id,
+      'speakers': speakers,
       if (totalMessages != null) 'totalMessages': totalMessages,
-      if (startDate != null) 'startDate': startDate,
-      if (endDate != null) 'endDate': endDate,
-      if (shortSummary != null) 'shortSummary': shortSummary,
-      if (energyTimeline != null) 'energyTimeline': energyTimeline,
-      if (keyMoments != null) 'keyMoments': keyMoments,
-      if (stats != null) 'stats': stats,
-      if (lastUploadAt != null) 'lastUploadAt': lastUploadAt,
-      if (source != null) 'source': source,
-      if (lastAnalysisId != null) 'lastAnalysisId': lastAnalysisId,
+      if (totalChunks != null) 'totalChunks': totalChunks,
+      if (startDate != null || endDate != null) 'dateRange': {
+        if (startDate != null) 'start': startDate,
+        if (endDate != null) 'end': endDate,
+      },
+      'masterSummary': {
+        if (shortSummary != null) 'shortSummary': shortSummary,
+        if (personalities != null) 'personalities': personalities,
+        if (dynamics != null) 'dynamics': dynamics,
+        if (patterns != null) 'patterns': patterns,
+      },
       'isActive': isActive,
     };
+  }
+
+  /// Get formatted date range for display
+  String get dateRangeFormatted {
+    if (startDate == null && endDate == null) return '';
+    
+    String formatDate(String? isoDate) {
+      if (isoDate == null) return '?';
+      try {
+        final date = DateTime.parse(isoDate);
+        return '${date.day}.${date.month}.${date.year}';
+      } catch (e) {
+        return isoDate;
+      }
+    }
+    
+    return '${formatDate(startDate)} — ${formatDate(endDate)}';
+  }
+
+  /// Get speaker names as display string
+  String get speakersFormatted {
+    if (speakers.isEmpty) return 'Bilinmiyor';
+    return speakers.join(' & ');
   }
 }

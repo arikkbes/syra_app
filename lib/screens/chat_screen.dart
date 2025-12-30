@@ -93,6 +93,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   String? _currentSessionId; // CRITICAL FIX - Bu eksikti!
 
   bool _isTarotMode = false;
+  bool _isPrivateMode = false; // NEW: Gizli sohbet modu
 
   String _selectedMode = "standard";
   bool _isModeSelectorOpen = false;
@@ -643,6 +644,24 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Toggle private chat mode - messages won't be saved
+  void _togglePrivateChat() {
+    HapticFeedback.mediumImpact();
+    setState(() {
+      if (_isPrivateMode) {
+        // Exit private mode - start fresh normal chat
+        _isPrivateMode = false;
+        _messages.clear();
+        _currentSessionId = null;
+      } else {
+        // Enter private mode
+        _isPrivateMode = true;
+        _messages.clear();
+        _currentSessionId = null;
+      }
+    });
+  }
+
   /// Start tarot mode - Navigate to dedicated tarot screen
   void _startTarotMode() {
     Navigator.push(
@@ -801,21 +820,27 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Open analysis screen with stored memory data
   void _openAnalysisFromMemory(RelationshipMemory memory) {
-    // Convert memory to analysis result format
+    // Convert memory to analysis result format (V2)
     final analysisResult = RelationshipAnalysisResult(
+      relationshipId: memory.id,
       totalMessages: memory.totalMessages ?? 0,
-      startDate: memory.startDate != null
-          ? DateTime.tryParse(memory.startDate!)
-          : null,
-      endDate:
-          memory.endDate != null ? DateTime.tryParse(memory.endDate!) : null,
+      totalChunks: memory.totalChunks ?? 0,
+      speakers: memory.speakers,
       shortSummary: memory.shortSummary ?? '',
-      energyTimeline: (memory.energyTimeline ?? [])
-          .map((e) => EnergyPoint.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      keyMoments: (memory.keyMoments ?? [])
-          .map((e) => KeyMoment.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      personalities: memory.personalities != null
+          ? (memory.personalities! as Map<String, dynamic>).map(
+              (key, value) => MapEntry(
+                key,
+                PersonalityProfile.fromJson(value as Map<String, dynamic>),
+              ),
+            )
+          : null,
+      dynamics: memory.dynamics != null
+          ? RelationshipDynamics.fromJson(memory.dynamics! as Map<String, dynamic>)
+          : null,
+      patterns: memory.patterns != null
+          ? RelationshipPatterns.fromJson(memory.patterns! as Map<String, dynamic>)
+          : null,
     );
 
     Navigator.push(
@@ -868,8 +893,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Show confirmation
       BlurToast.show(context, "✅ Sohbetin alındı, analiz hazır!");
 
-      // Navigate to analysis screen
-      Navigator.push(
+      // Navigate to analysis screen and refresh panel when returning
+      await Navigator.push(
         context,
         CupertinoPageRoute(
           builder: (_) => RelationshipAnalysisResultScreen(
@@ -877,6 +902,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           ),
         ),
       );
+      
+      // Refresh panel after returning from analysis screen
+      if (mounted) {
+        setState(() {});
+      }
     } catch (e) {
       debugPrint('_pickAndUploadRelationshipFile error: $e');
 
@@ -1678,6 +1708,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                   child: ChatMessageList(
                                     isEmpty: _messages.isEmpty,
                                     isTarotMode: _isTarotMode,
+                                    isPrivateMode: _isPrivateMode,
                                     headerHeight:
                                         topInset + ChatAppBar.baseHeight,
                                     bottomOverlayHeight: _inputBarHeight,
@@ -1779,6 +1810,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       onGalleryTap: () => _pickImageForPreview(
                                           ImageSource.gallery),
                                       onModeTap: _handleModeSelection,
+                                      onRelationshipTap: _handleDocumentUpload,
                                       currentMode: _getModeDisplayName(),
                                       chatBackgroundKey: _chatBackgroundKey,
                                     ),
@@ -1825,7 +1857,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                     modeAnchorLink: _modeAnchorLink,
                                     onMenuTap: _toggleSidebar,
                                     onModeTap: _handleModeSelection,
-                                    onDocumentUpload: _handleDocumentUpload,
+                                    onPrivateChatTap: _togglePrivateChat,
+                                    isPrivateMode: _isPrivateMode,
                                     isModeSelectorOpen: _isModeSelectorOpen,
                                     topPadding: topInset,
                                   ),
@@ -2162,175 +2195,218 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
   Widget build(BuildContext context) {
     final mem = widget.memory;
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      SyraTokens.accent.withValues(alpha: 0.2),
-                      SyraTokens.accent.withValues(alpha: 0.2),
+                      SyraTokens.accent.withValues(alpha: 0.15),
+                      SyraTokens.accent.withValues(alpha: 0.08),
                     ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: SyraTokens.accent.withValues(alpha: 0.2),
+                    width: 1,
+                  ),
                 ),
                 child: const Icon(
-                  Icons.favorite_border,
+                  Icons.favorite_outline_rounded,
                   color: SyraTokens.accent,
-                  size: 24,
+                  size: 22,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 14),
               const Expanded(
                 child: Text(
                   'Kayıtlı İlişki',
                   style: TextStyle(
                     color: SyraTokens.textPrimary,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: -0.3,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+          
+          // Summary
           Text(
             mem.shortSummary ?? 'Özet mevcut değil',
             style: TextStyle(
-              color: SyraTokens.textSecondary.withValues(alpha: 0.9),
-              fontSize: 14,
+              color: SyraTokens.textSecondary,
+              fontSize: 15,
               height: 1.5,
             ),
-            maxLines: 2,
+            maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
-          if (mem.startDate != null && mem.endDate != null)
-            Text(
-              '${_formatDate(mem.startDate!)} — ${_formatDate(mem.endDate!)}',
-              style: TextStyle(
-                color: SyraTokens.textSecondary.withValues(alpha: 0.7),
-                fontSize: 12,
+          
+          // Date range & speakers
+          if (mem.speakers.isNotEmpty || mem.dateRangeFormatted.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            if (mem.speakers.isNotEmpty)
+              Text(
+                mem.speakersFormatted,
+                style: TextStyle(
+                  color: SyraTokens.accent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
-            ),
+            if (mem.dateRangeFormatted.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                mem.dateRangeFormatted,
+                style: TextStyle(
+                  color: SyraTokens.textMuted,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ],
+          
           const SizedBox(height: 20),
-          const Divider(color: SyraTokens.border, height: 1),
-          const SizedBox(height: 16),
+          
+          // Toggle switch card
           Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: SyraTokens.background.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(12),
-              border:
-                  Border.all(color: SyraTokens.border.withValues(alpha: 0.3)),
-            ),
-            child: SwitchListTile(
-              title: const Text(
-                'Chat\'te kullan',
-                style: TextStyle(
-                  color: SyraTokens.textPrimary,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
-                ),
+              color: SyraTokens.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: SyraTokens.border.withValues(alpha: 0.5),
+                width: 0.5,
               ),
-              subtitle: Text(
-                _isActive
-                    ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
-                    : 'Veri saklanır ama chat\'te referans alınmaz',
-                style: TextStyle(
-                  color: SyraTokens.textSecondary.withValues(alpha: 0.8),
-                  fontSize: 12,
-                ),
-              ),
-              value: _isActive,
-              onChanged: _isUpdating ? null : _handleToggle,
-              activeThumbColor: SyraTokens.accent,
             ),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: widget.onViewAnalysis,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [SyraTokens.accent, SyraTokens.accent],
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Chat\'te kullan',
+                        style: TextStyle(
+                          color: SyraTokens.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.analytics_outlined,
-                            color: Colors.white, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Detaylı Analiz',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır',
+                        style: TextStyle(
+                          color: SyraTokens.textMuted,
+                          fontSize: 12,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: widget.onUpload,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: SyraTokens.background.withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: SyraTokens.border),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.refresh,
-                            color: SyraTokens.textSecondary, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Sohbeti Güncelle',
-                          style: TextStyle(
-                            color: SyraTokens.textSecondary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
+                const SizedBox(width: 12),
+                Transform.scale(
+                  scale: 0.85,
+                  child: Switch.adaptive(
+                    value: _isActive,
+                    onChanged: _isUpdating ? null : _handleToggle,
+                    activeColor: SyraTokens.accent,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
+          
+          const SizedBox(height: 20),
+          
+          // Primary button - Detaylı Analiz
+          _TapScale(
+            onTap: widget.onViewAnalysis,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: SyraTokens.accent,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.insights_rounded, color: Colors.white, size: 20),
+                  SizedBox(width: 10),
+                  Text(
+                    'Detaylı Analiz',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 10),
+          
+          // Secondary button - Sohbeti Güncelle
+          _TapScale(
+            onTap: widget.onUpload,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              decoration: BoxDecoration(
+                color: SyraTokens.surface,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: SyraTokens.border.withValues(alpha: 0.5),
+                  width: 0.5,
+                ),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.sync_rounded, color: SyraTokens.textSecondary, size: 20),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Sohbeti Güncelle',
+                    style: TextStyle(
+                      color: SyraTokens.textSecondary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
           const SizedBox(height: 16),
+          
+          // Delete button
           Center(
             child: TextButton(
               onPressed: _isUpdating ? null : _handleDelete,
               child: Text(
                 'Bu ilişkiyi unut',
                 style: TextStyle(
-                  color: Colors.red.withValues(alpha: 0.8),
-                  fontSize: 13,
+                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.8),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ),

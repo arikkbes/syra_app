@@ -7,12 +7,14 @@ import '../../widgets/syra_message_bubble.dart';
 ///
 /// Displays:
 /// - Empty state with suggestions when no messages
+/// - Private chat empty state
 /// - Scrollable message list with typing indicator
 /// - Swipe-to-reply gestures
 class ChatMessageList extends StatelessWidget {
   // Empty state props
   final bool isEmpty;
   final bool isTarotMode;
+  final bool isPrivateMode; // NEW: Private chat mode
   final Function(String) onSuggestionTap;
 
   // Message list props
@@ -37,6 +39,7 @@ class ChatMessageList extends StatelessWidget {
     super.key,
     required this.isEmpty,
     required this.isTarotMode,
+    this.isPrivateMode = false, // NEW
     required this.onSuggestionTap,
     required this.messages,
     required this.scrollController,
@@ -55,9 +58,70 @@ class ChatMessageList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (isEmpty) {
+      if (isPrivateMode) {
+        return _buildPrivateEmptyState();
+      }
       return _buildEmptyState();
     }
     return _buildMessageList();
+  }
+
+  /// Private chat empty state - minimal text only
+  Widget _buildPrivateEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Lock icon
+            Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: SyraColors.accent.withValues(alpha: 0.1),
+                border: Border.all(
+                  color: SyraColors.accent.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                Icons.lock_outline_rounded,
+                color: SyraColors.accent.withValues(alpha: 0.6),
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 20),
+            
+            // Title
+            Text(
+              'Gizli Sohbet',
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: SyraColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            
+            // Description
+            Text(
+              'Bu sohbet kaydedilmeyecek ve\ncihazında saklanmayacak.',
+              style: TextStyle(
+                fontFamily: 'Geist',
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                color: SyraColors.textMuted,
+                height: 1.5,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Empty state with centered logo

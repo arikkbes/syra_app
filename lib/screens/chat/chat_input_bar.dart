@@ -33,8 +33,9 @@ class ChatInputBar extends StatefulWidget {
   final VoidCallback? onCameraTap;
   final VoidCallback? onGalleryTap;
   final VoidCallback? onModeTap;
+  final VoidCallback? onRelationshipTap; // NEW: Relationship analysis
   final String? currentMode;
-  final GlobalKey? chatBackgroundKey; // Unused - kept for API compatibility
+  final GlobalKey? chatBackgroundKey;
 
   const ChatInputBar({
     super.key,
@@ -55,6 +56,7 @@ class ChatInputBar extends StatefulWidget {
     this.onCameraTap,
     this.onGalleryTap,
     this.onModeTap,
+    this.onRelationshipTap, // NEW
     this.currentMode,
     this.chatBackgroundKey,
   });
@@ -203,10 +205,10 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     onTap: widget.onAttachmentTap,
                   ),
                   const SizedBox(width: 4),
-                  // Logo icon (disabled)
+                  // Logo icon - opens relationship analysis
                   _buildIconButton(
                     iconPath: 'assets/icons/logo.svg',
-                    onTap: () {}, // Disabled for now
+                    onTap: widget.onRelationshipTap ?? () {},
                   ),
                   const Spacer(),
                   // Mic veya Send - sağ

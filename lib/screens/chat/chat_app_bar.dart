@@ -24,7 +24,8 @@ class ChatAppBar extends StatelessWidget {
   final LayerLink modeAnchorLink;
   final VoidCallback onMenuTap;
   final VoidCallback onModeTap;
-  final VoidCallback onDocumentUpload;
+  final VoidCallback onPrivateChatTap;
+  final bool isPrivateMode;
   final bool isModeSelectorOpen;
   final double topPadding;
 
@@ -34,7 +35,8 @@ class ChatAppBar extends StatelessWidget {
     required this.modeAnchorLink,
     required this.onMenuTap,
     required this.onModeTap,
-    required this.onDocumentUpload,
+    required this.onPrivateChatTap,
+    this.isPrivateMode = false,
     this.isModeSelectorOpen = false,
     this.topPadding = 0,
   });
@@ -69,10 +71,10 @@ class ChatAppBar extends StatelessWidget {
             ),
           ),
 
-          // Right: Profile button - using ChatInputBar glass recipe
+          // Right: Private chat button (toggles lock icon)
           _GlassIconButton(
-            icon: Icons.person_outline_rounded,
-            onTap: onDocumentUpload,
+            icon: isPrivateMode ? Icons.lock_rounded : Icons.lock_open_rounded,
+            onTap: onPrivateChatTap,
           ),
         ],
       ),

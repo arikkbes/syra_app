@@ -5,9 +5,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/relationship_analysis_result.dart';
 
 /// ═══════════════════════════════════════════════════════════════
-/// RELATIONSHIP ANALYSIS SERVICE
+/// RELATIONSHIP ANALYSIS SERVICE V2
 /// ═══════════════════════════════════════════════════════════════
 /// Handles uploading WhatsApp chats and receiving analysis results
+/// Updated for new chunked pipeline architecture
 /// ═══════════════════════════════════════════════════════════════
 
 class RelationshipAnalysisService {
@@ -16,7 +17,8 @@ class RelationshipAnalysisService {
       'https://us-central1-syra-ai-b562f.cloudfunctions.net/analyzeRelationshipChat';
 
   /// Upload a WhatsApp chat file and get analysis result
-  static Future<RelationshipAnalysisResult> analyzeChat(File file) async {
+  /// Returns RelationshipAnalysisResult with relationshipId for future reference
+  static Future<RelationshipAnalysisResult> analyzeChat(File file, {String? existingRelationshipId}) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -41,17 +43,30 @@ class RelationshipAnalysisService {
       );
       request.files.add(multipartFile);
 
-      // Add userId
+      // Add fields
       request.fields['userId'] = user.uid;
+      
+      // If updating existing relationship
+      if (existingRelationshipId != null) {
+        request.fields['relationshipId'] = existingRelationshipId;
+      }
 
-      // Send request
-      final streamedResponse = await request.send();
+      // Send request with timeout
+      final streamedResponse = await request.send().timeout(
+        const Duration(minutes: 5),
+        onTimeout: () {
+          throw Exception('İstek zaman aşımına uğradı. Lütfen tekrar deneyin.');
+        },
+      );
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode != 200) {
-        final errorBody = json.decode(response.body);
+        Map<String, dynamic>? errorBody;
+        try {
+          errorBody = json.decode(response.body);
+        } catch (_) {}
         throw Exception(
-          errorBody['message'] ?? 'Analiz sırasında bir hata oluştu',
+          errorBody?['message'] ?? 'Analiz sırasında bir hata oluştu (${response.statusCode})',
         );
       }
 
@@ -64,10 +79,25 @@ class RelationshipAnalysisService {
         );
       }
 
-      final analysisData = responseData['analysis'];
-      return RelationshipAnalysisResult.fromJson(analysisData);
+      // New V2 response format:
+      // {
+      //   success: true,
+      //   relationshipId: "xxx",
+      //   summary: { masterSummary object },
+      //   stats: { totalMessages, totalChunks, speakers }
+      // }
+      
+      final relationshipId = responseData['relationshipId'] as String?;
+      final summary = responseData['summary'] as Map<String, dynamic>? ?? {};
+      final stats = responseData['stats'] as Map<String, dynamic>? ?? {};
+      
+      return RelationshipAnalysisResult.fromV2Response(
+        relationshipId: relationshipId,
+        summary: summary,
+        stats: stats,
+      );
     } catch (e) {
-      throw Exception('Analiz hatası: ${e.toString()}');
+      throw Exception('Analiz hatası: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 }
