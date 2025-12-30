@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
@@ -620,10 +621,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _archiveSessionFromSidebar(ChatSession session) {
-    // NOTE: Archive is currently a placeholder in the app.
-    // We still expose the UI for the sidebar context menu.
-    BlurToast.show(context, 'Arşiv özelliği yakında');
+  void _archiveSessionFromSidebar(ChatSession session) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      // Update session in Firestore to mark as archived
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('chat_sessions')
+          .doc(session.id)
+          .update({'isArchived': true, 'archivedAt': FieldValue.serverTimestamp()});
+      
+      // Remove from local list
+      setState(() {
+        _chatSessions.removeWhere((s) => s.id == session.id);
+      });
+    } catch (e) {
+      debugPrint('Arşivleme hatası: $e');
+    }
   }
 
   /// Start tarot mode - Navigate to dedicated tarot screen
