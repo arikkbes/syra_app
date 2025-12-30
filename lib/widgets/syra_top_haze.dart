@@ -10,10 +10,16 @@ import 'package:flutter/material.dart';
 /// - Micro-blur (BackdropFilter with small sigma)
 /// - Soft dimming scrim (vertical gradient)
 /// - Feather fade at bottom edge (no hard line)
-/// - Tiny white lift for fog appearance
 ///
-/// This creates the characteristic Claude/Sonnet "slightly foggy"
-/// header that fades smoothly into content.
+/// ARCHITECTURE (v2 - Fixed hard edge):
+/// The blur itself is faded out using ShaderMask(dstIn) on the
+/// BackdropFilter result. This eliminates the hard cutoff line
+/// that occurred when only the scrim was faded.
+///
+/// Layer stack:
+/// 1. ClipRect + BackdropFilter with tiny-alpha child (makes blur paint)
+/// 2. ShaderMask(dstIn) wrapping the blur → fades blur intensity
+/// 3. Scrim gradient layer (separate, also faded)
 /// ═══════════════════════════════════════════════════════════════
 
 class SyraTopHaze extends StatelessWidget {
@@ -37,6 +43,7 @@ class SyraTopHaze extends StatelessWidget {
   final double scrimMidStop;
 
   /// Subtle white lift for fog appearance (recommended: 0.02-0.04)
+  /// NOTE: Set to 0 or very low to avoid "muddy" gray plate look
   final double whiteLiftAlpha;
 
   const SyraTopHaze({
@@ -52,95 +59,149 @@ class SyraTopHaze extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Calculate feather fade start position (0.0 = top, 1.0 = bottom)
+    final featherStart = ((height - featherHeight) / height).clamp(0.0, 1.0);
+
     return IgnorePointer(
       child: SizedBox(
         height: height,
-        child: blurSigma > 0
-            ? ClipRect(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(
-                    sigmaX: blurSigma,
-                    sigmaY: blurSigma,
-                    tileMode: TileMode.clamp,
+        child: Stack(
+          children: [
+            // ─────────────────────────────────────────────────────────
+            // LAYER 1: Blur layer with feather fade
+            // The blur itself is faded via ShaderMask(dstIn) so there's
+            // no hard edge where the BackdropFilter clip ends.
+            // ─────────────────────────────────────────────────────────
+            if (blurSigma > 0)
+              Positioned.fill(
+                child: ShaderMask(
+                  shaderCallback: (Rect bounds) {
+                    return LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: const [
+                        Colors.white, // Full blur at top
+                        Colors.white, // Full blur until feather starts
+                        Colors.transparent, // Fade blur to zero at bottom
+                      ],
+                      stops: [
+                        0.0,
+                        featherStart,
+                        1.0,
+                      ],
+                    ).createShader(bounds);
+                  },
+                  blendMode: BlendMode.dstIn,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(
+                        sigmaX: blurSigma,
+                        sigmaY: blurSigma,
+                        tileMode: TileMode.clamp,
+                      ),
+                      // Tiny-alpha container to make BackdropFilter paint
+                      // Without this, the blur may not render on some devices
+                      child: Container(
+                        color: Colors.white.withOpacity(0.001),
+                      ),
+                    ),
                   ),
-                  child: _buildScrimWithFeather(),
                 ),
-              )
-            : _buildScrimWithFeather(), // No blur wrapper when sigma is 0
+              ),
+
+            // ─────────────────────────────────────────────────────────
+            // LAYER 2: Scrim gradient (dimming) with feather fade
+            // Separate from blur so we can control tint independently.
+            // Also faded with ShaderMask to match blur fade.
+            // ─────────────────────────────────────────────────────────
+            Positioned.fill(
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: const [
+                      Colors.white,
+                      Colors.white,
+                      Colors.transparent,
+                    ],
+                    stops: [
+                      0.0,
+                      featherStart,
+                      1.0,
+                    ],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(scrimTopAlpha),
+                        Colors.black.withOpacity(scrimMidAlpha),
+                        Colors.black.withOpacity(scrimMidAlpha * 0.5),
+                      ],
+                      stops: [
+                        0.0,
+                        scrimMidStop,
+                        1.0,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+
+            // ─────────────────────────────────────────────────────────
+            // LAYER 3: Subtle white lift (optional fog appearance)
+            // Keep very low (0.01-0.02) to avoid muddy gray look.
+            // Also faded with the same feather gradient.
+            // ─────────────────────────────────────────────────────────
+            if (whiteLiftAlpha > 0)
+              Positioned.fill(
+                child: ShaderMask(
+                  shaderCallback: (Rect bounds) {
+                    return LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: const [
+                        Colors.white,
+                        Colors.white,
+                        Colors.transparent,
+                      ],
+                      stops: [
+                        0.0,
+                        featherStart,
+                        1.0,
+                      ],
+                    ).createShader(bounds);
+                  },
+                  blendMode: BlendMode.dstIn,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.white.withOpacity(whiteLiftAlpha),
+                          Colors.white.withOpacity(whiteLiftAlpha * 0.3),
+                          Colors.transparent,
+                        ],
+                        stops: [
+                          0.0,
+                          scrimMidStop,
+                          1.0,
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
-    );
-  }
-
-  /// Build scrim gradient with feather fade at bottom
-  Widget _buildScrimWithFeather() {
-    // Calculate feather fade stops
-    final featherStart = ((height - featherHeight) / height).clamp(0.0, 1.0);
-
-    // Create the scrim + white lift stack
-    Widget scrimStack = Stack(
-      children: [
-        // Base scrim gradient (darkening)
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withOpacity(scrimTopAlpha), // Strong at top
-                Colors.black.withOpacity(scrimMidAlpha), // Medium at mid
-                Colors.transparent, // Fade to clear
-              ],
-              stops: [
-                0.0,
-                scrimMidStop,
-                1.0,
-              ],
-            ),
-          ),
-        ),
-
-        // Subtle white lift for fog/haze appearance
-        Container(
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.white.withOpacity(whiteLiftAlpha), // Subtle fog at top
-                Colors.white.withOpacity(whiteLiftAlpha * 0.5), // Less at mid
-                Colors.transparent, // Fade to clear
-              ],
-              stops: [
-                0.0,
-                scrimMidStop,
-                1.0,
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-
-    // Apply feather fade mask to bottom edge
-    return ShaderMask(
-      shaderCallback: (Rect bounds) {
-        return LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: const [
-            Colors.white, // Full opacity at top
-            Colors.white, // Full opacity until feather starts
-            Colors.transparent, // Fade to transparent at bottom
-          ],
-          stops: [
-            0.0,
-            featherStart,
-            1.0,
-          ],
-        ).createShader(bounds);
-      },
-      blendMode: BlendMode.dstIn, // Masks the scrim, creating feather fade
-      child: scrimStack,
     );
   }
 }
