@@ -7,6 +7,36 @@
 
 import { auth, db as firestore } from "../config/firebaseAdmin.js";
 
+/**
+ * Map speaker name to user/partner/balanced/none
+ * @param {string} speakerName - Winner speaker name from stats
+ * @param {string} selfParticipant - User's selected participant name
+ * @param {string} partnerParticipant - Partner's participant name
+ * @returns {string} - "user", "partner", "balanced", "none", or speaker name
+ */
+function mapSpeakerToRole(speakerName, selfParticipant, partnerParticipant) {
+  if (!speakerName || speakerName === "none") {
+    return "none";
+  }
+  
+  if (speakerName === "balanced") {
+    return "balanced";
+  }
+  
+  // If selfParticipant is set, map to user/partner
+  if (selfParticipant) {
+    if (speakerName === selfParticipant) {
+      return "user";
+    }
+    if (partnerParticipant && speakerName === partnerParticipant) {
+      return "partner";
+    }
+  }
+  
+  // Return raw speaker name if no mapping available
+  return speakerName;
+}
+
 export async function relationshipStatsHandler(req, res) {
   // CORS
   res.set("Access-Control-Allow-Origin", "*");
@@ -60,14 +90,161 @@ export async function relationshipStatsHandler(req, res) {
       });
     }
 
-    // Fetch relationship memory with defensive checks
-    console.log(`[${uid}] Attempting to fetch relationship_memory/${uid}`);
+    // ═══════════════════════════════════════════════════════════════
+    // NEW V2 STRUCTURE: Fetch active relationship from new Firestore path
+    // ═══════════════════════════════════════════════════════════════
     
-    let memorySnap;
+    console.log(`[${uid}] Fetching active relationship from V2 structure...`);
+    
+    let relationshipDoc = null;
+    let relationshipId = null;
+    
     try {
-      const memoryRef = firestore.collection("relationship_memory").doc(uid);
-      memorySnap = await memoryRef.get();
-      console.log(`[${uid}] Firestore fetch completed, exists: ${memorySnap.exists}`);
+      // Step 1: Check user's activeRelationshipId
+      const userDocRef = firestore.collection("users").doc(uid);
+      const userDoc = await userDocRef.get();
+      
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        relationshipId = userData?.activeRelationshipId;
+        
+        if (relationshipId) {
+          console.log(`[${uid}] Found activeRelationshipId: ${relationshipId}`);
+          
+          // Fetch the relationship document
+          const relationshipRef = firestore
+            .collection("relationships")
+            .doc(uid)
+            .collection("relations")
+            .doc(relationshipId);
+          
+          const relSnap = await relationshipRef.get();
+          
+          if (relSnap.exists) {
+            relationshipDoc = relSnap.data();
+            console.log(`[${uid}] Successfully fetched relationship doc`);
+          } else {
+            console.log(`[${uid}] activeRelationshipId exists but doc not found`);
+          }
+        }
+      }
+      
+      // Step 2: Fallback - query for active relationship
+      if (!relationshipDoc) {
+        console.log(`[${uid}] No activeRelationshipId, querying for active relationship...`);
+        
+        const relationsRef = firestore
+          .collection("relationships")
+          .doc(uid)
+          .collection("relations")
+          .where("isActive", "==", true)
+          .orderBy("updatedAt", "desc")
+          .limit(1);
+        
+        const querySnap = await relationsRef.get();
+        
+        if (!querySnap.empty) {
+          relationshipDoc = querySnap.docs[0].data();
+          relationshipId = querySnap.docs[0].id;
+          console.log(`[${uid}] Found active relationship via query: ${relationshipId}`);
+        }
+      }
+      
+      // Step 3: Final fallback - check legacy relationship_memory
+      if (!relationshipDoc) {
+        console.log(`[${uid}] No V2 relationship found, checking legacy...`);
+        
+        const legacyRef = firestore.collection("relationship_memory").doc(uid);
+        const legacySnap = await legacyRef.get();
+        
+        if (legacySnap.exists) {
+          console.log(`[${uid}] Found legacy relationship_memory, migrating response...`);
+          const legacyMem = legacySnap.data();
+          
+          // Map legacy format to new response format
+          const statsData = legacyMem?.stats || {
+            whoSentMoreMessages: "balanced",
+            whoSaidILoveYouMore: "none",
+            whoApologizedMore: "none",
+            whoUsedMoreEmojis: "none",
+          };
+          
+          return res.status(200).json({
+            success: true,
+            stats: statsData,
+            summary: legacyMem?.shortSummary || null,
+            dateRange: {
+              startDate: legacyMem?.startDate || null,
+              endDate: legacyMem?.endDate || null,
+            },
+            isActive: legacyMem?.isActive !== false,
+            lastUploadAt: legacyMem?.lastUploadAt || null,
+          });
+        }
+        
+        // No relationship found at all
+        console.log(`[${uid}] No relationship memory found (V2 or legacy)`);
+        return res.status(200).json({
+          success: false,
+          reason: "no_relationship_memory",
+        });
+      }
+      
+      // ═══════════════════════════════════════════════════════════════
+      // Process V2 relationship document
+      // ═══════════════════════════════════════════════════════════════
+      
+      console.log(`[${uid}] Processing V2 relationship document...`);
+      
+      // Extract stats (if available)
+      const statsBySpeaker = relationshipDoc.statsBySpeaker || {};
+      const selfParticipant = relationshipDoc.selfParticipant;
+      const partnerParticipant = relationshipDoc.partnerParticipant;
+      
+      // Map speaker-based stats to user/partner format
+      const statsData = {
+        whoSentMoreMessages: mapSpeakerToRole(
+          statsBySpeaker.whoSentMoreMessages,
+          selfParticipant,
+          partnerParticipant
+        ),
+        whoSaidILoveYouMore: mapSpeakerToRole(
+          statsBySpeaker.whoSaidILoveYouMore,
+          selfParticipant,
+          partnerParticipant
+        ),
+        whoApologizedMore: mapSpeakerToRole(
+          statsBySpeaker.whoApologizedMore,
+          selfParticipant,
+          partnerParticipant
+        ),
+        whoUsedMoreEmojis: mapSpeakerToRole(
+          statsBySpeaker.whoUsedMoreEmojis,
+          selfParticipant,
+          partnerParticipant
+        ),
+      };
+      
+      // Extract other fields
+      const summary = relationshipDoc.masterSummary?.shortSummary || null;
+      const dateRange = {
+        startDate: relationshipDoc.dateRange?.start || null,
+        endDate: relationshipDoc.dateRange?.end || null,
+      };
+      const isActive = relationshipDoc.isActive !== false;
+      const lastUploadAt = relationshipDoc.updatedAt || relationshipDoc.createdAt || null;
+      
+      console.log(`[${uid}] Returning V2 response (isActive: ${isActive})`);
+      
+      return res.status(200).json({
+        success: true,
+        stats: statsData,
+        summary,
+        dateRange,
+        isActive,
+        lastUploadAt,
+      });
+      
     } catch (firestoreError) {
       console.error(`[${uid}] Firestore fetch error:`, firestoreError);
       return res.status(500).json({
@@ -76,46 +253,6 @@ export async function relationshipStatsHandler(req, res) {
         details: firestoreError.message,
       });
     }
-
-    if (!memorySnap.exists) {
-      console.log(`[${uid}] No relationship memory found (this is normal for first-time users)`);
-      return res.status(200).json({
-        success: false,
-        reason: "no_relationship_memory",
-      });
-    }
-
-    const mem = memorySnap.data();
-    console.log(`[${uid}] Memory data retrieved, fields:`, Object.keys(mem || {}));
-    console.log(`[${uid}] Has stats field: ${!!mem?.stats}`);
-
-    // Defensive stats object
-    const statsData = mem?.stats || {
-      whoSentMoreMessages: "balanced",
-      whoSaidILoveYouMore: "none",
-      whoApologizedMore: "none",
-      whoUsedMoreEmojis: "none",
-    };
-
-    // Determine isActive status
-    // If explicitly false, return false; otherwise default to true
-    const isActive = mem?.isActive === false ? false : true;
-
-    // Build response with extended metadata
-    const response = {
-      success: true,
-      stats: statsData,
-      summary: mem?.shortSummary || null,
-      dateRange: {
-        startDate: mem?.startDate || null,
-        endDate: mem?.endDate || null,
-      },
-      isActive,
-      lastUploadAt: mem?.lastUploadAt || null,
-    };
-
-    console.log(`[${uid}] Returning successful response (isActive: ${isActive})`);
-    return res.status(200).json(response);
 
   } catch (error) {
     console.error(`[${uid}] FATAL ERROR in relationshipStatsHandler:`, error);

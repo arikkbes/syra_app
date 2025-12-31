@@ -315,67 +315,78 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   /// ═══════════════════════════════════════════════════════════════
-  /// REPLY PREVIEW
+  /// REPLY PREVIEW (ChatGPT-style compact)
   /// ═══════════════════════════════════════════════════════════════
   Widget _buildReplyPreview() {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0x1A33B5E5), // accent with 10% opacity
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: const Color(0x4D33B5E5), // accent with 30% opacity
-          width: 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 3,
-            height: 36,
-            decoration: BoxDecoration(
-              color: SyraColors.accent, // accent
-              borderRadius: BorderRadius.circular(2),
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.3),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.12),
+              width: 1,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Yanıtlanıyor',
-                  style: TextStyle(
-                    color: SyraColors.accent, // accent
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
+          child: Row(
+            children: [
+              // Left: Label + Snippet (compact vertical stack)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Yanıt',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.replyingTo?['text'] ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.5),
+                        fontSize: 13,
+                        height: 1.3,
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  widget.replyingTo?['text'] ?? '',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+              ),
+              const SizedBox(width: 8),
+              // Right: Close X
+              _TapScale(
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  widget.onCancelReply();
+                },
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.close,
+                    size: 14,
                     color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 13,
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          _TapScale(
-            onTap: () {
-              HapticFeedback.lightImpact();
-              widget.onCancelReply();
-            },
-            child: Icon(
-              Icons.close_rounded,
-              size: 20,
-              color: Colors.white.withValues(alpha: 0.5),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

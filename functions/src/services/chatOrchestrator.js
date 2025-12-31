@@ -250,16 +250,76 @@ Cevabını buna göre kurgula.
   // ═══════════════════════════════════════════════════════════════
   // RELATIONSHIP MEMORY V2: Smart retrieval with chunked storage
   // ═══════════════════════════════════════════════════════════════
+  let relationshipData = null;
   try {
-    const relationshipData = await getRelationshipContext(uid, safeMessage, history);
+    relationshipData = await getRelationshipContext(uid, safeMessage, history);
     
     if (relationshipData && relationshipData.context) {
+      // ═══════════════════════════════════════════════════════════════
+      // AUTO-PERSIST SELFPARTICIPANT
+      // If selfParticipant is missing, detect if user is answering the clarification question
+      // ═══════════════════════════════════════════════════════════════
+      if (!relationshipData.selfParticipant && relationshipData.speakers && relationshipData.speakers.length >= 2) {
+        const { detectSelfParticipantFromMessage, persistSelfParticipant, getActiveRelationshipContext, buildParticipantContextPrompt } = await import("./relationshipContext.js");
+        
+        const detectedSpeaker = detectSelfParticipantFromMessage(safeMessage, relationshipData.speakers);
+        
+        if (detectedSpeaker) {
+          console.log(`[${uid}] 🎯 Detected self-participant from message: ${detectedSpeaker}`);
+          
+          // Persist to Firestore
+          const persistSuccess = await persistSelfParticipant(
+            uid,
+            relationshipData.relationshipId,
+            detectedSpeaker,
+            relationshipData.speakers
+          );
+          
+          if (persistSuccess) {
+            console.log(`[${uid}] ✅ Auto-set selfParticipant to: ${detectedSpeaker}`);
+            
+            // Rebuild relationship context with updated participant mapping
+            const updatedContext = await getActiveRelationshipContext(uid);
+            if (updatedContext) {
+              relationshipData.selfParticipant = updatedContext.selfParticipant;
+              relationshipData.partnerParticipant = updatedContext.partnerParticipant;
+              
+              // Rebuild participant context prompt
+              relationshipData.participantContext = buildParticipantContextPrompt(updatedContext);
+              
+              console.log(`[${uid}] 🔄 Rebuilt participant context with USER=${updatedContext.selfParticipant}, PARTNER=${updatedContext.partnerParticipant}`);
+            }
+          }
+        }
+      }
+      
+      // Inject relationship context
       systemMessages.push({
         role: "system",
         content: relationshipData.context,
       });
       
-      console.log(`[${uid}] 📱 Relationship context loaded (retrieval: ${relationshipData.hasRetrieval})`);
+      // CRITICAL: Inject participant mapping context
+      if (relationshipData.participantContext) {
+        systemMessages.push({
+          role: "system",
+          content: relationshipData.participantContext,
+        });
+      }
+      
+      console.log(`[${uid}] 📱 Relationship context loaded (retrieval: ${relationshipData.hasRetrieval}, participant mapping: ${!!relationshipData.participantContext})`);
+    } else {
+      // ═══════════════════════════════════════════════════════════════
+      // BUG FIX #2: No active relationship - inject LLM mapping protection
+      // ═══════════════════════════════════════════════════════════════
+      if (history.length > 0) {
+        // Only inject if there's existing conversation (to override any old mapping)
+        systemMessages.push({
+          role: "system",
+          content: "AKTİF İLİŞKİ YOK. Önceki USER/PARTNER eşleştirmelerini yok say. Kullanıcı ilişkiyle ilgili soru sorarsa, ilişki yüklemesini/aktifleştirmesini iste.",
+        });
+        console.log(`[${uid}] 🚫 No active relationship - LLM mapping protection injected`);
+      }
     }
   } catch (memErr) {
     console.error(`[${uid}] Failed to load relationship context (non-critical):`, memErr);

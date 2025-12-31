@@ -81,6 +81,10 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   console.log(`[${uid}] Generating master summary...`);
   const masterSummary = await generateMasterSummary(messages, speakers, chunkIndexes);
   
+  // Step 5.5: Compute relationship stats
+  console.log(`[${uid}] Computing relationship stats...`);
+  const relationshipStats = computeRelationshipStats(messages, speakers);
+  
   // Step 6: Save to Firestore
   console.log(`[${uid}] Saving to Firestore...`);
   
@@ -101,6 +105,8 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
       end: messages[messages.length - 1]?.date || null,
     },
     masterSummary: masterSummary,
+    statsCounts: relationshipStats.counts,
+    statsBySpeaker: relationshipStats.bySpeaker,
     isActive: true,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -647,4 +653,122 @@ function normalizeTurkish(text) {
     .replace(/ö/g, "o")
     .replace(/ü/g, "u")
     .replace(/ç/g, "c");
+}
+
+/**
+ * Compute relationship statistics from messages
+ * @param {Array} messages - Parsed messages
+ * @param {Array} speakers - List of speakers
+ * @returns {object} - { counts, bySpeaker }
+ */
+function computeRelationshipStats(messages, speakers) {
+  // Initialize counters
+  const messageCount = {};
+  const loveYouCount = {};
+  const apologyCount = {};
+  const emojiCount = {};
+  
+  // Patterns for detection
+  const lovePatterns = [
+    /\bseni seviyorum\b/i,
+    /\bseviyorum\b/i,
+    /\bi love you\b/i,
+    /\blove you\b/i,
+    /\başkımsın\b/i,
+    /\bcanımsın\b/i,
+  ];
+  
+  const apologyPatterns = [
+    /\bözür\b/i,
+    /\bpardon\b/i,
+    /\bsorry\b/i,
+    /\bkusura bakma\b/i,
+    /\bafedersin\b/i,
+    /\baffet\b/i,
+  ];
+  
+  // Basic emoji regex (matches common emoji ranges)
+  const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+  
+  // Initialize speaker counts
+  for (const speaker of speakers) {
+    messageCount[speaker] = 0;
+    loveYouCount[speaker] = 0;
+    apologyCount[speaker] = 0;
+    emojiCount[speaker] = 0;
+  }
+  
+  // Process each message
+  for (const msg of messages) {
+    const sender = msg.sender;
+    const content = msg.content || "";
+    
+    // Skip if sender not in speakers list
+    if (!speakers.includes(sender)) continue;
+    
+    // Count messages
+    messageCount[sender]++;
+    
+    // Count "I love you"
+    for (const pattern of lovePatterns) {
+      if (pattern.test(content)) {
+        loveYouCount[sender]++;
+        break; // Count only once per message
+      }
+    }
+    
+    // Count apologies
+    for (const pattern of apologyPatterns) {
+      if (pattern.test(content)) {
+        apologyCount[sender]++;
+        break;
+      }
+    }
+    
+    // Count emojis
+    const emojis = content.match(emojiRegex);
+    if (emojis) {
+      emojiCount[sender] += emojis.length;
+    }
+  }
+  
+  // Determine winners for each category
+  function findWinner(counts) {
+    const entries = Object.entries(counts);
+    if (entries.length === 0) return "none";
+    
+    const sorted = entries.sort((a, b) => b[1] - a[1]);
+    const max = sorted[0][1];
+    
+    // No data
+    if (max === 0) return "none";
+    
+    // Check if balanced (within 10% difference for 2 speakers)
+    if (speakers.length === 2) {
+      const diff = Math.abs(sorted[0][1] - sorted[1][1]);
+      const avg = (sorted[0][1] + sorted[1][1]) / 2;
+      if (avg > 0 && diff / avg < 0.1) {
+        return "balanced";
+      }
+    }
+    
+    return sorted[0][0];
+  }
+  
+  const bySpeaker = {
+    whoSentMoreMessages: findWinner(messageCount),
+    whoSaidILoveYouMore: findWinner(loveYouCount),
+    whoApologizedMore: findWinner(apologyCount),
+    whoUsedMoreEmojis: findWinner(emojiCount),
+  };
+  
+  return {
+    counts: {
+      messageCount,
+      loveYou: loveYouCount,
+      apology: apologyCount,
+      emoji: emojiCount,
+    },
+    bySpeaker,
+  };
 }

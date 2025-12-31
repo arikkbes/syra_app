@@ -26,7 +26,7 @@ class ChatMessageList extends StatelessWidget {
   final Function(Map<String, dynamic>) onMessageLongPress;
   final Function(Map<String, dynamic>, double) onSwipeUpdate;
   final Function(Map<String, dynamic>, bool) onSwipeEnd;
-  
+
   // Feedback callbacks
   final Function(Map<String, dynamic>)? onCopyMessage;
   final Function(Map<String, dynamic>, String?)? onFeedbackChanged;
@@ -93,7 +93,7 @@ class ChatMessageList extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Title
             Text(
               'Gizli Sohbet',
@@ -105,7 +105,7 @@ class ChatMessageList extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            
+
             // Description
             Text(
               'Bu sohbet kaydedilmeyecek ve\ncihazında saklanmayacak.',
@@ -214,7 +214,7 @@ class ChatMessageList extends StatelessWidget {
   Widget _buildMessageList() {
     // Calculate dynamic bottom padding
     final bottomPadding = bottomOverlayHeight + 16;
-    
+
     return ListView.builder(
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(12, headerHeight + 8, 12, bottomPadding),
@@ -233,8 +233,8 @@ class ChatMessageList extends StatelessWidget {
         // For first message (index 0), use minimal top margin
         final bool isSameSender =
             index > 0 && messages[index - 1]["sender"] == msg["sender"];
-        final double topMargin = index == 0 
-            ? 0.0  // First message: no extra top margin
+        final double topMargin = index == 0
+            ? 0.0 // First message: no extra top margin
             : (isSameSender ? 8.0 : 16.0);
 
         final bool isSwiped =
@@ -252,8 +252,12 @@ class ChatMessageList extends StatelessWidget {
             child: GestureDetector(
               onLongPress: () => onMessageLongPress(msg),
               onHorizontalDragUpdate: (details) {
-                if (details.delta.dx > 0) {
-                  onSwipeUpdate(msg, details.delta.dx);
+                // Allow swipe in both directions for reply
+                // User messages (left side): swipe right (dx > 0)
+                // Assistant messages (right side): swipe left (dx < 0)
+                final absDelta = details.delta.dx.abs();
+                if (absDelta > 0) {
+                  onSwipeUpdate(msg, absDelta);
                 }
               },
               onHorizontalDragEnd: (_) {
@@ -273,8 +277,8 @@ class ChatMessageList extends StatelessWidget {
                   imageUrl: msg["imageUrl"],
                   // Feedback params (assistant only)
                   feedback: !isUser ? msg['feedback'] as String? : null,
-                  onCopy: !isUser && onCopyMessage != null 
-                      ? () => onCopyMessage!(msg) 
+                  onCopy: !isUser && onCopyMessage != null
+                      ? () => onCopyMessage!(msg)
                       : null,
                   onFeedbackChanged: !isUser && onFeedbackChanged != null
                       ? (newFeedback) => onFeedbackChanged!(msg, newFeedback)

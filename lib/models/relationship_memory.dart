@@ -20,6 +20,8 @@ class RelationshipMemory {
   final String? createdAt;
   final String? updatedAt;
   final bool isActive;
+  final String? selfParticipant;
+  final String? partnerParticipant;
 
   RelationshipMemory({
     this.id,
@@ -35,6 +37,8 @@ class RelationshipMemory {
     this.createdAt,
     this.updatedAt,
     this.isActive = true,
+    this.selfParticipant,
+    this.partnerParticipant,
   });
 
   /// Parse from new V2 Firestore structure
@@ -58,6 +62,8 @@ class RelationshipMemory {
       createdAt: _parseTimestamp(data['createdAt']),
       updatedAt: _parseTimestamp(data['updatedAt']),
       isActive: data['isActive'] ?? true,
+      selfParticipant: data['selfParticipant'] as String?,
+      partnerParticipant: data['partnerParticipant'] as String?,
     );
   }
 

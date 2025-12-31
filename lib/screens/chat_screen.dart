@@ -80,6 +80,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   double _inputBarHeight = 0.0; // Measured height of ChatInputBar
 
+  // ═══════════════════════════════════════════════════════════════
+  // BUG FIX #1: Stream subscription management
+  // ═══════════════════════════════════════════════════════════════
+  String? _activeRequestId; // Current active request ID for guard
+  String? _lockedSessionId; // Session locked at send time
+
   Map<String, dynamic>? _replyingTo;
 
   bool _sidebarOpen = false;
@@ -205,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _radarMemory = null;
       });
     }
-    
+
     final result = await ChatSessionService.getSessionMessages(sessionId);
     if (!mounted) return;
 
@@ -372,6 +378,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       msg['feedback'] = newFeedback;
     });
 
+    // Show feedback toast when like/dislike is given (not when removing)
+    if (newFeedback != null && mounted) {
+      BlurToast.showTop(
+        context,
+        "Geri bildirimin için teşekkürler!",
+        duration: const Duration(milliseconds: 1500),
+      );
+    }
+
     // Persist to Firestore + SharedPreferences
     final result = await ChatSessionService.setMessageFeedback(
       sessionId: _currentSessionId!,
@@ -403,6 +418,20 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Start a new chat
   Future<void> _startNewChat() async {
+    // ═══════════════════════════════════════════════════════════════
+    // BUG FIX #1: Cancel any in-flight stream before starting new chat
+    // ═══════════════════════════════════════════════════════════════
+    // Invalidate active request so late chunks are ignored
+    _activeRequestId = null;
+    _lockedSessionId = null;
+
+    // Reset sending state immediately
+    setState(() {
+      _isSending = false;
+      _isTyping = false;
+      _isLoading = false;
+    });
+
     // Exit radar mode if active
     if (_bodyMode == ChatBodyMode.relationshipRadar) {
       setState(() {
@@ -410,7 +439,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _radarMemory = null;
       });
     }
-    
+
     final result = await ChatSessionService.createSession(
       title: 'Yeni Sohbet',
     );
@@ -702,7 +731,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void _handleDocumentUpload() async {
     // Anti-spam: Prevent multiple opens
     if (_isRelationshipPanelOpen) return;
-    
+
     // Close keyboard before starting relationship upload
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
@@ -871,6 +900,113 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _bodyMode = ChatBodyMode.chat;
       _radarMemory = null;
     });
+  }
+
+  /// Radar loading state (while memory is being fetched)
+  Widget _buildRadarLoadingState() {
+    return Container(
+      color: SyraTokens.background,
+      child: Stack(
+        children: [
+          const SyraBackground(),
+          SafeArea(
+            child: Column(
+              children: [
+                // Header with menu button
+                _buildRadarLoadingHeader(),
+                // Loading content
+                Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          height: 48,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              SyraTokens.accent.withOpacity(0.8),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'İlişki verileri yükleniyor...',
+                          style: TextStyle(
+                            color: SyraTokens.textSecondary,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRadarLoadingHeader() {
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+          decoration: BoxDecoration(
+            color: SyraTokens.background.withOpacity(0.8),
+            border: Border(
+              bottom: BorderSide(
+                color: SyraTokens.divider,
+                width: 0.5,
+              ),
+            ),
+          ),
+          child: Row(
+            children: [
+              IconButton(
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _toggleSidebar();
+                },
+                icon: const Icon(
+                  Icons.menu_rounded,
+                  color: SyraTokens.textSecondary,
+                  size: 24,
+                ),
+              ),
+              const Expanded(
+                child: Center(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.radar_rounded,
+                        color: SyraTokens.accent,
+                        size: 20,
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        "İlişki Radarı",
+                        style: TextStyle(
+                          color: SyraTokens.textPrimary,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   /// Legacy method - kept for potential direct navigation if needed
@@ -1120,6 +1256,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final uid = user.uid;
 
     // ═══════════════════════════════════════════════════════════════
+    // BUG FIX #1: Lock session ID and generate request ID at send time
+    // ═══════════════════════════════════════════════════════════════
+    final requestId = UniqueKey().toString(); // Generate unique request ID
+    final lockedSessionId = _currentSessionId; // Lock current session
+
+    // Set active request and locked session
+    _activeRequestId = requestId;
+    _lockedSessionId = lockedSessionId;
+
+    // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
     if (!forcePremiumForTesting) {
       try {
@@ -1266,10 +1412,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // 🚀 STREAMING AI RESPONSE
     // ═══════════════════════════════════════════════════════════════
 
-    // Show typing indicator (logo pulse)
+    // Show compact status chip (ChatGPT-style)
     setState(() {
       _isTyping = true;
     });
+
+    // Show "Yanıtlanıyor..." status chip
+    if (mounted) {
+      BlurToast.showStatus(context, "Yanıtlanıyor…");
+    }
 
     // Small delay (AI "thinking")
     await Future.delayed(const Duration(milliseconds: 500));
@@ -1289,6 +1440,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       )) {
         // Error handling
         if (chunk.error != null) {
+          // ═════════════════════════════════════════════════════════
+          // BUG FIX #1: Guard - ignore if request is stale
+          // ═════════════════════════════════════════════════════════
+          if (_activeRequestId != requestId ||
+              _lockedSessionId != lockedSessionId) {
+            debugPrint("⚠️ Ignoring error chunk for stale request");
+            return; // Ignore stale error
+          }
+
+          // Hide status chip on error
+          BlurToast.hideStatus();
+
           setState(() {
             _isTyping = false;
             _isTyping = false;
@@ -1312,6 +1475,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
         // Stream completed
         if (chunk.isDone) {
+          // ═════════════════════════════════════════════════════════
+          // BUG FIX #1: Guard - ignore if request is stale
+          // ═════════════════════════════════════════════════════════
+          if (_activeRequestId != requestId ||
+              _lockedSessionId != lockedSessionId) {
+            debugPrint("⚠️ Ignoring isDone chunk for stale request");
+            return; // Ignore stale completion
+          }
+
           setState(() {
             _isTyping = false;
           });
@@ -1329,16 +1501,16 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               _isLoading = false;
             });
 
-            // Save bot message to session
-            if (_currentSessionId != null) {
+            // Save bot message to session (use lockedSessionId!)
+            if (lockedSessionId != null) {
               final saveResult = await ChatSessionService.addMessageToSession(
-                sessionId: _currentSessionId!,
+                sessionId: lockedSessionId,
                 message: _messages[index],
               );
 
               if (saveResult.success) {
                 await ChatSessionService.updateSession(
-                  sessionId: _currentSessionId!,
+                  sessionId: lockedSessionId,
                   lastMessage: finalText.length > 50
                       ? "${finalText.substring(0, 50)}..."
                       : finalText,
@@ -1354,6 +1526,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
         // First chunk: hide logo, add message to list
         if (!messageAdded) {
+          // ═════════════════════════════════════════════════════════
+          // BUG FIX #1: Guard - ignore if request is stale
+          // ═════════════════════════════════════════════════════════
+          if (_activeRequestId != requestId ||
+              _lockedSessionId != lockedSessionId) {
+            debugPrint("⚠️ Ignoring first chunk for stale request");
+            return; // Ignore stale chunk
+          }
+
+          // Hide status chip when first chunk arrives
+          BlurToast.hideStatus();
+
           setState(() {
             _isTyping = false; // Hide logo pulse
             _messages.add({
@@ -1370,6 +1554,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           messageAdded = true;
         } else {
           // Subsequent chunks: append to existing message
+          // ═════════════════════════════════════════════════════════
+          // BUG FIX #1: Guard - ignore if request is stale
+          // ═════════════════════════════════════════════════════════
+          if (_activeRequestId != requestId ||
+              _lockedSessionId != lockedSessionId) {
+            debugPrint("⚠️ Ignoring subsequent chunk for stale request");
+            return; // Ignore stale chunk
+          }
+
           setState(() {
             final index = _messages.indexWhere((m) => m['id'] == botMessageId);
             if (index != -1) {
@@ -1384,6 +1577,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint("❌ Streaming error: $e");
+
+      // Hide status chip on exception
+      BlurToast.hideStatus();
 
       setState(() {
         _isTyping = false;
@@ -1588,21 +1784,26 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     });
                   },
                   onKimDahaCok: () async {
-                    // Load active memory and open radar
+                    // ═════════════════════════════════════════════════════════
+                    // BUG FIX #3: Use top toast instead of popup when no relationship
+                    // ═════════════════════════════════════════════════════════
+                    // Load memory to check if relationship exists
                     final memory = await RelationshipMemoryService.getMemory();
-                    if (!mounted) return;
-                    
+
                     if (memory != null) {
-                      _openRelationshipRadar(memory);
-                    } else {
-                      // No relationship memory - show toast
+                      // Has relationship - instantly switch to radar mode
                       setState(() {
+                        _bodyMode = ChatBodyMode.relationshipRadar;
                         _sidebarOpen = false;
                         _dragOffset = 0.0;
+                        _radarMemory = memory;
                       });
-                      BlurToast.show(
+                    } else {
+                      // No relationship - show top toast and stay in chat
+                      BlurToast.showTop(
                         context,
-                        'Önce bir ilişki yüklemelisin.\nYan menüden "Relationship Upload" kullan.',
+                        'İlişki yüklemek için SYRA logosuna dokun.',
+                        duration: const Duration(seconds: 3),
                       );
                     }
                   },
@@ -1709,183 +1910,199 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                           child: Container(
                             color: SyraTokens.background,
                             // Conditional body: Chat vs Radar mode
-                            child: _bodyMode == ChatBodyMode.relationshipRadar && _radarMemory != null
-                                ? RelationshipRadarBody(
-                                    memory: _radarMemory!,
-                                    onMenuTap: _toggleSidebar,
-                                  )
+                            child: _bodyMode == ChatBodyMode.relationshipRadar
+                                ? _radarMemory != null
+                                    ? RelationshipRadarBody(
+                                        memory: _radarMemory!,
+                                        onMenuTap: _toggleSidebar,
+                                      )
+                                    : _buildRadarLoadingState()
                                 : Stack(
-                              children: [
-                                // Layer 1: SyraBackground (visible texture for blur)
-                                const Positioned.fill(
-                                  child: SyraBackground(),
-                                ),
-
-                                // Layer 2: ChatMessageList (full screen with top padding)
-                                Positioned.fill(
-                                  top: 0,
-                                  child: ChatMessageList(
-                                    isEmpty: _messages.isEmpty,
-                                    isTarotMode: _isTarotMode,
-                                    isPrivateMode: _isPrivateMode,
-                                    headerHeight:
-                                        topInset + ChatAppBar.baseHeight,
-                                    bottomOverlayHeight: _inputBarHeight,
-                                    onSuggestionTap: (text) {
-                                      setState(() {
-                                        _controller.text = text;
-                                      });
-                                      _inputFocusNode.requestFocus();
-                                      _controller.selection =
-                                          TextSelection.fromPosition(
-                                        TextPosition(
-                                            offset: _controller.text.length),
-                                      );
-                                    },
-                                    messages: _messages,
-                                    scrollController: _scrollController,
-                                    isTyping: _isTyping,
-                                    swipedMessageId: _swipedMessageId,
-                                    swipeOffset: _swipeOffset,
-                                    onMessageLongPress: (msg) =>
-                                        _showMessageMenu(context, msg),
-                                    onSwipeUpdate: (msg, delta) {
-                                      setState(() {
-                                        _swipedMessageId = msg["id"];
-                                        _swipeOffset =
-                                            (_swipeOffset + delta).clamp(0, 30);
-                                      });
-                                    },
-                                    onSwipeEnd: (msg, shouldReply) {
-                                      if (shouldReply) {
-                                        setState(() => _replyingTo = msg);
-                                      }
-                                      setState(() {
-                                        _swipeOffset = 0;
-                                        _swipedMessageId = null;
-                                      });
-                                    },
-                                    onCopyMessage: _handleCopyMessage,
-                                    onFeedbackChanged: _handleFeedbackChanged,
-                                  ),
-                                ),
-
-                                // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
-                                // Subtle foggy/haze effect at bottom, fades smoothly into content
-                                // No horizontal padding - full width
-                                // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
-                                Builder(
-                                  builder: (context) {
-                                    final bottomInset =
-                                        MediaQuery.of(context).padding.bottom;
-                                    final hazeHeight = bottomInset + 60.0;
-
-                                    return Positioned(
-                                      bottom: 0,
-                                      left: 0,
-                                      right: 0,
-                                      child: SyraBottomHaze(
-                                        height: hazeHeight,
-                                        blurSigma: 0.5,
-                                        featherHeight: 28.0,
-                                        scrimBottomAlpha: 0.35,
-                                        scrimMidAlpha: 0.10,
-                                        scrimMidStop: 0.65,
-                                        whiteLiftAlpha: 0.02,
+                                    children: [
+                                      // Layer 1: SyraBackground (visible texture for blur)
+                                      const Positioned.fill(
+                                        child: SyraBackground(),
                                       ),
-                                    );
-                                  },
-                                ),
 
-                                // Layer 5: Input bar overlay at bottom
-                                Positioned(
-                                  bottom: 12,
-                                  left: 0,
-                                  right: 0,
-                                  child: MeasureSize(
-                                    onChange: (size) {
-                                      setState(() {
-                                        _inputBarHeight = size.height;
-                                      });
-                                    },
-                                    child: ChatInputBar(
-                                      controller: _controller,
-                                      focusNode: _inputFocusNode,
-                                      isSending: _isSending,
-                                      isLoading: _isLoading,
-                                      isListening: _isListening,
-                                      replyingTo: _replyingTo,
-                                      pendingImage: _pendingImage,
-                                      pendingImageUrl: _pendingImageUrl,
-                                      onAttachmentTap: _handleAttachment,
-                                      onVoiceInputTap: _handleVoiceInput,
-                                      onSendMessage: _sendMessage,
-                                      onCancelReply: () =>
-                                          setState(() => _replyingTo = null),
-                                      onClearImage: _clearPendingImage,
-                                      onTextChanged: () => setState(() {}),
-                                      onCameraTap: () => _pickImageForPreview(
-                                          ImageSource.camera),
-                                      onGalleryTap: () => _pickImageForPreview(
-                                          ImageSource.gallery),
-                                      onModeTap: _handleModeSelection,
-                                      onRelationshipTap: _handleDocumentUpload,
-                                      currentMode: _getModeDisplayName(),
-                                      chatBackgroundKey: _chatBackgroundKey,
-                                    ),
-                                  ),
-                                ),
+                                      // Layer 2: ChatMessageList (full screen with top padding)
+                                      Positioned.fill(
+                                        top: 0,
+                                        child: ChatMessageList(
+                                          isEmpty: _messages.isEmpty,
+                                          isTarotMode: _isTarotMode,
+                                          isPrivateMode: _isPrivateMode,
+                                          headerHeight:
+                                              topInset + ChatAppBar.baseHeight,
+                                          bottomOverlayHeight: _inputBarHeight,
+                                          onSuggestionTap: (text) {
+                                            setState(() {
+                                              _controller.text = text;
+                                            });
+                                            _inputFocusNode.requestFocus();
+                                            _controller.selection =
+                                                TextSelection.fromPosition(
+                                              TextPosition(
+                                                  offset:
+                                                      _controller.text.length),
+                                            );
+                                          },
+                                          messages: _messages,
+                                          scrollController: _scrollController,
+                                          isTyping: _isTyping,
+                                          swipedMessageId: _swipedMessageId,
+                                          swipeOffset: _swipeOffset,
+                                          onMessageLongPress: (msg) =>
+                                              _showMessageMenu(context, msg),
+                                          onSwipeUpdate: (msg, delta) {
+                                            setState(() {
+                                              _swipedMessageId = msg["id"];
+                                              _swipeOffset =
+                                                  (_swipeOffset + delta)
+                                                      .clamp(0, 30);
+                                            });
+                                          },
+                                          onSwipeEnd: (msg, shouldReply) {
+                                            if (shouldReply) {
+                                              setState(() => _replyingTo = msg);
+                                            }
+                                            setState(() {
+                                              _swipeOffset = 0;
+                                              _swipedMessageId = null;
+                                            });
+                                          },
+                                          onCopyMessage: _handleCopyMessage,
+                                          onFeedbackChanged:
+                                              _handleFeedbackChanged,
+                                        ),
+                                      ),
 
-                                // Layer 6: Top Haze (micro-blur + scrim + feather fade)
-                                // Claude/Sonnet style: subtle foggy/haze effect
-                                // - Small blur for haze (not heavy glass)
-                                // - Soft scrim dimming
-                                // - Feather fade at bottom (no hard line)
-                                // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
-                                // This prevents vertical seams while keeping buttons' glass tone clean
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: SyraTopHazeWithHoles(
-                                    height: topInset + 60.0,
-                                    blurSigma: 8.0, // Subtle blur
-                                    featherHeight: 35.0, // Soft fade
-                                    scrimTopAlpha:
-                                        0.08, // Very subtle darkening (Claude has almost none)
-                                    scrimMidAlpha: 0.02, // Almost transparent
-                                    scrimMidStop: 0.50, // Transition point
-                                    whiteLiftAlpha:
-                                        0.0, // No white lift (causes muddy look on dark bg)
-                                    // Button hole positions
-                                    leftButtonCenterX:
-                                        36.0, // 16 padding + 20 radius
-                                    rightButtonCenterX: 36.0, // same from right
-                                    buttonCenterY:
-                                        topInset + 28.0, // center of 56px bar
-                                    holeRadius:
-                                        20.0, // INCREASED: 20 button + 10 margin
-                                  ),
-                                ),
+                                      // Layer 4: Bottom Haze (micro-blur + scrim with feather fade)
+                                      // Subtle foggy/haze effect at bottom, fades smoothly into content
+                                      // No horizontal padding - full width
+                                      // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
+                                      Builder(
+                                        builder: (context) {
+                                          final bottomInset =
+                                              MediaQuery.of(context)
+                                                  .padding
+                                                  .bottom;
+                                          final hazeHeight = bottomInset + 60.0;
 
-                                // Layer 7: ChatAppBar (transparent, sits on top of scrim)
-                                Positioned(
-                                  top: 0,
-                                  left: 0,
-                                  right: 0,
-                                  child: ChatAppBar(
-                                    selectedMode: _selectedMode,
-                                    modeAnchorLink: _modeAnchorLink,
-                                    onMenuTap: _toggleSidebar,
-                                    onModeTap: _handleModeSelection,
-                                    onPrivateChatTap: _togglePrivateChat,
-                                    isPrivateMode: _isPrivateMode,
-                                    isModeSelectorOpen: _isModeSelectorOpen,
-                                    topPadding: topInset,
+                                          return Positioned(
+                                            bottom: 0,
+                                            left: 0,
+                                            right: 0,
+                                            child: SyraBottomHaze(
+                                              height: hazeHeight,
+                                              blurSigma: 0.5,
+                                              featherHeight: 28.0,
+                                              scrimBottomAlpha: 0.35,
+                                              scrimMidAlpha: 0.10,
+                                              scrimMidStop: 0.65,
+                                              whiteLiftAlpha: 0.02,
+                                            ),
+                                          );
+                                        },
+                                      ),
+
+                                      // Layer 5: Input bar overlay at bottom
+                                      Positioned(
+                                        bottom: 12,
+                                        left: 0,
+                                        right: 0,
+                                        child: MeasureSize(
+                                          onChange: (size) {
+                                            setState(() {
+                                              _inputBarHeight = size.height;
+                                            });
+                                          },
+                                          child: ChatInputBar(
+                                            controller: _controller,
+                                            focusNode: _inputFocusNode,
+                                            isSending: _isSending,
+                                            isLoading: _isLoading,
+                                            isListening: _isListening,
+                                            replyingTo: _replyingTo,
+                                            pendingImage: _pendingImage,
+                                            pendingImageUrl: _pendingImageUrl,
+                                            onAttachmentTap: _handleAttachment,
+                                            onVoiceInputTap: _handleVoiceInput,
+                                            onSendMessage: _sendMessage,
+                                            onCancelReply: () => setState(
+                                                () => _replyingTo = null),
+                                            onClearImage: _clearPendingImage,
+                                            onTextChanged: () =>
+                                                setState(() {}),
+                                            onCameraTap: () =>
+                                                _pickImageForPreview(
+                                                    ImageSource.camera),
+                                            onGalleryTap: () =>
+                                                _pickImageForPreview(
+                                                    ImageSource.gallery),
+                                            onModeTap: _handleModeSelection,
+                                            onRelationshipTap:
+                                                _handleDocumentUpload,
+                                            currentMode: _getModeDisplayName(),
+                                            chatBackgroundKey:
+                                                _chatBackgroundKey,
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Layer 6: Top Haze (micro-blur + scrim + feather fade)
+                                      // Claude/Sonnet style: subtle foggy/haze effect
+                                      // - Small blur for haze (not heavy glass)
+                                      // - Soft scrim dimming
+                                      // - Feather fade at bottom (no hard line)
+                                      // NOTE: Uses ClipPath with circular holes to EXCLUDE icon button zones
+                                      // This prevents vertical seams while keeping buttons' glass tone clean
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: SyraTopHazeWithHoles(
+                                          height: topInset + 60.0,
+                                          blurSigma: 8.0, // Subtle blur
+                                          featherHeight: 35.0, // Soft fade
+                                          scrimTopAlpha:
+                                              0.08, // Very subtle darkening (Claude has almost none)
+                                          scrimMidAlpha:
+                                              0.02, // Almost transparent
+                                          scrimMidStop:
+                                              0.50, // Transition point
+                                          whiteLiftAlpha:
+                                              0.0, // No white lift (causes muddy look on dark bg)
+                                          // Button hole positions
+                                          leftButtonCenterX:
+                                              36.0, // 16 padding + 20 radius
+                                          rightButtonCenterX:
+                                              36.0, // same from right
+                                          buttonCenterY: topInset +
+                                              28.0, // center of 56px bar
+                                          holeRadius:
+                                              20.0, // INCREASED: 20 button + 10 margin
+                                        ),
+                                      ),
+
+                                      // Layer 7: ChatAppBar (transparent, sits on top of scrim)
+                                      Positioned(
+                                        top: 0,
+                                        left: 0,
+                                        right: 0,
+                                        child: ChatAppBar(
+                                          selectedMode: _selectedMode,
+                                          modeAnchorLink: _modeAnchorLink,
+                                          onMenuTap: _toggleSidebar,
+                                          onModeTap: _handleModeSelection,
+                                          onPrivateChatTap: _togglePrivateChat,
+                                          isPrivateMode: _isPrivateMode,
+                                          isModeSelectorOpen:
+                                              _isModeSelectorOpen,
+                                          topPadding: topInset,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
                           ),
                         ),
                       ),
@@ -2349,13 +2566,10 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
                     padding: const EdgeInsets.all(3),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(15),
-                      color: _isActive
-                          ? SyraTokens.accent
-                          : SyraTokens.surface,
+                      color: _isActive ? SyraTokens.accent : SyraTokens.surface,
                       border: Border.all(
-                        color: _isActive
-                            ? SyraTokens.accent
-                            : SyraTokens.border,
+                        color:
+                            _isActive ? SyraTokens.accent : SyraTokens.border,
                         width: 1.5,
                       ),
                       boxShadow: _isActive

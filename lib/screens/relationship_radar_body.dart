@@ -9,6 +9,7 @@ import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
 import '../theme/design_system.dart';
 import '../services/relationship_stats_service.dart';
+import '../services/relationship_memory_service.dart';
 import '../widgets/glass_background.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -43,9 +44,15 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   String? _statsStartDate;
   String? _statsEndDate;
 
+  // Participant selection state
+  String? _selectedParticipant;
+  bool _isUpdatingParticipant = false;
+
   @override
   void initState() {
     super.initState();
+    // Initialize selected participant from memory
+    _selectedParticipant = widget.memory.selfParticipant;
     _loadStats();
   }
 
@@ -161,6 +168,13 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                         _buildScoreboardSection(),
 
                         const SizedBox(height: 20),
+
+                        // PARTICIPANT SELECTOR (always show if 2+ speakers)
+                        if (widget.memory.speakers.length >= 2)
+                          _buildParticipantSelector(),
+
+                        if (widget.memory.speakers.length >= 2)
+                          const SizedBox(height: 20),
 
                         // ANALYSIS SECTION (Always rendered)
                         _buildStatsCard(analysisResult),
@@ -310,90 +324,77 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   }
 
   Widget _buildScoreboardLoading() {
-    return _GlassCard(
-      padding: const EdgeInsets.all(16),
-      child: Shimmer.fromColors(
-        baseColor: SyraTokens.surface,
-        highlightColor: SyraTokens.surfaceLight,
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
+    return SizedBox(
+      height: 140,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        physics: const BouncingScrollPhysics(),
+        padding: const EdgeInsets.only(left: 4, right: 4),
+        itemCount: 4, // 4 skeleton cards
+        itemBuilder: (context, index) {
+          final isFirst = index == 0;
+          final isLast = index == 3;
+          
+          return Padding(
+            padding: EdgeInsets.only(
+              left: isFirst ? 0 : 8,
+              right: isLast ? 0 : 8,
+            ),
+            child: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.75,
+              child: _GlassCard(
+                padding: const EdgeInsets.all(16),
+                child: Shimmer.fromColors(
+                  baseColor: SyraTokens.surface,
+                  highlightColor: SyraTokens.surfaceLight,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Container(
-                        width: double.infinity,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: 100,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
+                      Row(
+                        children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: double.infinity,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Container(
+                                  width: 80,
+                                  height: 24,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        width: 80,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -515,6 +516,30 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   }
 
   Widget _buildScoreboardContent() {
+    // Prepare stat cards data
+    final statCards = [
+      {
+        'title': 'Kim daha çok mesaj atmış?',
+        'stat': _stats?['whoSentMoreMessages'] ?? 'none',
+        'icon': Icons.message_outlined,
+      },
+      {
+        'title': 'Kim daha çok "seni seviyorum" demiş?',
+        'stat': _stats?['whoSaidILoveYouMore'] ?? 'none',
+        'icon': Icons.favorite_border,
+      },
+      {
+        'title': 'Kim daha çok özür dilemiş?',
+        'stat': _stats?['whoApologizedMore'] ?? 'none',
+        'icon': Icons.emoji_emotions_outlined,
+      },
+      {
+        'title': 'Kim daha çok emoji kullanmış?',
+        'stat': _stats?['whoUsedMoreEmojis'] ?? 'none',
+        'icon': Icons.sentiment_satisfied_alt_outlined,
+      },
+    ];
+
     return Column(
       children: [
         // Summary card if available
@@ -567,29 +592,35 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           const SizedBox(height: 12),
         ],
 
-        // Stats grid
-        _buildScoreboardStatCard(
-          title: 'Kim daha çok mesaj atmış?',
-          stat: _stats?['whoSentMoreMessages'] ?? 'none',
-          icon: Icons.message_outlined,
-        ),
-        const SizedBox(height: 10),
-        _buildScoreboardStatCard(
-          title: 'Kim daha çok "seni seviyorum" demiş?',
-          stat: _stats?['whoSaidILoveYouMore'] ?? 'none',
-          icon: Icons.favorite_border,
-        ),
-        const SizedBox(height: 10),
-        _buildScoreboardStatCard(
-          title: 'Kim daha çok özür dilemiş?',
-          stat: _stats?['whoApologizedMore'] ?? 'none',
-          icon: Icons.emoji_emotions_outlined,
-        ),
-        const SizedBox(height: 10),
-        _buildScoreboardStatCard(
-          title: 'Kim daha çok emoji kullanmış?',
-          stat: _stats?['whoUsedMoreEmojis'] ?? 'none',
-          icon: Icons.sentiment_satisfied_alt_outlined,
+        // Horizontal carousel of stat cards
+        SizedBox(
+          height: 140,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.only(left: 4, right: 4),
+            itemCount: statCards.length,
+            itemBuilder: (context, index) {
+              final card = statCards[index];
+              final isFirst = index == 0;
+              final isLast = index == statCards.length - 1;
+              
+              return Padding(
+                padding: EdgeInsets.only(
+                  left: isFirst ? 0 : 8,
+                  right: isLast ? 0 : 8,
+                ),
+                child: SizedBox(
+                  width: MediaQuery.of(context).size.width * 0.75,
+                  child: _buildScoreboardStatCard(
+                    title: card['title'] as String,
+                    stat: card['stat'] as String,
+                    icon: card['icon'] as IconData,
+                  ),
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
@@ -647,11 +678,14 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
     }
 
     return _GlassCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Icon
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -659,32 +693,30 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                   displayColor.withOpacity(0.1),
                 ],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: displayColor, size: 20),
+            child: Icon(icon, color: displayColor, size: 24),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: SyraTokens.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  displayText,
-                  style: TextStyle(
-                    color: displayColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          // Title
+          Text(
+            title,
+            style: const TextStyle(
+              color: SyraTokens.textSecondary,
+              fontSize: 13,
+              height: 1.3,
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 8),
+          // Result
+          Text(
+            displayText,
+            style: TextStyle(
+              color: displayColor,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -718,6 +750,300 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
       case 'none':
       default:
         return SyraTokens.textSecondary;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // PARTICIPANT SELECTOR
+  // ═══════════════════════════════════════════════════════════════
+
+  Widget _buildParticipantSelector() {
+    final speakers = widget.memory.speakers;
+    final hasPartner = speakers.length == 2;
+    
+    return _GlassCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      SyraTokens.accent.withOpacity(0.2),
+                      SyraTokens.accent.withOpacity(0.1),
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.person_outline_rounded,
+                  color: SyraTokens.accent,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sen kimsin?',
+                      style: TextStyle(
+                        color: SyraTokens.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'İstatistiklerde "Sen" olarak görünmen için seç',
+                      style: TextStyle(
+                        color: SyraTokens.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: speakers.map((speaker) {
+              final isSelected = _selectedParticipant == speaker;
+              final isPartner = hasPartner && _selectedParticipant != null && speaker != _selectedParticipant;
+              
+              return Expanded(
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    right: speakers.last == speaker ? 0 : 8,
+                  ),
+                  child: _buildParticipantCard(
+                    speaker: speaker,
+                    isSelected: isSelected,
+                    isPartner: isPartner,
+                    onTap: _isUpdatingParticipant ? null : () => _selectSelfParticipant(speaker),
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildParticipantCard({
+    required String speaker,
+    required bool isSelected,
+    required bool isPartner,
+    required VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: SyraTokens.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected 
+                ? SyraTokens.accent 
+                : SyraTokens.border.withOpacity(0.5),
+            width: isSelected ? 2 : 1,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: SyraTokens.accent.withOpacity(0.3),
+                    blurRadius: 12,
+                    spreadRadius: 0,
+                  ),
+                ]
+              : null,
+        ),
+        child: Stack(
+          children: [
+            // Check icon for selected state
+            if (isSelected)
+              Positioned(
+                top: -10,
+                left: -12,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: SyraTokens.accent,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.check,
+                    color: Colors.white,
+                    size: 12,
+                  ),
+                ),
+              ),
+            
+            // Main content
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  speaker,
+                  style: TextStyle(
+                    color: isSelected 
+                        ? SyraTokens.accent 
+                        : SyraTokens.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                ),
+                if (isSelected || isPartner) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    isSelected ? 'Sen' : 'Karşı taraf',
+                    style: TextStyle(
+                      color: isSelected
+                          ? SyraTokens.accent.withOpacity(0.8)
+                          : SyraTokens.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _selectSelfParticipant(String speaker) async {
+    // Don't allow selection if already updating
+    if (_isUpdatingParticipant) return;
+    
+    // Don't reselect the same participant
+    if (_selectedParticipant == speaker) return;
+
+    // Store previous selection for rollback
+    final previousSelection = _selectedParticipant;
+    
+    try {
+      // Optimistic update - update UI immediately
+      setState(() {
+        _selectedParticipant = speaker;
+        _isUpdatingParticipant = true;
+      });
+
+      final speakers = widget.memory.speakers;
+      String? partner;
+      
+      if (speakers.length == 2) {
+        partner = speakers.firstWhere((s) => s != speaker);
+      }
+
+      debugPrint('🔍 Selecting participant: $speaker');
+      debugPrint('🔍 Partner: $partner');
+      debugPrint('🔍 Relationship ID: ${widget.memory.id}');
+
+      final success = await RelationshipMemoryService.updateParticipants(
+        selfParticipant: speaker,
+        partnerParticipant: partner,
+        relationshipId: widget.memory.id,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _isUpdatingParticipant = false;
+      });
+
+      debugPrint('✅ Update result: $success');
+
+      if (success) {
+        // Reload stats to get updated user/partner labels
+        _loadStats();
+        
+        // Show success feedback
+        HapticFeedback.mediumImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text('✓ "$speaker" olarak seçildin'),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: SyraTokens.accent.withOpacity(0.9),
+          ),
+        );
+      } else {
+        // Rollback to previous selection
+        setState(() {
+          _selectedParticipant = previousSelection;
+        });
+        
+        HapticFeedback.heavyImpact();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text('Seçim kaydedilemedi. Lütfen tekrar deneyin.'),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 3),
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: Colors.red.withOpacity(0.9),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      debugPrint('❌ Participant selection error: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
+      if (!mounted) return;
+      
+      // Rollback on error
+      setState(() {
+        _selectedParticipant = previousSelection;
+        _isUpdatingParticipant = false;
+      });
+      
+      HapticFeedback.heavyImpact();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text('Hata: ${e.toString()}'),
+              ),
+            ],
+          ),
+          duration: const Duration(seconds: 3),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Colors.red.withOpacity(0.9),
+        ),
+      );
     }
   }
 

@@ -14,6 +14,11 @@
 import { db as firestore } from "../config/firebaseAdmin.js";
 import { getChunkFromStorage, searchChunks } from "./relationshipPipeline.js";
 import { openai } from "../config/openaiClient.js";
+import { 
+  getActiveRelationshipContext, 
+  buildParticipantContextPrompt,
+  mapSpeakerToRole 
+} from "./relationshipContext.js";
 
 /**
  * Get relationship context for chat
@@ -21,13 +26,14 @@ import { openai } from "../config/openaiClient.js";
  */
 export async function getRelationshipContext(uid, userMessage, conversationHistory = []) {
   try {
-    // Get user's active relationship
-    const userDoc = await firestore.collection("users").doc(uid).get();
-    const activeRelationshipId = userDoc.data()?.activeRelationshipId;
+    // Get user's active relationship with participant mapping
+    const relationshipContext = await getActiveRelationshipContext(uid);
     
-    if (!activeRelationshipId) {
+    if (!relationshipContext) {
       return null;
     }
+    
+    const { relationshipId: activeRelationshipId, selfParticipant, partnerParticipant, speakers } = relationshipContext;
     
     // Get relationship master document
     const relationshipRef = firestore
@@ -50,8 +56,11 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
       return null;
     }
     
-    // Build base context from master summary
-    let context = buildMasterContext(relationship);
+    // Build participant context prompt
+    const participantPrompt = buildParticipantContextPrompt(relationshipContext);
+    
+    // Build base context from master summary (with participant mapping)
+    let context = buildMasterContext(relationship, relationshipContext);
     
     // Check if user message needs retrieval
     const needsRetrieval = detectRetrievalNeed(userMessage, conversationHistory);
@@ -123,7 +132,8 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
           const excerpt = await generateExcerpt(
             rawContent, 
             userMessage, 
-            needsRetrieval.query
+            needsRetrieval.query,
+            relationshipContext
           );
           
           // ═══════════════════════════════════════════════════════════════
@@ -168,8 +178,11 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
     
     return {
       context,
+      participantContext: participantPrompt,
       relationshipId: activeRelationshipId,
       speakers: relationship.speakers,
+      selfParticipant,
+      partnerParticipant,
       hasRetrieval: needsRetrieval.needed,
     };
     
@@ -183,13 +196,33 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
 
 /**
  * Build context string from master summary
+ * @param {Object} relationship - Relationship document data
+ * @param {Object} relationshipContext - Participant mapping context
  */
-function buildMasterContext(relationship) {
+function buildMasterContext(relationship, relationshipContext = null) {
   const ms = relationship.masterSummary || {};
   const speakers = relationship.speakers || [];
+  const { selfParticipant, partnerParticipant } = relationshipContext || {};
   
   let context = `📱 İLİŞKİ HAFIZASI\n`;
-  context += `Konuşmacılar: ${speakers.join(" & ")}\n`;
+  
+  // Show speakers with role labels if participant mapping exists
+  if (selfParticipant) {
+    context += `Konuşmacılar:\n`;
+    speakers.forEach(speaker => {
+      const role = mapSpeakerToRole(speaker, relationshipContext);
+      if (role === "USER") {
+        context += `• ${speaker} → USER (uygulama kullanıcısı)\n`;
+      } else if (role === "PARTNER") {
+        context += `• ${speaker} → PARTNER\n`;
+      } else {
+        context += `• ${speaker} → OTHER\n`;
+      }
+    });
+  } else {
+    context += `Konuşmacılar: ${speakers.join(" & ")} (USER mapping henüz yapılmadı)\n`;
+  }
+  
   context += `Toplam mesaj: ${relationship.totalMessages || "?"}\n`;
   
   if (ms.shortSummary) {
@@ -530,24 +563,56 @@ function extractSearchTerms(message) {
 /**
  * Generate focused excerpt from raw chunk based on user's question
  */
-async function generateExcerpt(rawContent, userMessage, searchQuery) {
-  // If content is small enough, return as is
-  if (rawContent.length < 2000) {
-    return rawContent;
+async function generateExcerpt(rawContent, userMessage, searchQuery, relationshipContext = null) {
+  // Apply role labels to content if participant mapping exists
+  let processedContent = rawContent;
+  
+  if (relationshipContext && relationshipContext.selfParticipant) {
+    // Add role labels to messages in the format: [date] speaker: message
+    // Transform to: [date] speaker [ROLE]: message
+    const { selfParticipant, partnerParticipant } = relationshipContext;
+    
+    processedContent = rawContent.split('\n').map(line => {
+      // Match WhatsApp message format
+      const messageMatch = line.match(/^(\[.+?\])\s+([^:]+):\s*(.*)$/);
+      if (messageMatch) {
+        const [, timestamp, speaker, message] = messageMatch;
+        const role = mapSpeakerToRole(speaker.trim(), relationshipContext);
+        
+        // Add role label
+        if (role === "USER") {
+          return `${timestamp} ${speaker} [USER]: ${message}`;
+        } else if (role === "PARTNER") {
+          return `${timestamp} ${speaker} [PARTNER]: ${message}`;
+        } else if (role === "OTHER") {
+          return `${timestamp} ${speaker} [OTHER]: ${message}`;
+        }
+      }
+      return line;
+    }).join('\n');
   }
+  
+  // If content is small enough, return as is
+  if (processedContent.length < 2000) {
+    return processedContent;
+  }
+  
+  const roleContext = relationshipContext && relationshipContext.selfParticipant
+    ? `\nÖNEMLİ: Mesajlarda [USER], [PARTNER], [OTHER] etiketleri var. [USER] = uygulama kullanıcısı.`
+    : "";
   
   const prompt = `Aşağıdaki WhatsApp sohbet kesitinden, kullanıcının sorusuyla en alakalı kısmı çıkar.
 
 KULLANICI SORUSU: ${userMessage}
-ARAMA TERİMİ: ${searchQuery}
+ARAMA TERİMİ: ${searchQuery}${roleContext}
 
 SOHBET KESİTİ:
-${rawContent.slice(0, 8000)}
+${processedContent.slice(0, 8000)}
 
 GÖREV:
 1. Soruyla en alakalı 10-20 mesajı bul
 2. Bağlam için öncesi-sonrasıyla birlikte ver
-3. Orijinal formatı koru ([tarih] isim: mesaj)
+3. Orijinal formatı koru (rol etiketleriyle birlikte: [USER], [PARTNER], [OTHER])
 4. Maksimum 1500 karakter
 
 Sadece alakalı mesajları döndür, başka bir şey yazma.`;
@@ -567,7 +632,7 @@ Sadece alakalı mesajları döndür, başka bir şey yazma.`;
   } catch (e) {
     console.error("generateExcerpt error:", e);
     // Fallback: return beginning of content
-    return rawContent.slice(0, 1500) + "\n[...]";
+    return processedContent.slice(0, 1500) + "\n[...]";
   }
 }
 
