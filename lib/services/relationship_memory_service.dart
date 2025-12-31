@@ -3,7 +3,7 @@
 /// ═══════════════════════════════════════════════════════════════
 /// Service for reading/updating relationship memory from Firestore
 /// Updated for new chunked pipeline architecture
-/// 
+///
 /// Firestore structure:
 /// - relationships/{uid}/relations/{relationshipId}
 /// - relationships/{uid}/relations/{relationshipId}/chunks/{chunkId}
@@ -13,11 +13,47 @@ library;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/relationship_memory.dart';
 
 class RelationshipMemoryService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // ═══════════════════════════════════════════════════════════════
+  // SELECTED SELF PARTICIPANT (Synced between Chat and Radar)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Get selected self participant ID (name from speakers list)
+  static Future<String?> getSelectedSelfParticipant() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('selectedSelfParticipantId');
+    } catch (e) {
+      print('❌ Error getting selectedSelfParticipantId: $e');
+      return null;
+    }
+  }
+
+  /// Set selected self participant ID (name from speakers list)
+  static Future<bool> setSelectedSelfParticipant(String? participantId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (participantId == null) {
+        await prefs.remove('selectedSelfParticipantId');
+      } else {
+        await prefs.setString('selectedSelfParticipantId', participantId);
+      }
+      return true;
+    } catch (e) {
+      print('❌ Error setting selectedSelfParticipantId: $e');
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RELATIONSHIP MEMORY CRUD
+  // ═══════════════════════════════════════════════════════════════
 
   /// Get current user's active relationship memory
   static Future<RelationshipMemory?> getMemory() async {
@@ -27,7 +63,8 @@ class RelationshipMemoryService {
 
       // Get active relationship ID from user document
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
-      final activeRelationshipId = userDoc.data()?['activeRelationshipId'] as String?;
+      final activeRelationshipId =
+          userDoc.data()?['activeRelationshipId'] as String?;
 
       if (activeRelationshipId == null) {
         // No active relationship - return null immediately
@@ -45,7 +82,7 @@ class RelationshipMemoryService {
       if (!relationshipDoc.exists) return null;
 
       final data = relationshipDoc.data()!;
-      
+
       // Check isActive flag - if false, treat as no relationship
       if (data['isActive'] == false) return null;
 
@@ -62,10 +99,8 @@ class RelationshipMemoryService {
   /// Get legacy memory (for backward compatibility)
   static Future<RelationshipMemory?> _getLegacyMemory(String uid) async {
     try {
-      final doc = await _firestore
-          .collection('relationship_memory')
-          .doc(uid)
-          .get();
+      final doc =
+          await _firestore.collection('relationship_memory').doc(uid).get();
 
       if (!doc.exists) return null;
 
@@ -89,7 +124,8 @@ class RelationshipMemoryService {
           .get();
 
       return snapshot.docs
-          .map((doc) => RelationshipMemory.fromFirestore(doc.data(), docId: doc.id))
+          .map((doc) =>
+              RelationshipMemory.fromFirestore(doc.data(), docId: doc.id))
           .toList();
     } catch (e) {
       print('RelationshipMemoryService.getAllRelationships error: $e');
@@ -98,7 +134,8 @@ class RelationshipMemoryService {
   }
 
   /// Update isActive flag for a relationship
-  static Future<bool> updateIsActive(bool isActive, {String? relationshipId}) async {
+  static Future<bool> updateIsActive(bool isActive,
+      {String? relationshipId}) async {
     try {
       final user = _auth.currentUser;
       if (user == null) return false;
@@ -106,7 +143,8 @@ class RelationshipMemoryService {
       // Get relationship ID
       String? relId = relationshipId;
       if (relId == null) {
-        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
         relId = userDoc.data()?['activeRelationshipId'] as String?;
       }
 
@@ -145,7 +183,8 @@ class RelationshipMemoryService {
       // Get relationship ID
       String? relId = relationshipId;
       if (relId == null) {
-        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
         relId = userDoc.data()?['activeRelationshipId'] as String?;
       }
 
@@ -178,6 +217,9 @@ class RelationshipMemoryService {
       await _firestore.collection('users').doc(user.uid).update({
         'activeRelationshipId': null,
       });
+
+      // Clear selected self participant (sync state)
+      await setSelectedSelfParticipant(null);
 
       return true;
     } catch (e) {
@@ -226,7 +268,8 @@ class RelationshipMemoryService {
       String? relId = relationshipId;
       if (relId == null) {
         print('🔍 No relationshipId provided, fetching from user doc...');
-        final userDoc = await _firestore.collection('users').doc(user.uid).get();
+        final userDoc =
+            await _firestore.collection('users').doc(user.uid).get();
         relId = userDoc.data()?['activeRelationshipId'] as String?;
         print('🔍 Active relationship ID from user doc: $relId');
       }
@@ -245,7 +288,8 @@ class RelationshipMemoryService {
         updateData['partnerParticipant'] = partnerParticipant;
       }
 
-      print('🔍 Updating relationship doc: relationships/${user.uid}/relations/$relId');
+      print(
+          '🔍 Updating relationship doc: relationships/${user.uid}/relations/$relId');
       print('🔍 Update data: $updateData');
 
       await _firestore
@@ -256,6 +300,10 @@ class RelationshipMemoryService {
           .update(updateData);
 
       print('✅ Relationship doc updated successfully');
+
+      // Save selected self participant (sync state between Chat and Radar)
+      await setSelectedSelfParticipant(selfParticipant);
+      print('✅ selectedSelfParticipant saved: $selfParticipant');
 
       // If activeRelationshipId not set, set it now
       final userDoc = await _firestore.collection('users').doc(user.uid).get();

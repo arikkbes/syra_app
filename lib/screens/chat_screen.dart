@@ -150,8 +150,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         final maxScroll = _scrollController.position.maxScrollExtent;
         final currentScroll = _scrollController.offset;
 
-        // Eğer kullanıcı en altta değilse, manuel scroll yapmış demektir
-        if (maxScroll - currentScroll > 100) {
+        // Show scroll-to-bottom button when user scrolls up > 250px from bottom
+        if (maxScroll - currentScroll > 250) {
           if (!_userScrolledUp) {
             setState(() => _userScrolledUp = true);
           }
@@ -877,6 +877,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           Navigator.pop(context);
           _pickAndUploadRelationshipFile();
         },
+        onActivate: () {
+          // PATCH B: Auto start new chat when relationship becomes active
+          Navigator.pop(context); // Close panel
+          _startNewChat(); // Clear state and start fresh
+          // Show glass toast
+          if (mounted) {
+            BlurToast.showTop(
+              context,
+              "İlişki chat'e eklendi.",
+              duration: const Duration(seconds: 2),
+            );
+          }
+        },
       ),
     ).then((_) {
       // Reset anti-spam flag when panel closes
@@ -1346,6 +1359,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 100),
         () => _scrollToBottom(smooth: false));
 
+    // ═══════════════════════════════════════════════════════════════
+    // PATCH C: Auto-detect selfParticipant from "ben X'yim" patterns
+    // ═══════════════════════════════════════════════════════════════
+    _tryAutoSelectSelfParticipant(text);
+
     // 1 saniye sonra buton tekrar aktif olacak (anti-spam timeout)
     Future.delayed(const Duration(seconds: 1), () {
       if (mounted) {
@@ -1417,11 +1435,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _isTyping = true;
     });
 
-    // Show "Yanıtlanıyor..." status chip
-    if (mounted) {
-      BlurToast.showStatus(context, "Yanıtlanıyor…");
-    }
-
     // Small delay (AI "thinking")
     await Future.delayed(const Duration(milliseconds: 500));
 
@@ -1450,7 +1463,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           }
 
           // Hide status chip on error
-          BlurToast.hideStatus();
 
           setState(() {
             _isTyping = false;
@@ -1535,9 +1547,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             return; // Ignore stale chunk
           }
 
-          // Hide status chip when first chunk arrives
-          BlurToast.hideStatus();
-
           setState(() {
             _isTyping = false; // Hide logo pulse
             _messages.add({
@@ -1577,9 +1586,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       debugPrint("❌ Streaming error: $e");
-
-      // Hide status chip on exception
-      BlurToast.hideStatus();
 
       setState(() {
         _isTyping = false;
@@ -2049,6 +2055,18 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                         ),
                                       ),
 
+                                      // Layer 5.5: Scroll-to-bottom button (ChatGPT-style centered)
+                                      if (_userScrolledUp)
+                                        Positioned(
+                                          bottom: _inputBarHeight +
+                                              20, // 20px above input bar
+                                          left: 0,
+                                          right: 0,
+                                          child: Center(
+                                            child: _buildScrollToBottomButton(),
+                                          ),
+                                        ),
+
                                       // Layer 6: Top Haze (micro-blur + scrim + feather fade)
                                       // Claude/Sonnet style: subtle foggy/haze effect
                                       // - Small blur for haze (not heavy glass)
@@ -2297,6 +2315,116 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     );
   }
+
+  /// ═══════════════════════════════════════════════════════════════
+  /// SCROLL-TO-BOTTOM BUTTON (ChatGPT-style centered glass button)
+  /// ═══════════════════════════════════════════════════════════════
+  Widget _buildScrollToBottomButton() {
+    return GestureDetector(
+      onTap: () {
+        // Smooth scroll to bottom when tapped
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOutCubic,
+          );
+        }
+      },
+      child: ClipOval(
+        child: BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.4),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.12),
+                width: 1,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 24,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// ═══════════════════════════════════════════════════════════════
+  /// PATCH C: Auto-select selfParticipant from "ben X'yim" patterns
+  /// ═══════════════════════════════════════════════════════════════
+  Future<void> _tryAutoSelectSelfParticipant(String message) async {
+    // Only if active relationship exists
+    final memory = await RelationshipMemoryService.getMemory();
+    if (memory == null || memory.speakers.isEmpty) return;
+
+    final messageLower = message.toLowerCase().trim();
+
+    // Turkish patterns: "ben X'yim", "ben X", "burda X'yim"
+    // NOTE: Using normal strings (not raw) to support Turkish chars in non-capturing groups
+    final patterns = [
+      RegExp('\\bben\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b', caseSensitive: false),
+      RegExp('\\bben\\s+(\\w+)\\b', caseSensitive: false),
+      RegExp('\\bburda\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b',
+          caseSensitive: false),
+      RegExp('\\bben\\s+burada\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b',
+          caseSensitive: false),
+    ];
+
+    String? candidateName;
+    for (final pattern in patterns) {
+      final match = pattern.firstMatch(messageLower);
+      if (match != null && match.groupCount >= 1) {
+        candidateName = match.group(1);
+        break;
+      }
+    }
+
+    if (candidateName == null) return;
+
+    // Match against participant speakers (case-insensitive)
+    String? matchedParticipant;
+    for (final speaker in memory.speakers) {
+      if (speaker.toLowerCase() == candidateName.toLowerCase() ||
+          speaker.toLowerCase().contains(candidateName.toLowerCase())) {
+        matchedParticipant = speaker;
+        break;
+      }
+    }
+
+    if (matchedParticipant == null) return;
+
+    // Save selection and update Firestore
+    final success = await RelationshipMemoryService.updateParticipants(
+      selfParticipant: matchedParticipant,
+      partnerParticipant: memory.speakers.firstWhere(
+        (s) => s != matchedParticipant,
+        orElse: () => '',
+      ),
+      relationshipId: memory.id,
+    );
+
+    if (success && mounted) {
+      BlurToast.showTop(
+        context,
+        "Tamam. Seni $matchedParticipant olarak ayarladım.",
+        duration: const Duration(milliseconds: 2000),
+      );
+    }
+  }
 }
 
 // RELATIONSHIP PANEL SHEET (Filled State)
@@ -2305,11 +2433,14 @@ class _RelationshipPanelSheet extends StatefulWidget {
   final RelationshipMemory memory;
   final VoidCallback onUpdate;
   final VoidCallback onUpload;
+  final VoidCallback?
+      onActivate; // NEW: Called when relationship becomes active
 
   const _RelationshipPanelSheet({
     required this.memory,
     required this.onUpdate,
     required this.onUpload,
+    this.onActivate,
   });
 
   @override
@@ -2341,6 +2472,11 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
         _isActive = value;
         _isUpdating = false;
       });
+
+      // PATCH B: If relationship became active, trigger context refresh
+      if (value && widget.onActivate != null) {
+        widget.onActivate!();
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

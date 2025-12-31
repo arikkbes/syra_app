@@ -51,9 +51,31 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   @override
   void initState() {
     super.initState();
-    // Initialize selected participant from memory
-    _selectedParticipant = widget.memory.selfParticipant;
+    // Initialize selected participant from synced state
+    _initializeSelectedParticipant();
     _loadStats();
+  }
+
+  Future<void> _initializeSelectedParticipant() async {
+    // Get synced selectedSelfParticipant from shared state
+    final savedParticipant =
+        await RelationshipMemoryService.getSelectedSelfParticipant();
+
+    // Validate: check if saved participant exists in current relationship
+    if (savedParticipant != null &&
+        widget.memory.speakers.contains(savedParticipant)) {
+      setState(() {
+        _selectedParticipant = savedParticipant;
+      });
+      debugPrint('✅ Loaded synced participant: $savedParticipant');
+    } else {
+      // Fallback to memory.selfParticipant if sync state invalid
+      setState(() {
+        _selectedParticipant = widget.memory.selfParticipant;
+      });
+      debugPrint(
+          '⚠️ Saved participant invalid, using memory.selfParticipant: ${widget.memory.selfParticipant}');
+    }
   }
 
   Future<void> _loadStats() async {
@@ -130,12 +152,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
             )
           : null,
       dynamics: mem.dynamics != null
-          ? RelationshipDynamics.fromJson(
-              mem.dynamics! as Map<String, dynamic>)
+          ? RelationshipDynamics.fromJson(mem.dynamics! as Map<String, dynamic>)
           : null,
       patterns: mem.patterns != null
-          ? RelationshipPatterns.fromJson(
-              mem.patterns! as Map<String, dynamic>)
+          ? RelationshipPatterns.fromJson(mem.patterns! as Map<String, dynamic>)
           : null,
     );
   }
@@ -334,7 +354,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         itemBuilder: (context, index) {
           final isFirst = index == 0;
           final isLast = index == 3;
-          
+
           return Padding(
             padding: EdgeInsets.only(
               left: isFirst ? 0 : 8,
@@ -604,7 +624,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
               final card = statCards[index];
               final isFirst = index == 0;
               final isLast = index == statCards.length - 1;
-              
+
               return Padding(
                 padding: EdgeInsets.only(
                   left: isFirst ? 0 : 8,
@@ -760,7 +780,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   Widget _buildParticipantSelector() {
     final speakers = widget.memory.speakers;
     final hasPartner = speakers.length == 2;
-    
+
     return _GlassCard(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -815,8 +835,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           Row(
             children: speakers.map((speaker) {
               final isSelected = _selectedParticipant == speaker;
-              final isPartner = hasPartner && _selectedParticipant != null && speaker != _selectedParticipant;
-              
+              final isPartner = hasPartner &&
+                  _selectedParticipant != null &&
+                  speaker != _selectedParticipant;
+
               return Expanded(
                 child: Padding(
                   padding: EdgeInsets.only(
@@ -826,7 +848,9 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                     speaker: speaker,
                     isSelected: isSelected,
                     isPartner: isPartner,
-                    onTap: _isUpdatingParticipant ? null : () => _selectSelfParticipant(speaker),
+                    onTap: _isUpdatingParticipant
+                        ? null
+                        : () => _selectSelfParticipant(speaker),
                   ),
                 ),
               );
@@ -853,8 +877,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           color: SyraTokens.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isSelected 
-                ? SyraTokens.accent 
+            color: isSelected
+                ? SyraTokens.accent
                 : SyraTokens.border.withOpacity(0.5),
             width: isSelected ? 2 : 1,
           ),
@@ -888,7 +912,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                   ),
                 ),
               ),
-            
+
             // Main content
             Column(
               mainAxisSize: MainAxisSize.min,
@@ -896,9 +920,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                 Text(
                   speaker,
                   style: TextStyle(
-                    color: isSelected 
-                        ? SyraTokens.accent 
-                        : SyraTokens.textPrimary,
+                    color:
+                        isSelected ? SyraTokens.accent : SyraTokens.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -930,13 +953,13 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   Future<void> _selectSelfParticipant(String speaker) async {
     // Don't allow selection if already updating
     if (_isUpdatingParticipant) return;
-    
+
     // Don't reselect the same participant
     if (_selectedParticipant == speaker) return;
 
     // Store previous selection for rollback
     final previousSelection = _selectedParticipant;
-    
+
     try {
       // Optimistic update - update UI immediately
       setState(() {
@@ -946,7 +969,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
 
       final speakers = widget.memory.speakers;
       String? partner;
-      
+
       if (speakers.length == 2) {
         partner = speakers.firstWhere((s) => s != speaker);
       }
@@ -972,7 +995,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
       if (success) {
         // Reload stats to get updated user/partner labels
         _loadStats();
-        
+
         // Show success feedback
         HapticFeedback.mediumImpact();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -996,7 +1019,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         setState(() {
           _selectedParticipant = previousSelection;
         });
-        
+
         HapticFeedback.heavyImpact();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -1018,15 +1041,15 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
     } catch (e, stackTrace) {
       debugPrint('❌ Participant selection error: $e');
       debugPrint('Stack trace: $stackTrace');
-      
+
       if (!mounted) return;
-      
+
       // Rollback on error
       setState(() {
         _selectedParticipant = previousSelection;
         _isUpdatingParticipant = false;
       });
-      
+
       HapticFeedback.heavyImpact();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1277,7 +1300,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
               runSpacing: 6,
               children: profile.traits.map((trait) {
                 return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
                     color: SyraTokens.accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -1467,20 +1491,23 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           ),
           const SizedBox(height: 20),
           if (patterns.strengths.isNotEmpty) ...[
-            _buildPatternSection('💚 Güçlü Yanlar', patterns.strengths, Colors.green),
+            _buildPatternSection(
+                '💚 Güçlü Yanlar', patterns.strengths, Colors.green),
             const SizedBox(height: 16),
           ],
           if (patterns.recurringIssues.isNotEmpty) ...[
-            _buildPatternSection(
-                '⚠️ Tekrar Eden Sorunlar', patterns.recurringIssues, Colors.orange),
+            _buildPatternSection('⚠️ Tekrar Eden Sorunlar',
+                patterns.recurringIssues, Colors.orange),
             const SizedBox(height: 16),
           ],
           if (patterns.redFlags.isNotEmpty) ...[
-            _buildPatternSection('🚩 Kırmızı Bayraklar', patterns.redFlags, Colors.red),
+            _buildPatternSection(
+                '🚩 Kırmızı Bayraklar', patterns.redFlags, Colors.red),
           ],
           if (patterns.greenFlags.isNotEmpty) ...[
             const SizedBox(height: 16),
-            _buildPatternSection('✅ Yeşil Bayraklar', patterns.greenFlags, Colors.green),
+            _buildPatternSection(
+                '✅ Yeşil Bayraklar', patterns.greenFlags, Colors.green),
           ],
         ],
       ),

@@ -184,6 +184,7 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
       selfParticipant,
       partnerParticipant,
       hasRetrieval: needsRetrieval.needed,
+      updatedAt: relationship.updatedAt, // PATCH C: For context change detection
     };
     
   } catch (e) {

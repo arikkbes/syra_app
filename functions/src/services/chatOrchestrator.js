@@ -220,6 +220,34 @@ Cevabını buna göre kurgula.
   }
 
   // ═══════════════════════════════════════════════════════════════
+  // UPLOAD GUIDANCE GUARD: Detect upload questions and give UI instructions only
+  // ═══════════════════════════════════════════════════════════════
+  const uploadKeywords = [
+    "nereden yükle", "nasıl yükle", "ilişki yükleme", "ilişkiyi yükle",
+    "upload", "zip", "whatsapp sohbet", "sohbeti yükle", "dosya yükle",
+    "nereye yükle", "nasıl ekle"
+  ];
+  
+  const messageLower = message.toLowerCase();
+  const isUploadQuestion = uploadKeywords.some(keyword => messageLower.includes(keyword));
+  
+  if (isUploadQuestion) {
+    systemMessages.push({
+      role: "system",
+      content: `
+🔒 UPLOAD GUIDANCE OVERRIDE:
+User is asking how to upload relationship. Give ONLY these UI instructions (short, confident, 1-3 sentences):
+
+1) "İlişkiyi yüklemek için chat bar'daki SYRA logosuna dokun."
+2) "WhatsApp sohbet ZIP veya .txt dosyanı seç ve yükle."
+3) "Yükledikten sonra panelden 'Chat'te kullan'ı aç."
+
+Do NOT ask for names, details, or relationship info. Just give UI steps.
+      `.trim(),
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
   // RESPONSE STYLE ENFORCEMENT: ChatGPT-quality concise responses
   // ═══════════════════════════════════════════════════════════════
   systemMessages.push({
@@ -298,6 +326,33 @@ Cevabını buna göre kurgula.
         role: "system",
         content: relationshipData.context,
       });
+      
+      // ═══════════════════════════════════════════════════════════════
+      // PATCH C: Detect relationship context change and inject override
+      // ═══════════════════════════════════════════════════════════════
+      const shouldInjectOverride = await checkRelationshipContextChange(
+        uid,
+        relationshipData.relationshipId,
+        relationshipData.updatedAt
+      );
+      
+      if (shouldInjectOverride) {
+        systemMessages.push({
+          role: "system",
+          content: `
+🔄 RELATIONSHIP CONTEXT UPDATED (CRITICAL):
+The active relationship has just been changed or toggled ON.
+IGNORE any previous assumptions about who is who from earlier in this chat.
+Use ONLY the current relationship participants provided above:
+- USER = ${relationshipData.selfParticipant || 'to be determined'}
+- PARTNER = ${relationshipData.partnerParticipant || 'to be determined'}
+
+Previous partner names or relationship details from earlier turns are now INVALID.
+Base all responses on the CURRENT active relationship context only.
+          `.trim(),
+        });
+        console.log(`[${uid}] 🔄 Relationship context change detected - override injected`);
+      }
       
       // CRITICAL: Inject participant mapping context
       if (relationshipData.participantContext) {
@@ -437,4 +492,69 @@ Cevabını buna göre kurgula.
       errorType: openaiError,
     },
   };
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * PATCH C: Check if relationship context was recently changed
+ * ═══════════════════════════════════════════════════════════════
+ * Returns true if relationship was updated in the last 2 minutes
+ * This indicates a toggle ON or relationship switch in same chat
+ */
+async function checkRelationshipContextChange(uid, relationshipId, relationshipUpdatedAt) {
+  try {
+    // Get user doc to check last known relationship state
+    const userDoc = await firestore.collection("users").doc(uid).get();
+    const userData = userDoc.data();
+    
+    if (!userData) return false;
+    
+    // Parse relationship updatedAt timestamp
+    let relationshipTimestamp = null;
+    if (relationshipUpdatedAt) {
+      if (relationshipUpdatedAt.toDate) {
+        relationshipTimestamp = relationshipUpdatedAt.toDate();
+      } else if (relationshipUpdatedAt._seconds) {
+        relationshipTimestamp = new Date(relationshipUpdatedAt._seconds * 1000);
+      } else if (typeof relationshipUpdatedAt === "string") {
+        relationshipTimestamp = new Date(relationshipUpdatedAt);
+      }
+    }
+    
+    if (!relationshipTimestamp) return false;
+    
+    // Check if relationship was updated in last 2 minutes
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const isRecentlyUpdated = relationshipTimestamp > twoMinutesAgo;
+    
+    if (isRecentlyUpdated) {
+      console.log(`[${uid}] Relationship recently updated: ${relationshipTimestamp.toISOString()}`);
+      return true;
+    }
+    
+    // Also check if activeRelationshipId changed recently
+    const lastKnownRelId = userData.lastKnownRelationshipId;
+    if (lastKnownRelId && lastKnownRelId !== relationshipId) {
+      console.log(`[${uid}] Relationship ID changed: ${lastKnownRelId} → ${relationshipId}`);
+      
+      // Update last known relationship ID
+      await firestore.collection("users").doc(uid).set({
+        lastKnownRelationshipId: relationshipId,
+      }, { merge: true });
+      
+      return true;
+    }
+    
+    // If this is first time seeing this relationship ID, store it
+    if (!lastKnownRelId) {
+      await firestore.collection("users").doc(uid).set({
+        lastKnownRelationshipId: relationshipId,
+      }, { merge: true });
+    }
+    
+    return false;
+  } catch (error) {
+    console.error(`[${uid}] Error checking relationship context change:`, error);
+    return false; // Safe default
+  }
 }
