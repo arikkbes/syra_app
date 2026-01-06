@@ -67,7 +67,26 @@ export async function syraChatHandler(req, res) {
     }
 
     // Body
-    const { message, context, imageUrl, mode, tarotContext } = req.body || {};
+    const { message, context, imageUrl, mode, tarotContext, sessionId: rawSessionId } = req.body || {};
+    
+    // ═══════════════════════════════════════════════════════════════
+    // MODULE 1: Session ID validation and sanitization
+    // ═══════════════════════════════════════════════════════════════
+    let sessionId = "legacy"; // Default fallback
+    
+    if (rawSessionId && typeof rawSessionId === "string" && rawSessionId.trim()) {
+      // Trim to max 128 chars
+      let cleanSessionId = rawSessionId.trim().slice(0, 128);
+      
+      // Sanitize: only allow [a-zA-Z0-9_-]
+      cleanSessionId = cleanSessionId.replace(/[^a-zA-Z0-9_-]/g, "_");
+      
+      sessionId = cleanSessionId;
+      console.log(`[${uid}] Session ID: ${sessionId}`);
+    } else {
+      console.log(`[${uid}] No session ID provided, using 'legacy'`);
+    }
+    
     if (!message || typeof message !== "string" || !message.trim()) {
       // Eğer sadece resim gönderilmişse ve text yoksa, default mesaj
       if (imageUrl) {
@@ -118,7 +137,8 @@ export async function syraChatHandler(req, res) {
 
     // MAIN CHAT PROCESSOR
     const result = await processChat(
-      uid, 
+      uid,
+      sessionId, // MODULE 1: Pass sessionId
       message, 
       replyTo, 
       isPremium, 
@@ -160,4 +180,3 @@ export async function syraChatHandler(req, res) {
     });
   }
 }
-  

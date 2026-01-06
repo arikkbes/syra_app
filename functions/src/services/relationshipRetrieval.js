@@ -12,6 +12,7 @@
  */
 
 import { db as firestore } from "../config/firebaseAdmin.js";
+import admin from "../config/firebaseAdmin.js"; // MODULE 3: For Storage access
 import { getChunkFromStorage, searchChunks } from "./relationshipPipeline.js";
 import { openai } from "../config/openaiClient.js";
 import { 
@@ -667,14 +668,54 @@ export async function deleteRelationship(uid, relationshipId) {
       .collection("relations")
       .doc(relationshipId);
     
-    // Delete chunks subcollection
-    const chunksSnapshot = await relationshipRef.collection("chunks").get();
-    const batch = firestore.batch();
-    chunksSnapshot.docs.forEach(doc => batch.delete(doc.ref));
-    await batch.commit();
+    // ═══════════════════════════════════════════════════════════════
+    // MODULE 3: Clear both Firestore chunks and Storage files
+    // ═══════════════════════════════════════════════════════════════
+    console.log(`[${uid}] Deleting relationship ${relationshipId} - clearing all data`);
     
-    // Delete main document
-    await relationshipRef.delete();
+    // Delete chunks subcollection (Firestore)
+    const chunksSnapshot = await relationshipRef.collection("chunks").get();
+    let batch = firestore.batch();
+    let batchCount = 0;
+    
+    for (const doc of chunksSnapshot.docs) {
+      batch.delete(doc.ref);
+      batchCount++;
+      
+      if (batchCount >= 500) {
+        await batch.commit();
+        batch = firestore.batch();
+        batchCount = 0;
+      }
+    }
+    
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+    
+    console.log(`[${uid}] Cleared ${chunksSnapshot.docs.length} Firestore chunks`);
+    
+    // Delete Storage files
+    try {
+      const storage = admin.storage().bucket();
+      const prefix = `relationship_chunks/${uid}/${relationshipId}/`;
+      const [files] = await storage.getFiles({ prefix });
+      
+      if (files.length > 0) {
+        await Promise.all(files.map(file => file.delete()));
+        console.log(`[${uid}] Cleared ${files.length} Storage files`);
+      }
+    } catch (storageError) {
+      console.error(`[${uid}] Error clearing Storage (non-critical):`, storageError);
+    }
+    
+    // Update relationship doc to inactive (or delete it)
+    await relationshipRef.update({
+      isActive: false,
+      deletedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    
+    console.log(`[${uid}] Relationship marked as inactive`);
     
     // Clear active pointer if this was active
     const userDoc = await firestore.collection("users").doc(uid).get();
@@ -682,9 +723,8 @@ export async function deleteRelationship(uid, relationshipId) {
       await firestore.collection("users").doc(uid).update({
         activeRelationshipId: null,
       });
+      console.log(`[${uid}] Active relationship pointer cleared`);
     }
-    
-    // Note: Storage files will remain (could add cleanup later)
     
     return true;
   } catch (e) {

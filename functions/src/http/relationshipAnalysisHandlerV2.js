@@ -96,9 +96,23 @@ export async function analyzeRelationshipChatHandler(req, res) {
 
     // Check for existing relationship ID (for updates)
     const existingRelationshipId = fields.relationshipId || null;
+    const forceUpdate = fields.forceUpdate === "true" || fields.forceUpdate === true;
 
     // Process with new pipeline
-    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId);
+    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId, forceUpdate);
+
+    // ═══════════════════════════════════════════════════════════════
+    // MODULE 3: Handle mismatch detection
+    // ═══════════════════════════════════════════════════════════════
+    if (result.mismatchDetected) {
+      console.log(`[${uid}] Mismatch detected, returning warning to client`);
+      return res.status(200).json({
+        success: false,
+        mismatchDetected: true,
+        reason: result.reason,
+        suggestedAction: result.suggestedAction,
+      });
+    }
 
     console.log(`[${uid}] Pipeline complete: ${result.chunksCount} chunks, ${result.messagesCount} messages`);
 

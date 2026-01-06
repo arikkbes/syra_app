@@ -118,9 +118,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   File? _pendingImage;
   String? _pendingImageUrl; // Upload edilmiş URL (gönderilmeyi bekliyor)
 
-  // Relationship upload
-  bool _isUploadingRelationshipFile = false;
+  // Relationship panel state
   bool _isRelationshipPanelOpen = false; // Anti-spam flag
+  void Function(VoidCallback)? _sheetSetState; // Reference to sheet's setState
+  int _panelRefreshTrigger = 0; // Increment to force panel refresh
+
+  // Background upload state (persists when sheet is closed)
+  bool _isUploadingInBackground = false;
+  String _uploadStatus = '';
+  double? _uploadProgress; // null = indeterminate
+  File? _pendingUploadFile;
+  bool _showMismatchCard = false;
+  String _mismatchReason = '';
+  String? _mismatchExistingRelationshipId;
 
   // LayerLink for anchored mode selector popover
   // This anchors the mode selector popover to the mode label in the app bar
@@ -653,6 +663,23 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     if (confirmed != true || !mounted) return;
 
+    // ═══════════════════════════════════════════════════════════════
+    // MODULE 2: Cancel in-flight request if deleting current session
+    // ═══════════════════════════════════════════════════════════════
+    if (_currentSessionId == session.id) {
+      // Cancel any in-flight streaming response
+      if (_activeRequestId != null) {
+        debugPrint(
+            "⚠️ [ChatScreen] Cancelling in-flight request due to session deletion");
+        setState(() {
+          _activeRequestId =
+              null; // This will cause streaming chunks to be ignored
+          _lockedSessionId = null;
+          _isTyping = false;
+        });
+      }
+    }
+
     final result = await ChatSessionService.deleteSession(session.id);
     if (!mounted) return;
 
@@ -674,6 +701,85 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       BlurToast.show(context, result.errorMessage ?? 'Sohbet silinemedi');
     }
   }
+
+  /// MODULE 3: Show mismatch detection dialog
+  /// Returns: true = create new, false = force update, null = cancel
+  // DEPRECATED: Mismatch handling now done inside _RelationshipPanelSheet
+  /*
+  Future<bool?> _showMismatchDialog(String reason) async {
+    return await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: SyraTokens.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        title: const Text(
+          'Farklı İlişki Tespit Edildi',
+          style: TextStyle(
+            color: SyraTokens.textPrimary,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              reason,
+              style: TextStyle(
+                color: SyraTokens.textSecondary.withValues(alpha: 0.92),
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Yeni ilişki olarak kaydedilsin mi, yoksa mevcut ilişkiyi güncelleyelim mi?',
+              style: TextStyle(
+                color: SyraTokens.textSecondary.withValues(alpha: 0.92),
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, null),
+            child: const Text(
+              'Vazgeç',
+              style: TextStyle(color: SyraTokens.textSecondary),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text(
+              'Yine de Güncelle',
+              style: TextStyle(color: SyraTokens.accent),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: SyraTokens.accent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            child: const Text(
+              'Yeni İlişki',
+              style: TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  */
 
   void _archiveSessionFromSidebar(ChatSession session) async {
     try {
@@ -739,24 +845,219 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // Set flag to prevent spam
     _isRelationshipPanelOpen = true;
 
-    // Load relationship memory to determine which state to show
-    final memory = await RelationshipMemoryService.getMemory();
+    // Load relationship memory - include inactive ones for panel UI
+    final memory =
+        await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
 
     if (!mounted) {
       _isRelationshipPanelOpen = false;
       return;
     }
 
-    if (memory == null) {
-      // EMPTY STATE: Show upload dialog
-      _showUploadDialog();
-    } else {
-      // FILLED STATE: Show relationship panel
-      _showRelationshipPanel(memory);
+    // Always show the relationship panel sheet
+    // It will handle both empty state (no memory) and filled state (has memory)
+    _showRelationshipPanel(memory);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // BACKGROUND UPLOAD METHODS (persist when sheet is closed)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Handle upload button tap - start file picker
+  Future<void> _handleUploadTap() async {
+    // Close keyboard before file picker
+    FocusScope.of(context).unfocus();
+    SystemChannels.textInput.invokeMethod('TextInput.hide');
+
+    try {
+      // Pick file
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['txt', 'zip'],
+      );
+
+      if (result == null || result.files.isEmpty) {
+        return; // User cancelled
+      }
+
+      final file = File(result.files.single.path!);
+
+      // Start upload with progress tracking
+      await _uploadFile(file);
+    } catch (e) {
+      debugPrint('_handleUploadTap error: $e');
+      if (mounted) {
+        setState(() {
+          _isUploadingInBackground = false;
+        });
+        BlurToast.show(
+          context,
+          "❌ Dosya seçimi başarısız: ${e.toString()}",
+        );
+      }
     }
   }
 
+  /// Upload file with background support
+  Future<void> _uploadFile(File file, {bool forceUpdate = false}) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isUploadingInBackground = true;
+      _uploadStatus = 'Dosya seçildi...';
+      _uploadProgress = null;
+      _showMismatchCard = false;
+      _pendingUploadFile = file;
+      _panelRefreshTrigger++; // Increment for didUpdateWidget
+    });
+
+    // Update sheet StatefulBuilder to rebuild with new props
+    _sheetSetState?.call(() {});
+
+    try {
+      // Determine if this is an update or new upload
+      String? existingRelationshipId;
+      final currentMemory =
+          await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
+      if (currentMemory != null && !forceUpdate) {
+        existingRelationshipId = currentMemory.id;
+      }
+
+      if (mounted) {
+        setState(() {
+          _uploadStatus = 'Yükleniyor...';
+        });
+      }
+
+      // Upload and analyze
+      final analysisResult = await RelationshipAnalysisService.analyzeChat(
+        file,
+        existingRelationshipId: existingRelationshipId,
+        forceUpdate: forceUpdate,
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        _uploadStatus = 'Analiz ediliyor...';
+      });
+
+      // Handle mismatch detection
+      if (analysisResult.isMismatch && !forceUpdate) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _showMismatchCard = true;
+          _mismatchReason = analysisResult.mismatchReason ??
+              'Farklı bir ilişki tespit edildi';
+          _mismatchExistingRelationshipId = existingRelationshipId;
+          _panelRefreshTrigger++; // Increment for didUpdateWidget
+        });
+
+        // Update sheet StatefulBuilder to rebuild with new props
+        _sheetSetState?.call(() {});
+        return;
+      }
+
+      // Success - fetch the updated/new memory WITHOUT activating it
+      if (analysisResult.relationshipId != null) {
+        final memory = await RelationshipMemoryService.getMemoryById(
+          analysisResult.relationshipId!,
+        );
+
+        if (!mounted) return;
+
+        // If this is a NEW upload (not update), auto-activate the relationship
+        final isNewUpload = existingRelationshipId == null;
+        if (isNewUpload && memory != null) {
+          // Auto-activate on first upload
+          await RelationshipMemoryService.setActiveRelationship(memory.id!);
+          await RelationshipMemoryService.updateIsActive(true,
+              relationshipId: memory.id!);
+        }
+
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+          _pendingUploadFile = null;
+          _panelRefreshTrigger++; // Increment for didUpdateWidget
+        });
+
+        // Update sheet StatefulBuilder to rebuild with new props
+        _sheetSetState?.call(() {});
+
+        // Show success message
+        BlurToast.show(
+          context,
+          existingRelationshipId != null
+              ? "✅ İlişki güncellendi"
+              : "✅ İlişki yüklendi ve aktif edildi",
+        );
+      } else {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+          _pendingUploadFile = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('_uploadFile error: $e');
+      if (mounted) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+          _pendingUploadFile = null;
+        });
+        BlurToast.show(
+          context,
+          "❌ Analiz sırasında bir hata oluştu: ${e.toString()}",
+        );
+      }
+    }
+  }
+
+  /// Handle mismatch - new relationship
+  Future<void> _handleMismatchNewRelationship() async {
+    if (_pendingUploadFile == null) return;
+
+    setState(() {
+      _showMismatchCard = false;
+    });
+
+    // Upload as new (existingRelationshipId: null)
+    await _uploadFile(_pendingUploadFile!, forceUpdate: false);
+  }
+
+  /// Handle mismatch - force update
+  Future<void> _handleMismatchForceUpdate() async {
+    if (_pendingUploadFile == null) return;
+
+    setState(() {
+      _showMismatchCard = false;
+    });
+
+    // Force update existing
+    await _uploadFile(_pendingUploadFile!, forceUpdate: true);
+  }
+
+  /// Handle mismatch - cancel
+  void _handleMismatchCancel() {
+    setState(() {
+      _showMismatchCard = false;
+      _pendingUploadFile = null;
+      _mismatchExistingRelationshipId = null;
+      _mismatchReason = '';
+      _isUploadingInBackground = false;
+      _uploadStatus = '';
+      _panelRefreshTrigger++; // Increment for didUpdateWidget
+    });
+
+    // Update sheet StatefulBuilder to rebuild with new props
+    _sheetSetState?.call(() {});
+  }
+
   /// Show empty state upload dialog
+  // DEPRECATED: Upload dialog now integrated into _RelationshipPanelSheet
+  /*
   void _showUploadDialog() {
     SyraBottomPanel.show(
       context: context,
@@ -860,40 +1161,59 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _isRelationshipPanelOpen = false;
     });
   }
+  */
 
   /// Show filled state relationship panel
-  void _showRelationshipPanel(RelationshipMemory memory) {
+  void _showRelationshipPanel(RelationshipMemory? memory) {
     SyraBottomPanel.show(
       context: context,
       padding: EdgeInsets.zero,
-      child: _RelationshipPanelSheet(
-        memory: memory,
-        onUpdate: () {
-          Navigator.pop(context);
-          _isRelationshipPanelOpen = false; // Reset before re-opening
-          _handleDocumentUpload();
-        },
-        onUpload: () {
-          Navigator.pop(context);
-          _pickAndUploadRelationshipFile();
-        },
-        onActivate: () {
-          // PATCH B: Auto start new chat when relationship becomes active
-          Navigator.pop(context); // Close panel
-          _startNewChat(); // Clear state and start fresh
-          // Show glass toast
-          if (mounted) {
-            BlurToast.showTop(
-              context,
-              "İlişki chat'e eklendi.",
-              duration: const Duration(seconds: 2),
-            );
-          }
+      child: StatefulBuilder(
+        builder: (context, setSheetState) {
+          // Save reference for updates
+          _sheetSetState = setSheetState;
+
+          return _RelationshipPanelSheet(
+            memory: memory,
+            onDelete: () {
+              // Force new chat session after forget
+              setState(() {
+                // Clear current session to force fresh start
+                _currentSessionId = null;
+                _messages.clear();
+                _replyingTo = null;
+              });
+
+              // Reset panel open flag so it can be opened again
+              _isRelationshipPanelOpen = false;
+
+              // Create new session for next message
+              _createInitialSession();
+            },
+            onMemoryUpdated: (updatedMemory) {
+              // Callback when memory is updated (after upload/update)
+              setState(() {
+                // Update local state if needed
+              });
+            },
+            // Background upload state
+            isUploadingInBackground: _isUploadingInBackground,
+            uploadStatus: _uploadStatus,
+            uploadProgress: _uploadProgress,
+            showMismatchCard: _showMismatchCard,
+            mismatchReason: _mismatchReason,
+            onUploadTap: _handleUploadTap,
+            onMismatchNew: _handleMismatchNewRelationship,
+            onMismatchForceUpdate: _handleMismatchForceUpdate,
+            onMismatchCancel: _handleMismatchCancel,
+            refreshTrigger: _panelRefreshTrigger,
+          );
         },
       ),
     ).then((_) {
       // Reset anti-spam flag when panel closes
       _isRelationshipPanelOpen = false;
+      _sheetSetState = null; // Clear reference
     });
   }
 
@@ -1028,8 +1348,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _openRelationshipRadar(memory);
   }
 
+  // DEPRECATED: Upload logic now integrated into _RelationshipPanelSheet
+  /*
   /// Pick and upload relationship file
-  Future<void> _pickAndUploadRelationshipFile() async {
+  Future<void> _pickAndUploadRelationshipFile(
+      {String? existingRelationshipId}) async {
     // Close keyboard before file picker (additional safeguard)
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
@@ -1055,8 +1378,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _isUploadingRelationshipFile = true;
       });
 
-      // Upload and analyze
-      await RelationshipAnalysisService.analyzeChat(file);
+      // Upload and analyze - pass existingRelationshipId if updating
+      final analysisResult = await RelationshipAnalysisService.analyzeChat(
+        file,
+        existingRelationshipId: existingRelationshipId,
+      );
 
       if (!mounted) return;
 
@@ -1064,13 +1390,94 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _isUploadingRelationshipFile = false;
       });
 
-      // Show confirmation
-      BlurToast.show(context, "✅ Sohbetin alındı, analiz hazır!");
+      // Handle mismatch detection
+      if (analysisResult.isMismatch) {
+        final shouldCreateNew = await _showMismatchDialog(
+          analysisResult.mismatchReason ?? 'Farklı bir ilişki tespit edildi',
+        );
 
-      // Load the newly created memory and open radar view
-      final memory = await RelationshipMemoryService.getMemory();
-      if (mounted && memory != null) {
-        _openRelationshipRadar(memory);
+        if (!mounted) return;
+
+        if (shouldCreateNew == null) {
+          // User cancelled
+          return;
+        } else if (shouldCreateNew) {
+          // Create new relationship - retry without relationshipId
+          setState(() {
+            _isUploadingRelationshipFile = true;
+          });
+
+          final newResult = await RelationshipAnalysisService.analyzeChat(
+            file,
+            existingRelationshipId: null, // Create new
+          );
+
+          if (!mounted) return;
+
+          setState(() {
+            _isUploadingRelationshipFile = false;
+          });
+
+          // Activate new relationship
+          if (newResult.relationshipId != null) {
+            await RelationshipMemoryService.setActiveRelationship(
+                newResult.relationshipId!);
+            await RelationshipMemoryService.updateIsActive(true,
+                relationshipId: newResult.relationshipId);
+            final memory = await RelationshipMemoryService.getMemory();
+            if (mounted && memory != null) {
+              _showRelationshipPanel(memory);
+            }
+          }
+          return;
+        } else {
+          // Force update existing relationship
+          setState(() {
+            _isUploadingRelationshipFile = true;
+          });
+
+          final forceResult = await RelationshipAnalysisService.analyzeChat(
+            file,
+            existingRelationshipId: existingRelationshipId,
+            forceUpdate: true, // Force overwrite
+          );
+
+          if (!mounted) return;
+
+          setState(() {
+            _isUploadingRelationshipFile = false;
+          });
+
+          // Activate updated relationship
+          if (forceResult.relationshipId != null) {
+            await RelationshipMemoryService.setActiveRelationship(
+                forceResult.relationshipId!);
+            await RelationshipMemoryService.updateIsActive(true,
+                relationshipId: forceResult.relationshipId);
+            final memory = await RelationshipMemoryService.getMemory();
+            if (mounted && memory != null) {
+              _showRelationshipPanel(memory);
+            }
+          }
+          return;
+        }
+      }
+
+      // After upload, activate relationship and open panel (stay in chat)
+      if (analysisResult.relationshipId != null) {
+        // Set user activeRelationshipId
+        await RelationshipMemoryService.setActiveRelationship(
+            analysisResult.relationshipId!);
+
+        // Set relation isActive=true
+        await RelationshipMemoryService.updateIsActive(true,
+            relationshipId: analysisResult.relationshipId);
+
+        // Fetch fresh memory and open panel
+        final memory = await RelationshipMemoryService.getMemory();
+        if (mounted && memory != null) {
+          _showRelationshipPanel(memory);
+        }
       }
     } catch (e) {
       debugPrint('_pickAndUploadRelationshipFile error: $e');
@@ -1087,6 +1494,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       );
     }
   }
+  */
 
   /// Handle attachment menu - Modern ChatGPT/Claude-style picker
   void _handleAttachment() {
@@ -1269,14 +1677,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     final uid = user.uid;
 
     // ═══════════════════════════════════════════════════════════════
-    // BUG FIX #1: Lock session ID and generate request ID at send time
+    // BUG FIX #1: Generate request ID at send time
     // ═══════════════════════════════════════════════════════════════
     final requestId = UniqueKey().toString(); // Generate unique request ID
-    final lockedSessionId = _currentSessionId; // Lock current session
 
-    // Set active request and locked session
+    // Set active request ID
     _activeRequestId = requestId;
-    _lockedSessionId = lockedSessionId;
 
     // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
@@ -1372,22 +1778,24 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
 
     // ═══════════════════════════════════════════════════════════════
-    // CREATE OR UPDATE SESSION
+    // MICRO FIX: Ensure session exists and appears in sidebar IMMEDIATELY
     // ═══════════════════════════════════════════════════════════════
     if (_currentSessionId == null) {
+      // Create session with temporary title
       final result = await ChatSessionService.createSession(
-        title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
+        title: 'New chat',
       );
       if (result.success && result.sessionId != null) {
         setState(() {
           _currentSessionId = result.sessionId;
         });
+        // Immediately load sessions to show in sidebar
+        await _loadChatSessions();
       } else {
         debugPrint("❌ Failed to create session: ${result.debugMessage}");
       }
     } else {
-      // Eğer session zaten varsa ama messageCount = 1 ise (ilk mesaj)
-      // başlığı güncelle
+      // Session exists - update title if this is first message
       final userMessageCount =
           _messages.where((m) => m['sender'] == 'user').length;
       if (userMessageCount == 1) {
@@ -1395,8 +1803,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           sessionId: _currentSessionId!,
           title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
         );
+        // Refresh sidebar
+        await _loadChatSessions();
       }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // MICRO FIX: Lock session ID AFTER ensuring it exists
+    // ═══════════════════════════════════════════════════════════════
+    final lockedSessionId =
+        _currentSessionId!; // Lock current session (now guaranteed non-null)
+    _lockedSessionId = lockedSessionId; // Update state variable
 
     // Save user message to session
     if (_currentSessionId != null) {
@@ -1446,6 +1863,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       await for (final chunk in ChatServiceStreaming.sendMessageStream(
         userMessage: text.isEmpty ? "Bu resimle ilgili ne düşünüyorsun?" : text,
+        sessionId: lockedSessionId, // MODULE 1: Pass locked session ID
         conversationHistory: _messages,
         replyingTo: _replyingTo,
         mode: _selectedMode,
@@ -1547,6 +1965,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             return; // Ignore stale chunk
           }
 
+          // MICRO FIX: Only add message if still in the same session
+          if (_currentSessionId != lockedSessionId) {
+            debugPrint(
+                "⚠️ Ignoring first chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)");
+            return;
+          }
+
           setState(() {
             _isTyping = false; // Hide logo pulse
             _messages.add({
@@ -1570,6 +1995,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               _lockedSessionId != lockedSessionId) {
             debugPrint("⚠️ Ignoring subsequent chunk for stale request");
             return; // Ignore stale chunk
+          }
+
+          // MICRO FIX: Only append if still in the same session
+          if (_currentSessionId != lockedSessionId) {
+            debugPrint(
+                "⚠️ Ignoring subsequent chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)");
+            return;
           }
 
           setState(() {
@@ -2128,39 +2560,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   },
                 ),
 
-                // Loading overlay for relationship upload
-                if (_isUploadingRelationshipFile)
-                  Container(
-                    color: Colors.black.withOpacity(0.7),
-                    child: Center(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const CircularProgressIndicator(
-                            color: SyraTokens.accent,
-                            strokeWidth: 3,
-                          ),
-                          const SizedBox(height: 20),
-                          Text(
-                            'Sohbet analiz ediliyor...',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Bu işlem 10-30 saniye sürebilir',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                // Removed: Full-screen loading overlay for relationship upload
+                // Upload progress is now shown inside the sheet itself
               ],
             ), // Stack
           ), // Scaffold
@@ -2373,27 +2774,84 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     final messageLower = message.toLowerCase().trim();
 
-    // Turkish patterns: "ben X'yim", "ben X", "burda X'yim"
-    // NOTE: Using normal strings (not raw) to support Turkish chars in non-capturing groups
-    final patterns = [
-      RegExp('\\bben\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b', caseSensitive: false),
-      RegExp('\\bben\\s+(\\w+)\\b', caseSensitive: false),
-      RegExp('\\bburda\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b',
-          caseSensitive: false),
-      RegExp('\\bben\\s+burada\\s+(\\w+)\'?(?:yim|ım|im|um|üm)\\b',
-          caseSensitive: false),
-    ];
-
-    String? candidateName;
-    for (final pattern in patterns) {
-      final match = pattern.firstMatch(messageLower);
-      if (match != null && match.groupCount >= 1) {
-        candidateName = match.group(1);
-        break;
+    // GOAL 7: Auto-select A/B support
+    // Check if user says "Ben A'yım" or "Ben B'yim"
+    if (memory.speakers.length >= 2) {
+      // Simple contains check for A/B
+      if (messageLower.contains('ben a') &&
+          (messageLower.contains('yim') || messageLower.contains('yım'))) {
+        // User says A => selfParticipant = speakers[0]
+        final success = await RelationshipMemoryService.updateParticipants(
+          selfParticipant: memory.speakers[0],
+          partnerParticipant: memory.speakers[1],
+          relationshipId: memory.id,
+        );
+        if (success && mounted) {
+          // GOAL 8: Remove toast
+        }
+        return;
+      } else if (messageLower.contains('ben b') &&
+          (messageLower.contains('yim') || messageLower.contains('yım'))) {
+        // User says B => selfParticipant = speakers[1]
+        final success = await RelationshipMemoryService.updateParticipants(
+          selfParticipant: memory.speakers[1],
+          partnerParticipant: memory.speakers[0],
+          relationshipId: memory.id,
+        );
+        if (success && mounted) {
+          // GOAL 8: Remove toast
+        }
+        return;
       }
     }
 
-    if (candidateName == null) return;
+    // GOAL 7: Keep existing name-based matching
+    // Simple string parsing instead of complex regex
+    String? candidateName;
+
+    // Try to extract name after "ben", "burda", or "ben burada"
+    if (messageLower.contains('ben ')) {
+      final benIndex = messageLower.indexOf('ben ');
+      final afterBen = messageLower.substring(benIndex + 4).trim();
+
+      // Extract first word
+      final words = afterBen.split(RegExp(r'\s+'));
+      if (words.isNotEmpty) {
+        // Remove common suffixes
+        candidateName = words[0]
+            .replaceAll('\'yim', '')
+            .replaceAll('\'ım', '')
+            .replaceAll('\'im', '')
+            .replaceAll('\'um', '')
+            .replaceAll('\'üm', '')
+            .replaceAll('yim', '')
+            .replaceAll('ım', '')
+            .replaceAll('im', '')
+            .replaceAll('um', '')
+            .replaceAll('üm', '')
+            .trim();
+      }
+    } else if (messageLower.contains('burda ')) {
+      final burdaIndex = messageLower.indexOf('burda ');
+      final afterBurda = messageLower.substring(burdaIndex + 6).trim();
+      final words = afterBurda.split(RegExp(r'\s+'));
+      if (words.isNotEmpty) {
+        candidateName = words[0]
+            .replaceAll('\'yim', '')
+            .replaceAll('\'ım', '')
+            .replaceAll('\'im', '')
+            .replaceAll('\'um', '')
+            .replaceAll('\'üm', '')
+            .replaceAll('yim', '')
+            .replaceAll('ım', '')
+            .replaceAll('im', '')
+            .replaceAll('um', '')
+            .replaceAll('üm', '')
+            .trim();
+      }
+    }
+
+    if (candidateName == null || candidateName.isEmpty) return;
 
     // Match against participant speakers (case-insensitive)
     String? matchedParticipant;
@@ -2418,11 +2876,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     );
 
     if (success && mounted) {
-      BlurToast.showTop(
-        context,
-        "Tamam. Seni $matchedParticipant olarak ayarladım.",
-        duration: const Duration(milliseconds: 2000),
-      );
+      // GOAL 8: Remove toast for auto-select confirmation
     }
   }
 }
@@ -2430,17 +2884,36 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 // RELATIONSHIP PANEL SHEET (Filled State)
 // ═══════════════════════════════════════════════════════════════
 class _RelationshipPanelSheet extends StatefulWidget {
-  final RelationshipMemory memory;
-  final VoidCallback onUpdate;
-  final VoidCallback onUpload;
-  final VoidCallback?
-      onActivate; // NEW: Called when relationship becomes active
+  final RelationshipMemory? memory; // Nullable - can be null initially
+  final VoidCallback? onDelete;
+  final Function(RelationshipMemory)? onMemoryUpdated;
+
+  // Background upload state (from parent)
+  final bool isUploadingInBackground;
+  final String uploadStatus;
+  final double? uploadProgress;
+  final bool showMismatchCard;
+  final String mismatchReason;
+  final VoidCallback onUploadTap;
+  final VoidCallback onMismatchNew;
+  final VoidCallback onMismatchForceUpdate;
+  final VoidCallback onMismatchCancel;
+  final int refreshTrigger; // Increment to force refresh
 
   const _RelationshipPanelSheet({
-    required this.memory,
-    required this.onUpdate,
-    required this.onUpload,
-    this.onActivate,
+    this.memory,
+    this.onDelete,
+    this.onMemoryUpdated,
+    required this.isUploadingInBackground,
+    required this.uploadStatus,
+    this.uploadProgress,
+    required this.showMismatchCard,
+    required this.mismatchReason,
+    required this.onUploadTap,
+    required this.onMismatchNew,
+    required this.onMismatchForceUpdate,
+    required this.onMismatchCancel,
+    required this.refreshTrigger,
   });
 
   @override
@@ -2448,22 +2921,136 @@ class _RelationshipPanelSheet extends StatefulWidget {
       _RelationshipPanelSheetState();
 }
 
-class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
-  bool _isActive = true;
+class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
+    with SingleTickerProviderStateMixin {
+  RelationshipMemory? _displayMemory; // Current memory being displayed
+  bool _isActive = false;
   bool _isUpdating = false;
+
+  // Self participant selection
+  String? _selectedSelfParticipant;
+
+  // Typewriter animation
+  String _animatedSummary = '';
+  bool _isAnimating = false;
 
   @override
   void initState() {
     super.initState();
-    _isActive = widget.memory.isActive;
+    _displayMemory = widget.memory;
+    _isActive = widget.memory?.isActive ?? false;
+    _loadSelectedSelfParticipant();
+    _loadLatestMemory();
   }
 
+  @override
+  void didUpdateWidget(_RelationshipPanelSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Refresh when trigger changes (indicates state update from parent)
+    if (oldWidget.refreshTrigger != widget.refreshTrigger) {
+      _loadLatestMemory();
+    }
+  }
+
+  Future<void> _loadLatestMemory() async {
+    final memory =
+        await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
+    if (mounted && memory != null) {
+      final isNewMemory = _displayMemory == null ||
+          _displayMemory!.id != memory.id ||
+          _displayMemory!.shortSummary != memory.shortSummary;
+
+      setState(() {
+        _displayMemory = memory;
+        _isActive = memory.isActive;
+
+        // Start typewriter animation for new/updated memory
+        if (isNewMemory && memory.shortSummary != null) {
+          _animatedSummary = '';
+          _isAnimating = true;
+          _startTypewriterAnimation(memory.shortSummary!);
+        } else {
+          _animatedSummary = memory.shortSummary ?? '';
+          _isAnimating = false;
+        }
+      });
+    }
+  }
+
+  Future<void> _startTypewriterAnimation(String fullText) async {
+    _isAnimating = true;
+    final chars = fullText.split('');
+
+    for (int i = 0; i < chars.length; i++) {
+      if (!mounted || !_isAnimating) break;
+
+      await Future.delayed(const Duration(milliseconds: 20));
+
+      if (mounted) {
+        setState(() {
+          _animatedSummary = fullText.substring(0, i + 1);
+        });
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _isAnimating = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _isAnimating = false; // Stop animation
+    super.dispose();
+  }
+
+  Future<void> _loadSelectedSelfParticipant() async {
+    final selected =
+        await RelationshipMemoryService.getSelectedSelfParticipant();
+    if (mounted) {
+      setState(() {
+        _selectedSelfParticipant = selected;
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // TOGGLE HANDLER (Chat'te kullan)
+  // ═══════════════════════════════════════════════════════════════
+
   Future<void> _handleToggle(bool value) async {
+    if (_displayMemory == null || _displayMemory!.id == null) {
+      BlurToast.show(context, 'İlişki ID bulunamadı');
+      return;
+    }
+
     setState(() {
       _isUpdating = true;
     });
 
-    final success = await RelationshipMemoryService.updateIsActive(value);
+    bool success = false;
+
+    if (value) {
+      // Turning ON: Set activeRelationshipId and isActive=true
+      await RelationshipMemoryService.setActiveRelationship(
+          _displayMemory!.id!);
+      success = await RelationshipMemoryService.updateIsActive(value,
+          relationshipId: _displayMemory!.id!);
+    } else {
+      // Turning OFF: Clear activeRelationshipId and set isActive=false
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({'activeRelationshipId': null});
+      }
+      success = await RelationshipMemoryService.updateIsActive(value,
+          relationshipId: _displayMemory!.id!);
+    }
 
     if (!mounted) return;
 
@@ -2473,34 +3060,26 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
         _isUpdating = false;
       });
 
-      // PATCH B: If relationship became active, trigger context refresh
-      if (value && widget.onActivate != null) {
-        widget.onActivate!();
+      // Update display memory
+      final updatedMemory =
+          await RelationshipMemoryService.getMemoryById(_displayMemory!.id!);
+      if (mounted && updatedMemory != null) {
+        setState(() {
+          _displayMemory = updatedMemory;
+        });
+        widget.onMemoryUpdated?.call(updatedMemory);
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            value
-                ? 'İlişki chat\'te kullanılacak'
-                : 'İlişki chat\'te kullanılmayacak',
-          ),
-          duration: const Duration(seconds: 2),
-        ),
-      );
     } else {
       setState(() {
         _isUpdating = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Bir hata oluştu, lütfen tekrar deneyin'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      BlurToast.show(context, 'Bir hata oluştu, lütfen tekrar deneyin');
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // DELETE/FORGET HANDLER
+  // ═══════════════════════════════════════════════════════════════
 
   Future<void> _handleDelete() async {
     final confirmed = await showDialog<bool>(
@@ -2537,7 +3116,10 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
       _isUpdating = true;
     });
 
-    final success = await RelationshipMemoryService.deleteMemory();
+    final success = await RelationshipMemoryService.deleteMemory(
+      relationshipId: _displayMemory?.id,
+      permanentDelete: true,
+    );
 
     if (!mounted) return;
 
@@ -2546,262 +3128,646 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet> {
     });
 
     if (success) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('İlişki bilgileri silindi'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      widget.onDelete?.call();
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      if (mounted) {
+        Navigator.pop(context);
+        BlurToast.show(context, 'İlişki bilgileri silindi');
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Silme işlemi başarısız oldu'),
-          duration: Duration(seconds: 2),
-        ),
+      BlurToast.show(context, 'Silme işlemi başarısız oldu');
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // SELF PARTICIPANT SELECTION
+  // ═══════════════════════════════════════════════════════════════
+
+  Future<void> _handleSelfParticipantSelection(String participantName) async {
+    if (_displayMemory == null) return;
+
+    setState(() {
+      _selectedSelfParticipant = participantName;
+    });
+
+    // Save to SharedPreferences (single source of truth)
+    await RelationshipMemoryService.setSelectedSelfParticipant(participantName);
+
+    // Best-effort: persist to Firestore
+    if (_displayMemory!.id != null && _displayMemory!.speakers.length == 2) {
+      final partnerParticipant = _displayMemory!.speakers.firstWhere(
+        (s) => s != participantName,
+        orElse: () => '',
       );
+
+      if (partnerParticipant.isNotEmpty) {
+        await RelationshipMemoryService.persistParticipantMapping(
+          relationshipId: _displayMemory!.id!,
+          selfParticipant: participantName,
+          partnerParticipant: partnerParticipant,
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final mem = widget.memory;
-
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header
-          Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      SyraTokens.accent.withValues(alpha: 0.15),
-                      SyraTokens.accent.withValues(alpha: 0.08),
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: SyraTokens.accent.withValues(alpha: 0.2),
-                    width: 1,
-                  ),
-                ),
-                child: const Icon(
-                  Icons.favorite_outline_rounded,
-                  color: SyraTokens.accent,
-                  size: 22,
-                ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Text(
-                  'Kayıtlı İlişki',
-                  style: TextStyle(
-                    color: SyraTokens.textPrimary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: -0.3,
-                  ),
-                ),
-              ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            _buildHeader(),
+            const SizedBox(height: 20),
+
+            // Upload Progress (if uploading - from parent)
+            if (widget.isUploadingInBackground) ...[
+              _buildUploadProgress(),
+              const SizedBox(height: 16),
             ],
-          ),
-          const SizedBox(height: 16),
 
-          // Summary
-          Text(
-            mem.shortSummary ?? 'Özet mevcut değil',
-            style: TextStyle(
-              color: SyraTokens.textSecondary,
-              fontSize: 15,
-              height: 1.5,
-            ),
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+            // Mismatch Decision Card (if mismatch detected - from parent)
+            if (widget.showMismatchCard) ...[
+              _buildMismatchCard(),
+              const SizedBox(height: 16),
+            ],
 
-          // Date range & speakers
-          if (mem.speakers.isNotEmpty || mem.dateRangeFormatted.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            if (mem.speakers.isNotEmpty)
-              Text(
-                mem.speakersFormatted,
-                style: TextStyle(
-                  color: SyraTokens.accent,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            if (mem.dateRangeFormatted.isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                mem.dateRangeFormatted,
-                style: TextStyle(
-                  color: SyraTokens.textMuted,
-                  fontSize: 13,
-                ),
-              ),
+            // Active Toggle (always show, but disabled if no memory)
+            _buildActiveToggleRow(),
+            const SizedBox(height: 12),
+
+            // ZIP Upload / Update Row
+            _buildUploadRow(),
+            const SizedBox(height: 12),
+
+            // Self Participant Picker (always show, but disabled if no memory)
+            _buildSelfParticipantSection(),
+            const SizedBox(height: 12),
+
+            // Memory Summary (if exists) - with typewriter animation
+            if (_displayMemory != null) ...[
+              _buildMemorySummary(),
+              const SizedBox(height: 16),
+            ],
+
+            // Forget Button (if memory exists)
+            if (_displayMemory != null) ...[
+              _buildForgetButton(),
             ],
           ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 20),
-
-          // Toggle switch card
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: SyraTokens.surface,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: SyraTokens.border.withValues(alpha: 0.5),
-                width: 0.5,
-              ),
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                SyraTokens.accent.withValues(alpha: 0.15),
+                SyraTokens.accent.withValues(alpha: 0.08),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Chat\'te kullan',
-                        style: TextStyle(
-                          color: SyraTokens.textPrimary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır',
-                        style: TextStyle(
-                          color: SyraTokens.textMuted,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: SyraTokens.accent.withValues(alpha: 0.2),
+              width: 1,
+            ),
+          ),
+          child: const Icon(
+            Icons.favorite_outline_rounded,
+            color: SyraTokens.accent,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 12),
+        const Expanded(
+          child: Text(
+            'İlişki Ayarları',
+            style: TextStyle(
+              color: SyraTokens.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -0.3,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUploadProgress() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SyraTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: SyraTokens.accent.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: SyraTokens.accent,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  widget.uploadStatus,
+                  style: const TextStyle(
+                    color: SyraTokens.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-                const SizedBox(width: 12),
-                // Premium toggle switch
-                GestureDetector(
-                  onTap: _isUpdating ? null : () => _handleToggle(!_isActive),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    curve: Curves.easeInOut,
-                    width: 52,
-                    height: 30,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(15),
-                      color: _isActive ? SyraTokens.accent : SyraTokens.surface,
-                      border: Border.all(
-                        color:
-                            _isActive ? SyraTokens.accent : SyraTokens.border,
-                        width: 1.5,
-                      ),
-                      boxShadow: _isActive
-                          ? [
-                              BoxShadow(
-                                color: SyraTokens.accent.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ]
-                          : null,
+              ),
+            ],
+          ),
+          if (widget.uploadProgress != null) ...[
+            const SizedBox(height: 12),
+            LinearProgressIndicator(
+              value: widget.uploadProgress,
+              backgroundColor: SyraTokens.border,
+              valueColor: const AlwaysStoppedAnimation(SyraTokens.accent),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMismatchCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SyraTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Colors.orange.withValues(alpha: 0.3),
+          width: 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.warning_rounded,
+                color: Colors.orange[400],
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'Farklı İlişki Tespit Edildi',
+                  style: TextStyle(
+                    color: SyraTokens.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.mismatchReason,
+            style: const TextStyle(
+              color: SyraTokens.textSecondary,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMismatchButton(
+                  'Yeni ilişki',
+                  Icons.add_circle_outline,
+                  widget.onMismatchNew,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _buildMismatchButton(
+                  'Yine de güncelle',
+                  Icons.sync_rounded,
+                  widget.onMismatchForceUpdate,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              onPressed: widget.onMismatchCancel,
+              style: TextButton.styleFrom(
+                foregroundColor: SyraTokens.textMuted,
+              ),
+              child: const Text('İptal'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMismatchButton(String text, IconData icon, VoidCallback onTap) {
+    return _TapScale(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: SyraTokens.accent.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: SyraTokens.accent.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: SyraTokens.accent, size: 16),
+            const SizedBox(width: 6),
+            Text(
+              text,
+              style: const TextStyle(
+                color: SyraTokens.accent,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUploadRow() {
+    final hasMemory = _displayMemory != null;
+    final title = hasMemory ? 'Sohbeti Güncelle (Yeni ZIP)' : 'ZIP Yükle';
+
+    return _TapScale(
+      onTap: widget.isUploadingInBackground ? null : widget.onUploadTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: SyraTokens.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: SyraTokens.border.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  hasMemory ? Icons.sync_rounded : Icons.upload_file_rounded,
+                  color: SyraTokens.accent,
+                  size: 20,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      color: SyraTokens.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
                     ),
-                    child: AnimatedAlign(
-                      duration: const Duration(milliseconds: 200),
-                      curve: Curves.easeInOut,
-                      alignment: _isActive
-                          ? Alignment.centerRight
-                          : Alignment.centerLeft,
-                      child: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.15),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: _isUpdating
-                            ? const Padding(
-                                padding: EdgeInsets.all(5),
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: SyraTokens.accent,
-                                ),
-                              )
-                            : null,
-                      ),
-                    ),
+                  ),
+                ),
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: SyraTokens.textMuted,
+                  size: 20,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'WhatsApp → Kişi → Profil → Sohbeti dışa aktar → Medya ekleme — SYRA\n(ZIP Dosyalar\'da kalır; buradan seçip yükle.)',
+              style: TextStyle(
+                color: SyraTokens.textMuted,
+                fontSize: 12,
+                height: 1.3,
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveToggleRow() {
+    final hasMemory = _displayMemory != null;
+    final isDisabled = !hasMemory || _isUpdating;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SyraTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: SyraTokens.border.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Chat\'te kullan',
+                  style: TextStyle(
+                    color: isDisabled
+                        ? SyraTokens.textMuted
+                        : SyraTokens.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  hasMemory
+                      ? 'SYRA bu ilişkiyi sohbetlerde arka plan bilgisi olarak kullanır'
+                      : 'Henüz ilişki yüklenmedi. ZIP yükleyince aktif edilecek.',
+                  style: TextStyle(
+                    color: SyraTokens.textMuted,
+                    fontSize: 12,
+                    height: 1.3,
                   ),
                 ),
               ],
             ),
           ),
-
-          const SizedBox(height: 20),
-
-          // Primary button - Sohbeti Güncelle
-          _TapScale(
-            onTap: widget.onUpload,
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              decoration: BoxDecoration(
-                color: SyraTokens.accent,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.sync_rounded, color: Colors.white, size: 20),
-                  SizedBox(width: 10),
-                  Text(
-                    'Sohbeti Güncelle',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
+          const SizedBox(width: 12),
+          Opacity(
+            opacity: isDisabled ? 0.4 : 1.0,
+            child: GestureDetector(
+              onTap: isDisabled ? null : () => _handleToggle(!_isActive),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                width: 48,
+                height: 28,
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  color: _isActive && hasMemory
+                      ? SyraTokens.accent
+                      : SyraTokens.surface,
+                  border: Border.all(
+                    color: _isActive && hasMemory
+                        ? SyraTokens.accent
+                        : SyraTokens.border,
+                    width: 1.5,
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          const SizedBox(height: 16),
-
-          // Delete button
-          Center(
-            child: TextButton(
-              onPressed: _isUpdating ? null : _handleDelete,
-              child: Text(
-                'Bu ilişkiyi unut',
-                style: TextStyle(
-                  color: const Color(0xFFFF6B6B).withValues(alpha: 0.8),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  boxShadow: _isActive && hasMemory
+                      ? [
+                          BoxShadow(
+                            color: SyraTokens.accent.withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                child: AnimatedAlign(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  alignment:
+                      _isActive ? Alignment.centerRight : Alignment.centerLeft,
+                  child: Container(
+                    width: 22,
+                    height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: _isUpdating
+                        ? const Padding(
+                            padding: EdgeInsets.all(4),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: SyraTokens.accent,
+                            ),
+                          )
+                        : null,
+                  ),
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildSelfParticipantSection() {
+    final hasMemory =
+        _displayMemory != null && _displayMemory!.speakers.length >= 2;
+    final speakers = hasMemory ? _displayMemory!.speakers : <String>[];
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: SyraTokens.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: SyraTokens.border.withValues(alpha: 0.5),
+          width: 0.5,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Bu sohbette sen hangisisin?',
+            style: TextStyle(
+              color: hasMemory ? SyraTokens.textPrimary : SyraTokens.textMuted,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            hasMemory
+                ? 'İsmini seçerek SYRA\'ya kim olduğunu göster'
+                : 'İlişki yüklenince participant seçimi buradan yapılabilecek',
+            style: TextStyle(
+              color: SyraTokens.textMuted,
+              fontSize: 12,
+              height: 1.3,
+            ),
+          ),
+          if (hasMemory) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: speakers.map((speaker) {
+                final isSelected = _selectedSelfParticipant == speaker;
+                return _TapScale(
+                  onTap: () => _handleSelfParticipantSelection(speaker),
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? SyraTokens.accent.withValues(alpha: 0.15)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color:
+                            isSelected ? SyraTokens.accent : SyraTokens.border,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isSelected)
+                          const Padding(
+                            padding: EdgeInsets.only(right: 6),
+                            child: Icon(
+                              Icons.check_circle,
+                              color: SyraTokens.accent,
+                              size: 16,
+                            ),
+                          ),
+                        Text(
+                          speaker,
+                          style: TextStyle(
+                            color: isSelected
+                                ? SyraTokens.accent
+                                : SyraTokens.textPrimary,
+                            fontSize: 14,
+                            fontWeight:
+                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemorySummary() {
+    return AnimatedOpacity(
+      opacity: _displayMemory != null ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: SyraTokens.surface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: SyraTokens.border.withValues(alpha: 0.3),
+            width: 0.5,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Typewriter animated text
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    _animatedSummary.isEmpty
+                        ? (_displayMemory?.shortSummary ?? 'Özet mevcut değil')
+                        : _animatedSummary,
+                    style: const TextStyle(
+                      color: SyraTokens.textSecondary,
+                      fontSize: 14,
+                      height: 1.4,
+                    ),
+                    maxLines: 5,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // Blinking cursor while animating
+                if (_isAnimating)
+                  Padding(
+                    padding: const EdgeInsets.only(left: 2, top: 2),
+                    child: _BlinkingCursor(),
+                  ),
+              ],
+            ),
+            if (_displayMemory!.dateRangeFormatted.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                _displayMemory!.dateRangeFormatted,
+                style: TextStyle(
+                  color: SyraTokens.textMuted,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForgetButton() {
+    return Center(
+      child: TextButton(
+        onPressed: _isUpdating ? null : _handleDelete,
+        child: Text(
+          'Bu ilişkiyi unut',
+          style: TextStyle(
+            color: const Color(0xFFFF6B6B).withValues(alpha: 0.8),
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
@@ -2858,6 +3824,47 @@ class _TapScaleState extends State<_TapScale> {
         duration: const Duration(milliseconds: 90),
         curve: Curves.easeOut,
         child: widget.child,
+      ),
+    );
+  }
+}
+
+// Blinking cursor for typewriter animation
+class _BlinkingCursor extends StatefulWidget {
+  @override
+  State<_BlinkingCursor> createState() => _BlinkingCursorState();
+}
+
+class _BlinkingCursorState extends State<_BlinkingCursor>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 530),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _controller,
+      child: Container(
+        width: 2,
+        height: 16,
+        decoration: BoxDecoration(
+          color: SyraTokens.accent,
+          borderRadius: BorderRadius.circular(1),
+        ),
       ),
     );
   }

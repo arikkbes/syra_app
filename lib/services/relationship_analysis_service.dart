@@ -18,7 +18,13 @@ class RelationshipAnalysisService {
 
   /// Upload a WhatsApp chat file and get analysis result
   /// Returns RelationshipAnalysisResult with relationshipId for future reference
-  static Future<RelationshipAnalysisResult> analyzeChat(File file, {String? existingRelationshipId}) async {
+  ///
+  /// MODULE 3: Added forceUpdate parameter for mismatch handling
+  static Future<RelationshipAnalysisResult> analyzeChat(
+    File file, {
+    String? existingRelationshipId,
+    bool forceUpdate = false, // MODULE 3: Force update even if mismatch
+  }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
@@ -30,7 +36,7 @@ class RelationshipAnalysisService {
 
       // Create multipart request
       final request = http.MultipartRequest('POST', Uri.parse(_functionUrl));
-      
+
       // Add authentication header
       request.headers['Authorization'] = 'Bearer $idToken';
 
@@ -45,10 +51,15 @@ class RelationshipAnalysisService {
 
       // Add fields
       request.fields['userId'] = user.uid;
-      
+
       // If updating existing relationship
       if (existingRelationshipId != null) {
         request.fields['relationshipId'] = existingRelationshipId;
+      }
+
+      // MODULE 3: Add forceUpdate flag
+      if (forceUpdate) {
+        request.fields['forceUpdate'] = 'true';
       }
 
       // Send request with timeout
@@ -66,13 +77,29 @@ class RelationshipAnalysisService {
           errorBody = json.decode(response.body);
         } catch (_) {}
         throw Exception(
-          errorBody?['message'] ?? 'Analiz sırasında bir hata oluştu (${response.statusCode})',
+          errorBody?['message'] ??
+              'Analiz sırasında bir hata oluştu (${response.statusCode})',
         );
       }
 
       // Parse response
       final responseData = json.decode(response.body);
-      
+
+      // ═══════════════════════════════════════════════════════════════
+      // MODULE 3: Handle mismatch detection
+      // ═══════════════════════════════════════════════════════════════
+      if (responseData['mismatchDetected'] == true) {
+        final reason = responseData['reason'] as String? ??
+            'Farklı bir ilişki tespit edildi';
+
+        // Return a special result indicating mismatch
+        return RelationshipAnalysisResult.mismatch(
+          reason: reason,
+          suggestedAction:
+              responseData['suggestedAction'] as String? ?? 'create_new',
+        );
+      }
+
       if (responseData['success'] != true) {
         throw Exception(
           responseData['message'] ?? 'Analiz başarısız oldu',
@@ -86,18 +113,19 @@ class RelationshipAnalysisService {
       //   summary: { masterSummary object },
       //   stats: { totalMessages, totalChunks, speakers }
       // }
-      
+
       final relationshipId = responseData['relationshipId'] as String?;
       final summary = responseData['summary'] as Map<String, dynamic>? ?? {};
       final stats = responseData['stats'] as Map<String, dynamic>? ?? {};
-      
+
       return RelationshipAnalysisResult.fromV2Response(
         relationshipId: relationshipId,
         summary: summary,
         stats: stats,
       );
     } catch (e) {
-      throw Exception('Analiz hatası: ${e.toString().replaceAll('Exception: ', '')}');
+      throw Exception(
+          'Analiz hatası: ${e.toString().replaceAll('Exception: ', '')}');
     }
   }
 }

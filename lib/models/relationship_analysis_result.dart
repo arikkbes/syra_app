@@ -17,6 +17,11 @@ class RelationshipAnalysisResult {
   final RelationshipPatterns? patterns;
   final List<RelationshipPhase>? timeline;
 
+  // MODULE 3: Mismatch detection fields
+  final bool isMismatch;
+  final String? mismatchReason;
+  final String? suggestedAction;
+
   RelationshipAnalysisResult({
     this.relationshipId,
     required this.totalMessages,
@@ -27,7 +32,27 @@ class RelationshipAnalysisResult {
     this.dynamics,
     this.patterns,
     this.timeline,
+    this.isMismatch = false,
+    this.mismatchReason,
+    this.suggestedAction,
   });
+
+  /// MODULE 3: Constructor for mismatch response
+  factory RelationshipAnalysisResult.mismatch({
+    required String reason,
+    String? suggestedAction,
+  }) {
+    return RelationshipAnalysisResult(
+      relationshipId: null,
+      totalMessages: 0,
+      totalChunks: 0,
+      speakers: [],
+      shortSummary: '',
+      isMismatch: true,
+      mismatchReason: reason,
+      suggestedAction: suggestedAction ?? 'create_new',
+    );
+  }
 
   /// Parse from new V2 backend response
   factory RelationshipAnalysisResult.fromV2Response({
@@ -49,13 +74,15 @@ class RelationshipAnalysisResult {
     // Parse dynamics
     RelationshipDynamics? dynamics;
     if (summary['dynamics'] != null && summary['dynamics'] is Map) {
-      dynamics = RelationshipDynamics.fromJson(summary['dynamics'] as Map<String, dynamic>);
+      dynamics = RelationshipDynamics.fromJson(
+          summary['dynamics'] as Map<String, dynamic>);
     }
 
     // Parse patterns
     RelationshipPatterns? patterns;
     if (summary['patterns'] != null && summary['patterns'] is Map) {
-      patterns = RelationshipPatterns.fromJson(summary['patterns'] as Map<String, dynamic>);
+      patterns = RelationshipPatterns.fromJson(
+          summary['patterns'] as Map<String, dynamic>);
     }
 
     // Parse timeline
@@ -69,7 +96,9 @@ class RelationshipAnalysisResult {
     // Parse speakers
     List<String> speakers = [];
     if (stats['speakers'] != null) {
-      speakers = (stats['speakers'] as List<dynamic>).map((e) => e.toString()).toList();
+      speakers = (stats['speakers'] as List<dynamic>)
+          .map((e) => e.toString())
+          .toList();
     }
 
     return RelationshipAnalysisResult(
@@ -117,7 +146,10 @@ class PersonalityProfile {
 
   factory PersonalityProfile.fromJson(Map<String, dynamic> json) {
     return PersonalityProfile(
-      traits: (json['traits'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      traits: (json['traits'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       communicationStyle: json['communicationStyle'] as String?,
       emotionalPattern: json['emotionalPattern'] as String?,
     );
@@ -142,7 +174,10 @@ class RelationshipDynamics {
       powerBalance: json['powerBalance'] as String?,
       attachmentPattern: json['attachmentPattern'] as String?,
       conflictStyle: json['conflictStyle'] as String?,
-      loveLanguages: (json['loveLanguages'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      loveLanguages: (json['loveLanguages'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 }
@@ -162,10 +197,22 @@ class RelationshipPatterns {
 
   factory RelationshipPatterns.fromJson(Map<String, dynamic> json) {
     return RelationshipPatterns(
-      recurringIssues: (json['recurringIssues'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      strengths: (json['strengths'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      redFlags: (json['redFlags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
-      greenFlags: (json['greenFlags'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      recurringIssues: (json['recurringIssues'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      strengths: (json['strengths'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      redFlags: (json['redFlags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
+      greenFlags: (json['greenFlags'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
     );
   }
 }
