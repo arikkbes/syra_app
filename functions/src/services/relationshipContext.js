@@ -62,11 +62,24 @@ export async function getActiveRelationshipContext(uid) {
     const partnerParticipant = relationshipDoc.partnerParticipant || null;
     const speakers = relationshipDoc.speakers || [];
     
+    // Smart matching metadata
+    const autoMatchedFrom = relationshipDoc.autoMatchedFrom || null;
+    const autoMatchSimilarity = relationshipDoc.autoMatchSimilarity || null;
+    const suggestedSpeaker = relationshipDoc.suggestedSpeaker || null;
+    
+    // Partner name change metadata
+    const partnerNameChanged = relationshipDoc.partnerNameChanged || false;
+    const previousPartnerName = relationshipDoc.previousPartnerName || null;
+    
     console.log(`[${uid}] Relationship context:`, {
       relationshipId: activeRelationshipId,
       selfParticipant,
       partnerParticipant,
       speakers,
+      autoMatchedFrom,
+      suggestedSpeaker,
+      partnerNameChanged,
+      previousPartnerName,
     });
     
     return {
@@ -74,6 +87,11 @@ export async function getActiveRelationshipContext(uid) {
       selfParticipant,
       partnerParticipant,
       speakers,
+      autoMatchedFrom,
+      autoMatchSimilarity,
+      suggestedSpeaker,
+      partnerNameChanged,
+      previousPartnerName,
     };
     
   } catch (e) {
@@ -90,11 +108,65 @@ export async function getActiveRelationshipContext(uid) {
 export function buildParticipantContextPrompt(relationshipContext) {
   if (!relationshipContext) return null;
   
-  const { selfParticipant, partnerParticipant, speakers } = relationshipContext;
+  const { selfParticipant, partnerParticipant, speakers, autoMatchedFrom, suggestedSpeaker, autoMatchSimilarity } = relationshipContext;
   
-  // If selfParticipant is not set, ask user to clarify
-  if (!selfParticipant) {
-    return `⚠️ RELATIONSHIP CONTEXT - PARTICIPANT MAPPING REQUIRED:
+  // Case 1: selfParticipant is set (either manually or auto-matched)
+  if (selfParticipant) {
+    let prompt = `🎯 RELATIONSHIP CONTEXT - PARTICIPANT MAPPING:
+In the uploaded WhatsApp export:
+• USER (the app user) is: "${selfParticipant}"`;
+    
+    // If auto-matched, mention it
+    if (autoMatchedFrom && autoMatchedFrom !== selfParticipant) {
+      prompt += ` (auto-matched from previous "${autoMatchedFrom}")`;
+    }
+    
+    if (partnerParticipant) {
+      prompt += `
+• PARTNER is: "${partnerParticipant}"`;
+      
+      // Check if partner name changed from history (notify SYRA)
+      // This helps SYRA understand context: "Aşkım" → "Sevgilim" are the same person
+      if (relationshipContext.partnerNameChanged) {
+        prompt += ` (previously saved as "${relationshipContext.previousPartnerName}")`;
+      }
+    } else if (speakers.length > 2) {
+      const others = speakers.filter(s => s !== selfParticipant);
+      prompt += `
+• OTHER participants: ${others.join(", ")}`;
+    }
+    
+    prompt += `
+
+CRITICAL RULES:
+1. When referencing messages from the export, treat "${selfParticipant}" as the USER (app user)
+2. Never flip roles - if a message is from "${selfParticipant}", it's the USER's message
+3. If uncertain about participant identity, ask for confirmation rather than guessing
+4. When summarizing conversations, always clarify who said what using these role labels`;
+    
+    // Add partner name change awareness
+    if (relationshipContext.partnerNameChanged) {
+      prompt += `
+5. NOTE: Partner's contact name changed from "${relationshipContext.previousPartnerName}" to "${partnerParticipant}" - they are the same person`;
+    }
+    
+    return prompt;
+  }
+  
+  // Case 2: Suggested match (70-94%) - ask for confirmation
+  if (suggestedSpeaker) {
+    return `🤔 RELATIONSHIP CONTEXT - CONFIRM IDENTITY:
+The uploaded WhatsApp export contains messages from: ${speakers.join(", ")}
+
+Based on your previous relationships, we think you might be: "${suggestedSpeaker}"
+
+Please confirm with one of:
+• "Evet" or "Doğru" (if correct)
+• "Hayır" or "Ben [doğru isim]'yim" (if incorrect)`;
+  }
+  
+  // Case 3: No selfParticipant and no suggestion - ask normally
+  return `⚠️ RELATIONSHIP CONTEXT - PARTICIPANT MAPPING REQUIRED:
 The uploaded WhatsApp export contains messages from: ${speakers.join(", ")}
 However, USER identity is not yet mapped.
 
@@ -103,31 +175,6 @@ Before using any relationship memory context, politely ask the user:
 "Bu konuşmada sen hangisisin? (${speakers.join(" mi, ")} mi?)"
 
 Do NOT make assumptions about who the user is. Wait for explicit confirmation.`;
-  }
-  
-  // If selfParticipant is set, provide clear mapping
-  let prompt = `🎯 RELATIONSHIP CONTEXT - PARTICIPANT MAPPING:
-In the uploaded WhatsApp export:
-• USER (the app user) is: "${selfParticipant}"`;
-  
-  if (partnerParticipant) {
-    prompt += `
-• PARTNER is: "${partnerParticipant}"`;
-  } else if (speakers.length > 2) {
-    const others = speakers.filter(s => s !== selfParticipant);
-    prompt += `
-• OTHER participants: ${others.join(", ")}`;
-  }
-  
-  prompt += `
-
-CRITICAL RULES:
-1. When referencing messages from the export, treat "${selfParticipant}" as the USER (app user)
-2. Never flip roles - if a message is from "${selfParticipant}", it's the USER's message
-3. If uncertain about participant identity, ask for confirmation rather than guessing
-4. When summarizing conversations, always clarify who said what using these role labels`;
-  
-  return prompt;
 }
 
 /**
@@ -162,15 +209,51 @@ export function mapSpeakerToRole(speaker, relationshipContext) {
  * Detect if user's message contains self-identification as one of the speakers
  * @param {string} userMessage - User's message text
  * @param {Array<string>} speakers - List of speaker names from relationship
+ * @param {string} suggestedSpeaker - Optional suggested speaker (from smart matching)
  * @returns {string|null} - Matched speaker name or null if no clear match
  */
-export function detectSelfParticipantFromMessage(userMessage, speakers) {
+export function detectSelfParticipantFromMessage(userMessage, speakers, suggestedSpeaker = null) {
   if (!userMessage || !speakers || speakers.length === 0) {
     return null;
   }
   
   // Normalize message
   const normalized = userMessage.trim().toLowerCase();
+  
+  // If there's a suggested speaker, check for confirmation
+  if (suggestedSpeaker) {
+    const confirmPatterns = [
+      /^evet$/i,
+      /^doğru$/i,
+      /^tamam$/i,
+      /^yes$/i,
+      /^correct$/i,
+      /^ben o(?:yum)?$/i, // "ben o" or "ben oyum"
+    ];
+    
+    for (const pattern of confirmPatterns) {
+      if (pattern.test(normalized)) {
+        console.log(`Confirmed suggested speaker: ${suggestedSpeaker}`);
+        return suggestedSpeaker;
+      }
+    }
+    
+    // Check for rejection
+    const rejectPatterns = [
+      /^hayır$/i,
+      /^değil$/i,
+      /^no$/i,
+      /^yanlış$/i,
+    ];
+    
+    for (const pattern of rejectPatterns) {
+      if (pattern.test(normalized)) {
+        console.log(`Rejected suggested speaker, will check for alternative`);
+        // Continue to normal detection below
+        break;
+      }
+    }
+  }
   
   // Check each speaker
   for (const speaker of speakers) {

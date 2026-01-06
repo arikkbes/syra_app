@@ -32,6 +32,7 @@ import { getRelationshipContext } from "./relationshipRetrieval.js";
 /**
  * MAIN CHAT PROCESSOR
  * @param {string} uid
+ * @param {string} sessionId - Session ID for scoped history (MODULE 1)
  * @param {string} message
  * @param {string} replyTo
  * @param {boolean} isPremium
@@ -39,7 +40,7 @@ import { getRelationshipContext } from "./relationshipRetrieval.js";
  * @param {string} mode - Conversation mode: 'standard', 'deep', 'mentor'
  * @param {string} tarotContext - Optional tarot reading context for follow-up questions
  */
-export async function processChat(uid, message, replyTo, isPremium, imageUrl = null, mode = 'standard', tarotContext = null) {
+export async function processChat(uid, sessionId, message, replyTo, isPremium, imageUrl = null, mode = 'standard', tarotContext = null) {
   const startTime = Date.now();
 
   // SAFETY: Make sure OpenAI client exists
@@ -59,14 +60,14 @@ export async function processChat(uid, message, replyTo, isPremium, imageUrl = n
   // Load user + history
   const [userProfile, rawHistory] = await Promise.all([
     getUserProfile(uid),
-    getConversationHistory(uid),
+    getConversationHistory(uid, sessionId), // MODULE 1: Pass sessionId
   ]);
 
   const history = rawHistory?.messages || [];
   const conversationSummary = rawHistory?.summary || null;
 
   console.log(
-    `[${uid}] Processing - Premium: ${isPremium}, Mode: ${mode}, History: ${history.length}, Summary: ${!!conversationSummary}`
+    `[${uid}] Processing - Session: ${sessionId}, Premium: ${isPremium}, Mode: ${mode}, History: ${history.length}, Summary: ${!!conversationSummary}`
   );
 
   // Intent detection
@@ -228,8 +229,14 @@ Cevabını buna göre kurgula.
     "nereye yükle", "nasıl ekle"
   ];
   
+  const abKeywords = [
+    "a ve b ne", "a b ne demek", "a veya b", "a/b ne", "kim a kim b",
+    "a kimdir", "b kimdir", "a ile b"
+  ];
+  
   const messageLower = message.toLowerCase();
   const isUploadQuestion = uploadKeywords.some(keyword => messageLower.includes(keyword));
+  const isAbQuestion = abKeywords.some(keyword => messageLower.includes(keyword));
   
   if (isUploadQuestion) {
     systemMessages.push({
@@ -243,6 +250,20 @@ User is asking how to upload relationship. Give ONLY these UI instructions (shor
 3) "Yükledikten sonra panelden 'Chat'te kullan'ı aç."
 
 Do NOT ask for names, details, or relationship info. Just give UI steps.
+      `.trim(),
+    });
+  }
+  
+  if (isAbQuestion) {
+    systemMessages.push({
+      role: "system",
+      content: `
+🔒 A/B EXPLANATION OVERRIDE:
+User is asking what A/B means. Give a brief, friendly explanation (1-2 sentences):
+
+"A ve B, WhatsApp sohbetinde ilk yazan ve ikinci yazan kişiyi temsil eder. 'Ben A'yım' veya 'Ben B'yim' diyerek seçim yapabilirsin, ya da panelden kendin belirleyebilirsin."
+
+Keep it simple and actionable.
       `.trim(),
     });
   }
@@ -467,7 +488,7 @@ Base all responses on the CURRENT active relationship context only.
     lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
   };
 
-  await saveConversationHistory(uid, safeMessage, replyText, safeHistoryObject).catch(
+  await saveConversationHistory(uid, sessionId, safeMessage, replyText, safeHistoryObject).catch(
     (e) => console.error(`[${uid}] History save error →`, e)
   );
 

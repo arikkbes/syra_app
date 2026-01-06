@@ -23,9 +23,10 @@ const storage = admin.storage().bucket();
  * @param {string} uid - User ID
  * @param {string} chatText - Raw WhatsApp chat text
  * @param {string} relationshipId - Optional existing relationship ID (for updates)
- * @returns {object} - { relationshipId, masterSummary, chunksCount }
+ * @param {boolean} forceUpdate - Force update even if mismatch detected
+ * @returns {object} - { relationshipId, masterSummary, chunksCount, mismatchDetected?, reason? }
  */
-export async function processRelationshipUpload(uid, chatText, relationshipId = null) {
+export async function processRelationshipUpload(uid, chatText, relationshipId = null, forceUpdate = false) {
   console.log(`[${uid}] Starting relationship pipeline...`);
   
   // Generate relationship ID if new
@@ -42,6 +43,49 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   // Step 2: Detect speakers
   const speakers = detectSpeakers(messages);
   console.log(`[${uid}] Detected speakers: ${speakers.join(", ")}`);
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODULE 3: Mismatch detection if updating existing relationship
+  // ═══════════════════════════════════════════════════════════════
+  if (relationshipId && !forceUpdate) {
+    const mismatchCheck = await detectRelationshipMismatch(uid, relationshipId, speakers);
+    
+    if (mismatchCheck.mismatch) {
+      console.log(`[${uid}] Mismatch detected: ${mismatchCheck.reason}`);
+      
+      // Return early with mismatch warning
+      return {
+        mismatchDetected: true,
+        reason: mismatchCheck.reason,
+        suggestedAction: "create_new",
+        relationshipId: null,
+        masterSummary: null,
+        chunksCount: 0,
+        messagesCount: 0,
+        speakers: [],
+      };
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════
+  // MODULE 3: Clean update - clear old data before writing new
+  // ═══════════════════════════════════════════════════════════════
+  if (relationshipId) {
+    console.log(`[${uid}] Updating existing relationship ${relationshipId} - clearing old data`);
+    
+    try {
+      // Clear Firestore chunks
+      await clearFirestoreChunks(uid, relationshipId);
+      
+      // Clear Storage files
+      await clearStorageFolder(uid, relationshipId);
+      
+      console.log(`[${uid}] Old data cleared successfully`);
+    } catch (e) {
+      console.error(`[${uid}] Error clearing old data:`, e);
+      // Continue anyway - we'll overwrite
+    }
+  }
   
   // Step 3: Create time-based chunks
   const chunks = createTimeBasedChunks(messages);
@@ -771,4 +815,148 @@ function computeRelationshipStats(messages, speakers) {
     },
     bySpeaker,
   };
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * MODULE 3: HELPER FUNCTIONS FOR CLEAN UPDATE/FORGET
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/**
+ * Clear all Firestore chunks for a relationship
+ * @param {string} uid - User ID
+ * @param {string} relationshipId - Relationship ID
+ */
+export async function clearFirestoreChunks(uid, relationshipId) {
+  try {
+    console.log(`[${uid}] Clearing Firestore chunks for relationship ${relationshipId}`);
+    
+    const relationshipRef = firestore
+      .collection("relationships")
+      .doc(uid)
+      .collection("relations")
+      .doc(relationshipId);
+    
+    const chunksSnapshot = await relationshipRef.collection("chunks").get();
+    
+    if (chunksSnapshot.empty) {
+      console.log(`[${uid}] No chunks to clear`);
+      return;
+    }
+    
+    // Delete in batches (Firestore limit = 500)
+    let batch = firestore.batch();
+    let batchCount = 0;
+    
+    for (const doc of chunksSnapshot.docs) {
+      batch.delete(doc.ref);
+      batchCount++;
+      
+      if (batchCount >= 500) {
+        await batch.commit();
+        batch = firestore.batch();
+        batchCount = 0;
+      }
+    }
+    
+    // Commit remaining
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+    
+    console.log(`[${uid}] Cleared ${chunksSnapshot.docs.length} Firestore chunks`);
+  } catch (e) {
+    console.error(`[${uid}] Error clearing Firestore chunks:`, e);
+    throw e;
+  }
+}
+
+/**
+ * Clear all Storage files for a relationship
+ * @param {string} uid - User ID
+ * @param {string} relationshipId - Relationship ID
+ */
+export async function clearStorageFolder(uid, relationshipId) {
+  try {
+    console.log(`[${uid}] Clearing Storage folder for relationship ${relationshipId}`);
+    
+    const prefix = `relationship_chunks/${uid}/${relationshipId}/`;
+    const [files] = await storage.getFiles({ prefix });
+    
+    if (files.length === 0) {
+      console.log(`[${uid}] No storage files to clear`);
+      return;
+    }
+    
+    // Delete all files
+    await Promise.all(files.map(file => file.delete()));
+    
+    console.log(`[${uid}] Cleared ${files.length} Storage files`);
+  } catch (e) {
+    console.error(`[${uid}] Error clearing Storage folder:`, e);
+    throw e;
+  }
+}
+
+/**
+ * Detect if new upload is a mismatch with existing relationship
+ * @param {string} uid - User ID
+ * @param {string} relationshipId - Existing relationship ID
+ * @param {Array} newSpeakers - Speakers from new upload
+ * @returns {Promise<{mismatch: boolean, reason: string}>}
+ */
+export async function detectRelationshipMismatch(uid, relationshipId, newSpeakers) {
+  try {
+    console.log(`[${uid}] Checking mismatch for relationship ${relationshipId}`);
+    
+    // Get existing relationship data
+    const relationshipRef = firestore
+      .collection("relationships")
+      .doc(uid)
+      .collection("relations")
+      .doc(relationshipId);
+    
+    const relationshipDoc = await relationshipRef.get();
+    
+    if (!relationshipDoc.exists) {
+      return { mismatch: false, reason: "No existing relationship" };
+    }
+    
+    const existingSpeakers = relationshipDoc.data().speakers || [];
+    
+    // Simple mismatch heuristic: check if speakers match
+    if (existingSpeakers.length !== newSpeakers.length) {
+      return {
+        mismatch: true,
+        reason: `Farklı kişi sayısı: eskide ${existingSpeakers.length}, yenide ${newSpeakers.length}`,
+      };
+    }
+    
+    // Check if any speaker name is completely different
+    const existingSet = new Set(existingSpeakers.map(s => s.toLowerCase().trim()));
+    const newSet = new Set(newSpeakers.map(s => s.toLowerCase().trim()));
+    
+    let matchCount = 0;
+    for (const newSpeaker of newSet) {
+      if (existingSet.has(newSpeaker)) {
+        matchCount++;
+      }
+    }
+    
+    // If less than 50% match, it's likely a different relationship
+    const matchRate = matchCount / newSpeakers.length;
+    
+    if (matchRate < 0.5) {
+      return {
+        mismatch: true,
+        reason: `Farklı kişiler: ${newSpeakers.join(", ")} (eskide: ${existingSpeakers.join(", ")})`,
+      };
+    }
+    
+    return { mismatch: false, reason: "Speakers match" };
+  } catch (e) {
+    console.error(`[${uid}] Error detecting mismatch:`, e);
+    return { mismatch: false, reason: "Error checking mismatch" };
+  }
 }

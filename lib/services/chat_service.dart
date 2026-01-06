@@ -9,13 +9,13 @@ import '../services/firestore_user.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// CHAT SERVICE — Handles chat logic, message limits, premium checks
 /// ═══════════════════════════════════════════════════════════════
-/// 
+///
 /// Responsibilities:
 /// - Send messages to Cloud Function (flortIQChat)
 /// - Parse responses
 /// - Handle errors gracefully
 /// - Manage message limits and premium status
-/// 
+///
 /// Module 3 improvements:
 /// - Added ChatSendResult for structured error handling
 /// - Enhanced logging and error messages
@@ -26,13 +26,13 @@ import '../services/firestore_user.dart';
 class ChatSendResult {
   /// Whether the message was sent successfully
   final bool success;
-  
+
   /// The response message from the AI (if success)
   final String? responseText;
-  
+
   /// User-friendly error message (if !success)
   final String? userMessage;
-  
+
   /// Technical error details for logging (if !success)
   final String? debugMessage;
 
@@ -67,7 +67,7 @@ class ChatSendResult {
 class ChatService {
   static const String _endpoint =
       "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
-  
+
   static const Duration _requestTimeout = Duration(seconds: 30);
 
   // ═══════════════════════════════════════════════════════════════
@@ -75,7 +75,7 @@ class ChatService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Get current user's premium status and message limits
-  /// 
+  ///
   /// Returns a map with:
   /// - isPremium: bool
   /// - limit: int (daily message limit)
@@ -85,7 +85,8 @@ class ChatService {
       final status = await FirestoreUser.getMessageStatus();
 
       final bool isPremium = status["isPremium"] == true;
-      int limit = status["limit"] is num ? (status["limit"] as num).toInt() : 10;
+      int limit =
+          status["limit"] is num ? (status["limit"] as num).toInt() : 10;
       int count = status["count"] is num ? (status["count"] as num).toInt() : 0;
 
       // Normalize values
@@ -116,13 +117,13 @@ class ChatService {
   }) async {
     // Premium users have unlimited messages
     if (isPremium) return true;
-    
+
     // Free users are limited
     return messageCount < dailyLimit;
   }
 
   /// Increment the user's daily message count
-  /// 
+  ///
   /// This should be called after successfully sending a message
   static Future<void> incrementMessageCount() async {
     try {
@@ -139,17 +140,18 @@ class ChatService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Send a message to the AI chat backend
-  /// 
+  ///
   /// Parameters:
   /// - userMessage: The user's text message
   /// - conversationHistory: Previous messages for context
   /// - replyingTo: Optional message being replied to
   /// - mode: Chat mode (standard, deep, mentor, tarot)
   /// - imageUrl: Optional image URL for vision analysis
-  /// 
+  ///
   /// Returns ChatSendResult with success/error information
   static Future<ChatSendResult> sendMessage({
     required String userMessage,
+    required String sessionId, // MODULE 1: Session ID
     required List<Map<String, dynamic>> conversationHistory,
     Map<String, dynamic>? replyingTo,
     required String mode,
@@ -168,32 +170,37 @@ class ChatService {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         return ChatSendResult.error(
-          userMessage: "Oturumun düşmüş gibi duruyor kanka. Çıkış yapıp tekrar giriş yapmayı dene.",
+          userMessage:
+              "Oturumun düşmüş gibi duruyor kanka. Çıkış yapıp tekrar giriş yapmayı dene.",
           debugMessage: "User not authenticated",
         );
       }
 
-      debugPrint("📤 [ChatService] Sending message (mode: $mode, hasImage: ${imageUrl != null})");
+      debugPrint(
+          "📤 [ChatService] Sending message (mode: $mode, hasImage: ${imageUrl != null})");
 
       // Get auth token
       final idToken = await user.getIdToken();
       if (idToken == null) {
         return ChatSendResult.error(
-          userMessage: "Yetki doğrulaması başarısız. Tekrar giriş yapmayı dene.",
+          userMessage:
+              "Yetki doğrulaması başarısız. Tekrar giriş yapmayı dene.",
           debugMessage: "Failed to get ID token",
         );
       }
 
       // Build request
-      final context = _buildConversationContext(conversationHistory, replyingTo);
+      final context =
+          _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
-      
+
       final requestBody = {
         "message": userMessage,
         "context": context,
         "mode": mode,
+        "sessionId": sessionId, // MODULE 1: Include session ID
       };
-      
+
       if (imageUrl != null && imageUrl.isNotEmpty) {
         requestBody["imageUrl"] = imageUrl;
       }
@@ -215,7 +222,6 @@ class ChatService {
 
       // Parse response
       return _parseResponse(response);
-      
     } on SocketException catch (e) {
       debugPrint("❌ [ChatService] SocketException: $e");
       return ChatSendResult.error(
@@ -229,9 +235,11 @@ class ChatService {
         debugMessage: "TimeoutException: $e",
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint("❌ [ChatService] FirebaseAuthException: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatService] FirebaseAuthException: ${e.code} - ${e.message}");
       return ChatSendResult.error(
-        userMessage: "Oturumunla ilgili bir sorun var gibi. Çıkış yapıp tekrar giriş yapmayı dene.",
+        userMessage:
+            "Oturumunla ilgili bir sorun var gibi. Çıkış yapıp tekrar giriş yapmayı dene.",
         debugMessage: "FirebaseAuthException: ${e.code} - ${e.message}",
       );
     } on FormatException catch (e) {
@@ -280,7 +288,7 @@ class ChatService {
             jsonBody?["response"] ??
             jsonBody?["reply"] ??
             jsonBody?["text"];
-        
+
         if (text != null && text.toString().isNotEmpty) {
           debugPrint("✅ [ChatService] Message received successfully");
           return ChatSendResult.success(text.toString());
@@ -342,14 +350,15 @@ class ChatService {
 
         debugPrint("❌ [ChatService] $statusCode Error: $rawBody");
         return ChatSendResult.error(
-          userMessage: "Sunucu hatası: $statusCode. Birazdan tekrar dene kanka.",
+          userMessage:
+              "Sunucu hatası: $statusCode. Birazdan tekrar dene kanka.",
           debugMessage: "$statusCode: $rawBody",
         );
     }
   }
 
   /// Build conversation context for the API request
-  /// 
+  ///
   /// Includes:
   /// - Reply-to message (if any)
   /// - Last 10 messages from history
@@ -368,9 +377,8 @@ class ChatService {
     }
 
     // Add last 10 messages for context
-    final last10 = history.length > 10 
-        ? history.sublist(history.length - 10) 
-        : history;
+    final last10 =
+        history.length > 10 ? history.sublist(history.length - 10) : history;
 
     for (final msg in last10) {
       context.add({
@@ -387,7 +395,7 @@ class ChatService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Detect manipulation patterns in AI responses
-  /// 
+  ///
   /// Returns a map with:
   /// - hasRed: true if red flags detected
   /// - hasGreen: true if green flags detected

@@ -9,9 +9,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// STREAMING CHAT SERVICE - Claude/ChatGPT Style
 /// ═══════════════════════════════════════════════════════════════
-/// 
+///
 /// Streams AI responses word-by-word for premium UX
-/// 
+///
 /// Usage:
 /// ```dart
 /// await for (final chunk in ChatServiceStreaming.sendMessageStream(...)) {
@@ -56,10 +56,11 @@ class ChatServiceStreaming {
   // ═══════════════════════════════════════════════════════════════
 
   /// Send message and get streaming response
-  /// 
+  ///
   /// Yields StreamChunk objects as AI generates response
   static Stream<StreamChunk> sendMessageStream({
     required String userMessage,
+    required String sessionId, // MODULE 1: Session ID
     required List<Map<String, dynamic>> conversationHistory,
     Map<String, dynamic>? replyingTo,
     required String mode,
@@ -92,7 +93,8 @@ class ChatServiceStreaming {
       }
 
       // Build request
-      final context = _buildConversationContext(conversationHistory, replyingTo);
+      final context =
+          _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
 
       final requestBody = {
@@ -100,6 +102,7 @@ class ChatServiceStreaming {
         "context": context,
         "mode": mode,
         "stream": true, // ← Enable streaming
+        "sessionId": sessionId, // MODULE 1: Include session ID
       };
 
       if (imageUrl != null && imageUrl.isNotEmpty) {
@@ -118,18 +121,22 @@ class ChatServiceStreaming {
 
       final streamedResponse = await request.send();
 
-      debugPrint("📥 [StreamingService] Response status: ${streamedResponse.statusCode}");
+      debugPrint(
+          "📥 [StreamingService] Response status: ${streamedResponse.statusCode}");
 
       if (streamedResponse.statusCode != 200) {
         final errorBody = await streamedResponse.stream.bytesToString();
-        debugPrint("❌ [StreamingService] Error: ${streamedResponse.statusCode} - $errorBody");
-        yield StreamChunk.error(_getErrorMessage(streamedResponse.statusCode, errorBody));
+        debugPrint(
+            "❌ [StreamingService] Error: ${streamedResponse.statusCode} - $errorBody");
+        yield StreamChunk.error(
+            _getErrorMessage(streamedResponse.statusCode, errorBody));
         return;
       }
 
       // Read entire response (backend doesn't support streaming yet)
       final responseBody = await streamedResponse.stream.bytesToString();
-      debugPrint("📦 [StreamingService] Full response: ${responseBody.substring(0, responseBody.length > 200 ? 200 : responseBody.length)}...");
+      debugPrint(
+          "📦 [StreamingService] Full response: ${responseBody.substring(0, responseBody.length > 200 ? 200 : responseBody.length)}...");
 
       try {
         final json = jsonDecode(responseBody) as Map<String, dynamic>;
@@ -161,10 +168,10 @@ class ChatServiceStreaming {
 
       // Mark as done
       yield StreamChunk.done();
-
     } catch (e, stackTrace) {
       debugPrint("❌ [StreamingService] Error: $e\n$stackTrace");
-      yield StreamChunk.error("Beklenmedik bir hata oluştu. Birazdan tekrar dene.");
+      yield StreamChunk.error(
+          "Beklenmedik bir hata oluştu. Birazdan tekrar dene.");
     }
   }
 
@@ -173,14 +180,16 @@ class ChatServiceStreaming {
   // ═══════════════════════════════════════════════════════════════
 
   /// Process SSE (Server-Sent Events) stream
-  static Stream<StreamChunk> _processStream(Stream<List<int>> byteStream) async* {
+  static Stream<StreamChunk> _processStream(
+      Stream<List<int>> byteStream) async* {
     String buffer = '';
     int byteChunkCount = 0;
 
     await for (final bytes in byteStream) {
       byteChunkCount++;
       final chunk = utf8.decode(bytes);
-      debugPrint("🔸 [StreamingService] Raw byte chunk #$byteChunkCount: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...");
+      debugPrint(
+          "🔸 [StreamingService] Raw byte chunk #$byteChunkCount: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...");
       buffer += chunk;
 
       // Process complete lines
@@ -218,16 +227,19 @@ class ChatServiceStreaming {
               debugPrint("⚠️ [StreamingService] No text extracted from JSON");
             }
           } catch (e) {
-            debugPrint("⚠️ [StreamingService] Failed to parse chunk: $e\nData: $data");
+            debugPrint(
+                "⚠️ [StreamingService] Failed to parse chunk: $e\nData: $data");
             // Continue processing other chunks
           }
         } else {
-          debugPrint("⚠️ [StreamingService] Line doesn't start with 'data: ': $line");
+          debugPrint(
+              "⚠️ [StreamingService] Line doesn't start with 'data: ': $line");
         }
       }
     }
 
-    debugPrint("🏁 [StreamingService] Stream processing ended. Total byte chunks: $byteChunkCount");
+    debugPrint(
+        "🏁 [StreamingService] Stream processing ended. Total byte chunks: $byteChunkCount");
   }
 
   /// Extract text from various JSON response formats

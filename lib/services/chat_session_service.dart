@@ -7,18 +7,18 @@ import '../models/chat_session.dart';
 /// ═══════════════════════════════════════════════════════════════
 /// CHAT SESSION SERVICE — Manages chat session CRUD operations
 /// ═══════════════════════════════════════════════════════════════
-/// 
+///
 /// Responsibilities:
 /// - Create, read, update, delete chat sessions
 /// - Load messages for a session
 /// - Save messages to a session
-/// 
+///
 /// Module 3 improvements:
 /// - Added SessionResult for structured error handling
 /// - Wrapped all Firestore operations in try-catch
 /// - Enhanced logging
 /// - Better error messages
-/// 
+///
 /// FIRESTORE STRUCTURE (DO NOT CHANGE):
 /// users/{uid}/chat_sessions/{sessionId}
 ///   - title: string
@@ -26,7 +26,7 @@ import '../models/chat_session.dart';
 ///   - lastUpdatedAt: timestamp
 ///   - messageCount: int
 ///   - lastMessage: string?
-///   
+///
 ///   messages/{messageId}
 ///     - sender: string ("user" | "bot")
 ///     - text: string
@@ -38,19 +38,19 @@ import '../models/chat_session.dart';
 class SessionResult {
   /// Whether the operation was successful
   final bool success;
-  
+
   /// Session ID (if applicable and success)
   final String? sessionId;
-  
+
   /// List of sessions (if applicable and success)
   final List<ChatSession>? sessions;
-  
+
   /// List of messages (if applicable and success)
   final List<Map<String, dynamic>>? messages;
-  
+
   /// User-friendly error message (if !success)
   final String? errorMessage;
-  
+
   /// Technical error details for logging (if !success)
   final String? debugMessage;
 
@@ -92,7 +92,7 @@ class SessionResult {
 
 class ChatSessionService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  
+
   // Collection names (DO NOT CHANGE)
   static const String _usersCollection = 'users';
   static const String _sessionsSubcollection = 'chat_sessions';
@@ -103,7 +103,7 @@ class ChatSessionService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Get all chat sessions for the current user
-  /// 
+  ///
   /// Returns SessionResult with sessions list or error
   static Future<SessionResult> getUserSessions() async {
     try {
@@ -113,7 +113,8 @@ class ChatSessionService {
         return SessionResult.success(sessions: []);
       }
 
-      debugPrint("📥 [ChatSessionService] Loading sessions for user: ${user.uid}");
+      debugPrint(
+          "📥 [ChatSessionService] Loading sessions for user: ${user.uid}");
 
       final snapshot = await _firestore
           .collection(_usersCollection)
@@ -128,15 +129,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Loaded ${sessions.length} sessions");
       return SessionResult.success(sessions: sessions);
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in getUserSessions: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in getUserSessions: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbetler yüklenemedi. Tekrar dene.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in getUserSessions: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in getUserSessions: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbetler yüklenirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -145,7 +147,7 @@ class ChatSessionService {
   }
 
   /// Create a new chat session
-  /// 
+  ///
   /// Returns SessionResult with new session ID or error
   static Future<SessionResult> createSession({String? title}) async {
     try {
@@ -167,7 +169,8 @@ class ChatSessionService {
         'lastMessage': null,
       };
 
-      debugPrint("📤 [ChatSessionService] Creating session: ${sessionData['title']}");
+      debugPrint(
+          "📤 [ChatSessionService] Creating session: ${sessionData['title']}");
 
       final docRef = await _firestore
           .collection(_usersCollection)
@@ -177,15 +180,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Session created: ${docRef.id}");
       return SessionResult.success(sessionId: docRef.id);
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in createSession: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in createSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Yeni sohbet oluşturulamadı. Tekrar dene.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in createSession: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in createSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet oluşturulurken hata oluştu.",
         debugMessage: "Error: $e",
@@ -194,7 +198,7 @@ class ChatSessionService {
   }
 
   /// Update an existing chat session
-  /// 
+  ///
   /// Updates lastMessage, title, or messageCount
   /// Returns SessionResult (success/error)
   static Future<SessionResult> updateSession({
@@ -233,15 +237,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Session updated: $sessionId");
       return SessionResult.success();
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in updateSession: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in updateSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet güncellenemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in updateSession: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in updateSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet güncellenirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -250,7 +255,7 @@ class ChatSessionService {
   }
 
   /// Rename a chat session
-  /// 
+  ///
   /// Returns SessionResult (success/error)
   static Future<SessionResult> renameSession({
     required String sessionId,
@@ -266,7 +271,8 @@ class ChatSessionService {
         );
       }
 
-      debugPrint("📤 [ChatSessionService] Renaming session: $sessionId → $newTitle");
+      debugPrint(
+          "📤 [ChatSessionService] Renaming session: $sessionId → $newTitle");
 
       await _firestore
           .collection(_usersCollection)
@@ -280,15 +286,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Session renamed: $sessionId");
       return SessionResult.success();
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in renameSession: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in renameSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet adı değiştirilemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in renameSession: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in renameSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet adı değiştirilirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -296,8 +303,8 @@ class ChatSessionService {
     }
   }
 
-  /// Delete a chat session
-  /// 
+  /// Delete a chat session AND ALL ITS MESSAGES
+  ///
   /// Returns SessionResult (success/error)
   static Future<SessionResult> deleteSession(String sessionId) async {
     try {
@@ -312,6 +319,49 @@ class ChatSessionService {
 
       debugPrint("📤 [ChatSessionService] Deleting session: $sessionId");
 
+      // ═══════════════════════════════════════════════════════════
+      // CRITICAL FIX: Delete ALL messages first, then delete session
+      // ═══════════════════════════════════════════════════════════
+
+      final messagesRef = _firestore
+          .collection(_usersCollection)
+          .doc(user.uid)
+          .collection(_sessionsSubcollection)
+          .doc(sessionId)
+          .collection(_messagesSubcollection);
+
+      // Get all messages
+      final messagesSnapshot = await messagesRef.get();
+
+      debugPrint(
+          "🗑️ [ChatSessionService] Deleting ${messagesSnapshot.docs.length} messages from session $sessionId");
+
+      // Delete messages in batches (Firestore batch limit = 500)
+      var batch = _firestore.batch(); // Use 'var' instead of 'final'
+      int batchCount = 0;
+
+      for (final doc in messagesSnapshot.docs) {
+        batch.delete(doc.reference);
+        batchCount++;
+
+        // Commit batch every 500 operations
+        if (batchCount >= 500) {
+          await batch.commit();
+          batch = _firestore.batch(); // Create new batch after commit
+          batchCount = 0;
+          debugPrint(
+              "🗑️ [ChatSessionService] Committed batch of 500 message deletes");
+        }
+      }
+
+      // Commit remaining deletions
+      if (batchCount > 0) {
+        await batch.commit();
+      }
+
+      debugPrint("✅ [ChatSessionService] All messages deleted");
+
+      // Now delete the session document itself
       await _firestore
           .collection(_usersCollection)
           .doc(user.uid)
@@ -320,16 +370,37 @@ class ChatSessionService {
           .delete();
 
       debugPrint("✅ [ChatSessionService] Session deleted: $sessionId");
+
+      // ═══════════════════════════════════════════════════════════════
+      // MODULE 2: Delete backend conversation history for this session
+      // ═══════════════════════════════════════════════════════════════
+      try {
+        final conversationHistoryRef = _firestore
+            .collection("conversation_history")
+            .doc(user.uid)
+            .collection("sessions")
+            .doc(sessionId);
+
+        await conversationHistoryRef.delete();
+        debugPrint(
+            "✅ [ChatSessionService] Backend conversation history deleted for session: $sessionId");
+      } catch (e) {
+        // Non-critical error - session is already deleted from UI
+        debugPrint(
+            "⚠️ [ChatSessionService] Failed to delete backend history (non-critical): $e");
+      }
+
       return SessionResult.success();
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in deleteSession: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in deleteSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet silinemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in deleteSession: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in deleteSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet silinirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -342,7 +413,7 @@ class ChatSessionService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Get all messages for a session
-  /// 
+  ///
   /// Returns SessionResult with messages list or error
   static Future<SessionResult> getSessionMessages(String sessionId) async {
     try {
@@ -352,7 +423,8 @@ class ChatSessionService {
         return SessionResult.success(messages: []);
       }
 
-      debugPrint("📥 [ChatSessionService] Loading messages for session: $sessionId");
+      debugPrint(
+          "📥 [ChatSessionService] Loading messages for session: $sessionId");
 
       final snapshot = await _firestore
           .collection(_usersCollection)
@@ -367,15 +439,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Loaded ${messages.length} messages");
       return SessionResult.success(messages: messages);
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in getSessionMessages: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in getSessionMessages: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Mesajlar yüklenemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in getSessionMessages: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in getSessionMessages: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Mesajlar yüklenirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -384,7 +457,7 @@ class ChatSessionService {
   }
 
   /// Add a message to a session
-  /// 
+  ///
   /// Returns SessionResult (success/error)
   static Future<SessionResult> addMessageToSession({
     required String sessionId,
@@ -400,7 +473,8 @@ class ChatSessionService {
         );
       }
 
-      debugPrint("📤 [ChatSessionService] Adding message to session: $sessionId");
+      debugPrint(
+          "📤 [ChatSessionService] Adding message to session: $sessionId");
 
       await _firestore
           .collection(_usersCollection)
@@ -412,15 +486,16 @@ class ChatSessionService {
 
       debugPrint("✅ [ChatSessionService] Message added to session: $sessionId");
       return SessionResult.success();
-      
     } on FirebaseException catch (e) {
-      debugPrint("❌ [ChatSessionService] FirebaseException in addMessageToSession: ${e.code} - ${e.message}");
+      debugPrint(
+          "❌ [ChatSessionService] FirebaseException in addMessageToSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Mesaj kaydedilemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in addMessageToSession: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in addMessageToSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Mesaj kaydedilirken hata oluştu.",
         debugMessage: "Error: $e",
@@ -433,11 +508,11 @@ class ChatSessionService {
   // ═══════════════════════════════════════════════════════════════
 
   /// Set feedback for a specific message
-  /// 
+  ///
   /// @param sessionId - The session containing the message
   /// @param messageId - The message ID (stored as 'id' field in message doc)
   /// @param feedback - 'like', 'dislike', or null to clear
-  /// 
+  ///
   /// Persists to Firestore (primary) and SharedPreferences (fallback)
   static Future<SessionResult> setMessageFeedback({
     required String sessionId,
@@ -453,7 +528,8 @@ class ChatSessionService {
         );
       }
 
-      debugPrint("📝 [ChatSessionService] Setting feedback for message $messageId: $feedback");
+      debugPrint(
+          "📝 [ChatSessionService] Setting feedback for message $messageId: $feedback");
 
       // 1. Save to SharedPreferences (local fallback)
       await _saveFeedbackToPrefs(messageId, feedback);
@@ -468,13 +544,12 @@ class ChatSessionService {
             .collection(_messagesSubcollection);
 
         // Find message by 'id' field
-        final querySnapshot = await messagesRef
-            .where('id', isEqualTo: messageId)
-            .limit(1)
-            .get();
+        final querySnapshot =
+            await messagesRef.where('id', isEqualTo: messageId).limit(1).get();
 
         if (querySnapshot.docs.isEmpty) {
-          debugPrint("⚠️ [ChatSessionService] Message not found in Firestore: $messageId");
+          debugPrint(
+              "⚠️ [ChatSessionService] Message not found in Firestore: $messageId");
           // Still return success since we saved to SharedPreferences
           return SessionResult.success();
         }
@@ -487,13 +562,15 @@ class ChatSessionService {
 
         debugPrint("✅ [ChatSessionService] Feedback saved to Firestore");
       } catch (firestoreError) {
-        debugPrint("⚠️ [ChatSessionService] Firestore save failed, using local fallback: $firestoreError");
+        debugPrint(
+            "⚠️ [ChatSessionService] Firestore save failed, using local fallback: $firestoreError");
         // Continue - we already saved to SharedPreferences
       }
 
       return SessionResult.success();
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatSessionService] Error in setMessageFeedback: $e\n$stackTrace");
+      debugPrint(
+          "❌ [ChatSessionService] Error in setMessageFeedback: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Geri bildirim kaydedilemedi.",
         debugMessage: "Error: $e",
@@ -502,10 +579,11 @@ class ChatSessionService {
   }
 
   /// Save feedback to SharedPreferences (local fallback)
-  static Future<void> _saveFeedbackToPrefs(String messageId, String? feedback) async {
+  static Future<void> _saveFeedbackToPrefs(
+      String messageId, String? feedback) async {
     final prefs = await SharedPreferences.getInstance();
     final key = "msg_feedback_$messageId";
-    
+
     if (feedback == null || feedback.isEmpty) {
       await prefs.remove(key);
     } else {
@@ -522,7 +600,8 @@ class ChatSessionService {
 
   /// Inject feedback from SharedPreferences into messages
   /// Call this when loading messages to merge local feedback
-  static Future<void> injectLocalFeedback(List<Map<String, dynamic>> messages) async {
+  static Future<void> injectLocalFeedback(
+      List<Map<String, dynamic>> messages) async {
     for (final msg in messages) {
       final messageId = msg['id'] as String?;
       if (messageId != null && msg['feedback'] == null) {
