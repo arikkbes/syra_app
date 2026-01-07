@@ -934,6 +934,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         file,
         existingRelationshipId: existingRelationshipId,
         forceUpdate: forceUpdate,
+        updateMode: "smart", // Smart delta update by default
       );
 
       if (!mounted) return;
@@ -960,38 +961,52 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       // Success - fetch the updated/new memory WITHOUT activating it
       if (analysisResult.relationshipId != null) {
-        final memory = await RelationshipMemoryService.getMemoryById(
-          analysisResult.relationshipId!,
+        // If this is a NEW upload (not update), auto-activate the relationship
+        final isNewUpload = existingRelationshipId == null;
+
+        if (isNewUpload) {
+          // New relationship - activate it
+          await RelationshipMemoryService.setActiveRelationship(
+            analysisResult.relationshipId!,
+          );
+          await RelationshipMemoryService.updateIsActive(
+            true,
+            relationshipId: analysisResult.relationshipId!,
+          );
+        } else {
+          // Existing relationship updated - ensure activeRelationshipId is still this one
+          // (in case backend changed the ID during force rebuild)
+          await RelationshipMemoryService.setActiveRelationship(
+            analysisResult.relationshipId!,
+          );
+        }
+
+        // Force refresh memory from Firestore (no cache)
+        final memory = await RelationshipMemoryService.getMemory(
+          forceIncludeInactive: true,
         );
 
         if (!mounted) return;
-
-        // If this is a NEW upload (not update), auto-activate the relationship
-        final isNewUpload = existingRelationshipId == null;
-        if (isNewUpload && memory != null) {
-          // Auto-activate on first upload
-          await RelationshipMemoryService.setActiveRelationship(memory.id!);
-          await RelationshipMemoryService.updateIsActive(true,
-              relationshipId: memory.id!);
-        }
 
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
           _pendingUploadFile = null;
-          _panelRefreshTrigger++; // Increment for didUpdateWidget
+          _panelRefreshTrigger++; // Trigger sheet refresh
         });
 
         // Update sheet StatefulBuilder to rebuild with new props
         _sheetSetState?.call(() {});
 
         // Show success message
-        BlurToast.show(
-          context,
-          existingRelationshipId != null
-              ? "✅ İlişki güncellendi"
-              : "✅ İlişki yüklendi ve aktif edildi",
-        );
+        if (mounted) {
+          BlurToast.show(
+            context,
+            isNewUpload
+                ? "✅ İlişki yüklendi ve aktif edildi"
+                : "✅ İlişki güncellendi",
+          );
+        }
       } else {
         setState(() {
           _isUploadingInBackground = false;
@@ -1017,26 +1032,190 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle mismatch - new relationship
   Future<void> _handleMismatchNewRelationship() async {
-    if (_pendingUploadFile == null) return;
+    debugPrint('🔵 _handleMismatchNewRelationship called');
+    debugPrint('🔵 _pendingUploadFile: $_pendingUploadFile');
 
+    if (_pendingUploadFile == null) {
+      debugPrint('❌ _pendingUploadFile is NULL - returning early');
+      return;
+    }
+
+    debugPrint('✅ Starting new relationship creation');
     setState(() {
       _showMismatchCard = false;
+      _isUploadingInBackground = true;
+      _uploadStatus = 'Yeni ilişki oluşturuluyor...';
     });
 
-    // Upload as new (existingRelationshipId: null)
-    await _uploadFile(_pendingUploadFile!, forceUpdate: false);
+    // ✅ Update sheet immediately to show loading
+    _sheetSetState?.call(() {});
+
+    try {
+      // Create NEW relationship - explicitly pass null for relationshipId
+      final analysisResult = await RelationshipAnalysisService.analyzeChat(
+        _pendingUploadFile!,
+        existingRelationshipId: null, // IMPORTANT: null for new relationship
+        updateMode: "smart",
+      );
+
+      if (!mounted) return;
+
+      // Check if somehow still got mismatch (shouldn't happen)
+      if (analysisResult.isMismatch) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+        });
+
+        // ✅ Update sheet to hide loading
+        _sheetSetState?.call(() {});
+
+        if (mounted) {
+          BlurToast.show(
+            context,
+            "❌ Yeni ilişki oluşturulamadı: ${analysisResult.mismatchReason}",
+          );
+        }
+        return;
+      }
+
+      // Success - activate new relationship
+      if (analysisResult.relationshipId != null) {
+        await RelationshipMemoryService.setActiveRelationship(
+          analysisResult.relationshipId!,
+        );
+        await RelationshipMemoryService.updateIsActive(
+          true,
+          relationshipId: analysisResult.relationshipId,
+        );
+
+        // Force refresh memory from Firestore (no cache)
+        final memory = await RelationshipMemoryService.getMemory(
+          forceIncludeInactive: true,
+        );
+
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+          _pendingUploadFile = null;
+          _panelRefreshTrigger++;
+        });
+
+        _sheetSetState?.call(() {});
+
+        if (mounted && memory != null) {
+          BlurToast.show(context, "✅ Yeni ilişki oluşturuldu ve aktif edildi");
+        }
+      }
+    } catch (e) {
+      debugPrint('_handleMismatchNewRelationship error: $e');
+      if (mounted) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+        });
+
+        // ✅ Update sheet to hide loading
+        _sheetSetState?.call(() {});
+
+        BlurToast.show(
+          context,
+          "❌ Yeni ilişki oluşturulamadı: ${e.toString()}",
+        );
+      }
+    }
   }
 
   /// Handle mismatch - force update
   Future<void> _handleMismatchForceUpdate() async {
-    if (_pendingUploadFile == null) return;
+    if (_pendingUploadFile == null || _mismatchExistingRelationshipId == null)
+      return;
 
     setState(() {
       _showMismatchCard = false;
+      _isUploadingInBackground = true;
+      _uploadStatus = 'İlişki güncelleniyor...';
     });
 
-    // Force update existing
-    await _uploadFile(_pendingUploadFile!, forceUpdate: true);
+    // ✅ Update sheet immediately to show loading
+    _sheetSetState?.call(() {});
+
+    try {
+      // Force rebuild existing relationship
+      final analysisResult = await RelationshipAnalysisService.analyzeChat(
+        _pendingUploadFile!,
+        existingRelationshipId: _mismatchExistingRelationshipId,
+        forceUpdate: true,
+        updateMode: "force_rebuild", // Clear all data and rebuild
+      );
+
+      if (!mounted) return;
+
+      // Check if somehow still got mismatch (shouldn't happen with forceUpdate)
+      if (analysisResult.isMismatch) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+        });
+
+        // ✅ Update sheet to hide loading
+        _sheetSetState?.call(() {});
+
+        if (mounted) {
+          BlurToast.show(
+            context,
+            "❌ Güncelleme başarısız: ${analysisResult.mismatchReason}",
+          );
+        }
+        return;
+      }
+
+      // Success - activate updated relationship
+      if (analysisResult.relationshipId != null) {
+        await RelationshipMemoryService.setActiveRelationship(
+          analysisResult.relationshipId!,
+        );
+        await RelationshipMemoryService.updateIsActive(
+          true,
+          relationshipId: analysisResult.relationshipId,
+        );
+
+        // Force refresh memory from Firestore (no cache)
+        final memory = await RelationshipMemoryService.getMemory(
+          forceIncludeInactive: true,
+        );
+
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+          _pendingUploadFile = null;
+          _mismatchExistingRelationshipId = null;
+          _panelRefreshTrigger++;
+        });
+
+        _sheetSetState?.call(() {});
+
+        if (mounted && memory != null) {
+          BlurToast.show(context, "✅ İlişki güncellendi");
+        }
+      }
+    } catch (e) {
+      debugPrint('_handleMismatchForceUpdate error: $e');
+      if (mounted) {
+        setState(() {
+          _isUploadingInBackground = false;
+          _uploadStatus = '';
+        });
+
+        // ✅ Update sheet to hide loading
+        _sheetSetState?.call(() {});
+
+        BlurToast.show(
+          context,
+          "❌ Güncelleme başarısız: ${e.toString()}",
+        );
+      }
+    }
   }
 
   /// Handle mismatch - cancel
@@ -1382,6 +1561,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final analysisResult = await RelationshipAnalysisService.analyzeChat(
         file,
         existingRelationshipId: existingRelationshipId,
+        updateMode: "smart", // Smart delta update
       );
 
       if (!mounted) return;
@@ -1407,27 +1587,64 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             _isUploadingRelationshipFile = true;
           });
 
-          final newResult = await RelationshipAnalysisService.analyzeChat(
-            file,
-            existingRelationshipId: null, // Create new
-          );
+          try {
+            final newResult = await RelationshipAnalysisService.analyzeChat(
+              file,
+              existingRelationshipId: null, // Create new
+              updateMode: "smart", // New relationship
+            );
 
-          if (!mounted) return;
+            if (!mounted) return;
 
-          setState(() {
-            _isUploadingRelationshipFile = false;
-          });
+            setState(() {
+              _isUploadingRelationshipFile = false;
+            });
 
-          // Activate new relationship
-          if (newResult.relationshipId != null) {
-            await RelationshipMemoryService.setActiveRelationship(
-                newResult.relationshipId!);
-            await RelationshipMemoryService.updateIsActive(true,
-                relationshipId: newResult.relationshipId);
-            final memory = await RelationshipMemoryService.getMemory();
-            if (mounted && memory != null) {
-              _showRelationshipPanel(memory);
+            // Check if new upload also has mismatch (shouldn't happen for new relationship)
+            if (newResult.isMismatch) {
+              // This shouldn't happen, but if it does, show error and stop
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Yeni ilişki oluşturulamadı: ${newResult.mismatchReason ?? "Bilinmeyen hata"}'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+              return;
             }
+
+            // Activate new relationship
+            if (newResult.relationshipId != null) {
+              await RelationshipMemoryService.setActiveRelationship(
+                  newResult.relationshipId!);
+              await RelationshipMemoryService.updateIsActive(true,
+                  relationshipId: newResult.relationshipId);
+              // Force refresh memory from Firestore (no cache)
+              final memory = await RelationshipMemoryService.getMemory(
+                forceIncludeInactive: true,
+              );
+              if (mounted && memory != null) {
+                _showRelationshipPanel(memory);
+              }
+            }
+          } catch (e) {
+            if (!mounted) return;
+            
+            setState(() {
+              _isUploadingRelationshipFile = false;
+            });
+            
+            // Show error to user
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Yeni ilişki oluşturulamadı: ${e.toString()}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
           }
           return;
         } else {
@@ -1436,28 +1653,65 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             _isUploadingRelationshipFile = true;
           });
 
-          final forceResult = await RelationshipAnalysisService.analyzeChat(
-            file,
-            existingRelationshipId: existingRelationshipId,
-            forceUpdate: true, // Force overwrite
-          );
+          try {
+            final forceResult = await RelationshipAnalysisService.analyzeChat(
+              file,
+              existingRelationshipId: existingRelationshipId,
+              forceUpdate: true, // Force overwrite
+              updateMode: "force_rebuild", // Clear and rebuild
+            );
 
-          if (!mounted) return;
+            if (!mounted) return;
 
-          setState(() {
-            _isUploadingRelationshipFile = false;
-          });
+            setState(() {
+              _isUploadingRelationshipFile = false;
+            });
 
-          // Activate updated relationship
-          if (forceResult.relationshipId != null) {
-            await RelationshipMemoryService.setActiveRelationship(
-                forceResult.relationshipId!);
-            await RelationshipMemoryService.updateIsActive(true,
-                relationshipId: forceResult.relationshipId);
-            final memory = await RelationshipMemoryService.getMemory();
-            if (mounted && memory != null) {
-              _showRelationshipPanel(memory);
+            // Check if force update also has mismatch (shouldn't happen with forceUpdate=true)
+            if (forceResult.isMismatch) {
+              // This shouldn't happen with forceUpdate, but if it does, show error
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                        'Güncelleme başarısız: ${forceResult.mismatchReason ?? "Bilinmeyen hata"}'),
+                    backgroundColor: Colors.red,
+                    duration: const Duration(seconds: 5),
+                  ),
+                );
+              }
+              return;
             }
+
+            // Activate updated relationship
+            if (forceResult.relationshipId != null) {
+              await RelationshipMemoryService.setActiveRelationship(
+                  forceResult.relationshipId!);
+              await RelationshipMemoryService.updateIsActive(true,
+                  relationshipId: forceResult.relationshipId);
+              // Force refresh memory from Firestore (no cache)
+              final memory = await RelationshipMemoryService.getMemory(
+                forceIncludeInactive: true,
+              );
+              if (mounted && memory != null) {
+                _showRelationshipPanel(memory);
+              }
+            }
+          } catch (e) {
+            if (!mounted) return;
+            
+            setState(() {
+              _isUploadingRelationshipFile = false;
+            });
+            
+            // Show error to user
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Güncelleme başarısız: ${e.toString()}'),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 5),
+              ),
+            );
           }
           return;
         }

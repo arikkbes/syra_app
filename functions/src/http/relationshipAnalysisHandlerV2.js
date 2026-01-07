@@ -97,9 +97,13 @@ export async function analyzeRelationshipChatHandler(req, res) {
     // Check for existing relationship ID (for updates)
     const existingRelationshipId = fields.relationshipId || null;
     const forceUpdate = fields.forceUpdate === "true" || fields.forceUpdate === true;
+    
+    // MODULE 4: Smart incremental update mode
+    // Options: "smart" (default - attempt delta), "force_rebuild" (clear and rebuild)
+    const updateMode = fields.updateMode || "smart";
 
     // Process with new pipeline
-    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId, forceUpdate);
+    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId, forceUpdate, updateMode);
 
     // ═══════════════════════════════════════════════════════════════
     // MODULE 3: Handle mismatch detection
