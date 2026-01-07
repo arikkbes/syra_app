@@ -16,7 +16,7 @@ import {
   getUserProfile,
   incrementMessageCount,
 } from "../firestore/userProfileRepository.js";
-import { hasHitBackendLimit } from "../domain/limitEngine.js";
+import { hasHitBackendLimit, getRemainingMessages } from "../domain/limitEngine.js";
 
 export async function syraChatHandler(req, res) {
   // Basic CORS
@@ -113,13 +113,17 @@ export async function syraChatHandler(req, res) {
     const userProfile = await getUserProfile(uid);
     const isPremium = userProfile.isPremium === true;
 
-    // Daily backend limit
+    // STEP 5: Daily backend limit with remaining count in response
     if (hasHitBackendLimit(userProfile, isPremium)) {
       console.log(`[${uid}] Daily backend limit hit`);
       return res.status(429).json({
         success: false,
         message: "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.",
         code: "DAILY_LIMIT_REACHED",
+        meta: {
+          remaining: 0,
+          isPremium: false,
+        },
       });
     }
 

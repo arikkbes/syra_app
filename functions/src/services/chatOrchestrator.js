@@ -8,11 +8,12 @@
 
 import { openai } from "../config/openaiClient.js";
 import { detectIntentType, getChatConfig } from "../domain/intentEngine.js";
-import { buildUltimatePersona, normalizeTone } from "../domain/personaEngine.js";
+import { buildUltimatePersona, normalizeTone, isRelationshipQuery } from "../domain/personaEngine.js";
 import { extractDeepTraits } from "../domain/traitEngine.js";
 import { predictOutcome } from "../domain/outcomePredictionEngine.js";
 import { detectUserPatterns } from "../domain/patternEngine.js";
 import { detectGenderSmart } from "../domain/genderEngine.js";
+import { MODEL_FALLBACK } from "../utils/constants.js";
 
 import {
   getUserProfile,
@@ -24,6 +25,8 @@ import {
 import {
   getConversationHistory,
   saveConversationHistory,
+  getSessionState,
+  setSessionState,
 } from "../firestore/conversationRepository.js";
 
 import { db as firestore } from "../config/firebaseAdmin.js";
@@ -57,14 +60,19 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     console.log(`[${uid}] Processing tarot follow-up question`);
   }
 
-  // Load user + history
-  const [userProfile, rawHistory] = await Promise.all([
+  // Load user + history + session state
+  const [userProfile, rawHistory, sessionState] = await Promise.all([
     getUserProfile(uid),
     getConversationHistory(uid, sessionId), // MODULE 1: Pass sessionId
+    getSessionState(uid, sessionId), // Load session state for deep scan permissions
   ]);
 
   const history = rawHistory?.messages || [];
   const conversationSummary = rawHistory?.summary || null;
+  
+  // TASK B: Gender pronoun for guidance messages
+  const gender = userProfile.gender || "belirsiz";
+  const genderPronoun = gender === "erkek" ? "kardeşim" : gender === "kadın" ? "kanka" : "kanka";
 
   console.log(
     `[${uid}] Processing - Session: ${sessionId}, Premium: ${isPremium}, Mode: ${mode}, History: ${history.length}, Summary: ${!!conversationSummary}`
@@ -80,12 +88,13 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
 
   // ═══════════════════════════════════════════════════════════════
   // VISION MODEL OVERRIDE: Eğer resim varsa, vision destekli model kullan
+  // TASK A: Use gpt-5.2 for vision (assuming gpt-5 supports vision)
   // ═══════════════════════════════════════════════════════════════
   if (imageUrl) {
-    // gpt-4o veya gpt-4-turbo vision destekliyor
-    if (model === "gpt-4o-mini" || model === "gpt-3.5-turbo") {
-      model = isPremium ? "gpt-4o" : "gpt-4o-mini";
-      console.log(`[${uid}] Model upgraded for vision → ${model}`);
+    // gpt-5 models should support vision
+    if (model === "gpt-5-mini") {
+      model = isPremium ? "gpt-5.2" : "gpt-5-mini";
+      console.log(`[${uid}] Model kept for vision → ${model}`);
     }
   }
 
@@ -160,15 +169,11 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     console.error(`[${uid}] UserProfile update error →`, e)
   );
 
-  // Persona
-  const persona = buildUltimatePersona(
-    isPremium,
-    userProfile,
-    extractedTraits,
-    patterns,
-    conversationSummary,
-    mode
-  );
+  // ═══════════════════════════════════════════════════════════════
+  // STEP 1 & 2: Detect if query is relationship-related
+  // ═══════════════════════════════════════════════════════════════
+  const isRelQuery = isRelationshipQuery(safeMessage);
+  let hasActiveRelationship = false;
 
   // Reply context
   const replyContext = replyTo
@@ -191,9 +196,8 @@ Cevabını buna göre kurgula.
 `
       : "";
 
-  // System messages
+  // System messages - persona will be added after relationship context check
   const systemMessages = [
-    { role: "system", content: persona },
     { role: "system", content: replyContext },
   ];
 
@@ -292,18 +296,101 @@ Keep it simple and actionable.
   if (tarotContext) {
     systemMessages.push({
       role: "system",
-      content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, pattern-based, dürüst.`,
+      content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, tekrar odaklı, dürüst.`,
     });
   }
 
   // ═══════════════════════════════════════════════════════════════
   // RELATIONSHIP MEMORY V2: Smart retrieval with chunked storage
+  // + DEEP SCAN PERMISSION FLOW
   // ═══════════════════════════════════════════════════════════════
   let relationshipData = null;
+  let needsDeepScanPermission = false;
+  
   try {
-    relationshipData = await getRelationshipContext(uid, safeMessage, history);
+    // ═══════════════════════════════════════════════════════════════
+    // HANDLE PENDING DEEP SCAN CONFIRMATION
+    // ═══════════════════════════════════════════════════════════════
+    if (sessionState?.pendingDeepScan) {
+      console.log(`[${uid}] Pending deep scan detected, checking user response`);
+      
+      const userResponse = safeMessage.toLowerCase().trim();
+      const affirmativeResponses = ['evet', 'tamam', 'olur', 'yap', 'hadi', 'başlat', 'yapabilirsin', 'istiyorum'];
+      const negativeResponses = ['hayır', 'boşver', 'gerek yok', 'istemiyorum', 'vazgeçtim'];
+      
+      if (affirmativeResponses.some(r => userResponse.includes(r))) {
+        // User confirmed - run retrieval with stored queryHint
+        console.log(`[${uid}] User confirmed deep scan - proceeding with retrieval`);
+        
+        // Combine stored queryHint with current message for better context
+        const combinedQuery = `${sessionState.pendingDeepScan.queryHint} ${safeMessage}`;
+        relationshipData = await getRelationshipContext(uid, combinedQuery, history, sessionState);
+        
+        // Clear pendingDeepScan after use
+        await setSessionState(uid, sessionId, { pendingDeepScan: null });
+      } else if (negativeResponses.some(r => userResponse.includes(r))) {
+        // User declined - clear pending state and continue without memory
+        console.log(`[${uid}] User declined deep scan - continuing without relationship memory`);
+        await setSessionState(uid, sessionId, { pendingDeepScan: null });
+        relationshipData = null;
+      } else {
+        // Ambiguous response - ask for clarification
+        systemMessages.push({
+          role: "system",
+          content: `
+🔄 CLARIFICATION NEEDED:
+User has a pending deep scan permission request.
+Their response was unclear. Ask them directly in Turkish:
+"Kayıtlarda arama yapmamı istiyor musun? (Evet/Hayır)"
+Keep it short and conversational.
+          `.trim(),
+        });
+      }
+    } else {
+      // Normal flow - check if relationship context is needed
+      relationshipData = await getRelationshipContext(uid, safeMessage, history, sessionState);
+    }
     
-    if (relationshipData && relationshipData.context) {
+    // ═══════════════════════════════════════════════════════════════
+    // HANDLE PERMISSION REQUEST
+    // ═══════════════════════════════════════════════════════════════
+    if (relationshipData?.needsPermission) {
+      console.log(`[${uid}] Deep scan permission needed - setting pendingDeepScan`);
+      needsDeepScanPermission = true;
+      
+      // Store pending deep scan in session state
+      await setSessionState(uid, sessionId, {
+        pendingDeepScan: {
+          type: 'search_request',
+          queryHint: relationshipData.queryHint,
+          createdAt: new Date().toISOString(),
+        }
+      });
+      
+      // Inject permission prompt
+      systemMessages.push({
+        role: "system",
+        content: `
+🔍 DEEP SCAN PERMISSION REQUEST:
+User asked for evidence/search but query is underspecified.
+Respond ONLY with this permission question in Turkish (natural, conversational):
+
+"Bunu daha net görmek için ilişki kayıtlarında arama yapıp 1–2 kısa alıntı çıkarabilirim. Yapmamı ister misin?"
+
+Do NOT answer their question yet. Do NOT provide analysis. Just ask permission.
+        `.trim(),
+      });
+      
+      // Don't inject full relationship context yet
+      hasActiveRelationship = true; // Mark as having relationship for persona
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
+    // INJECT RELATIONSHIP CONTEXT (if not waiting for permission)
+    // ═══════════════════════════════════════════════════════════════
+    if (relationshipData && relationshipData.context && !needsDeepScanPermission) {
+      hasActiveRelationship = true;
+      
       // ═══════════════════════════════════════════════════════════════
       // AUTO-PERSIST SELFPARTICIPANT
       // If selfParticipant is missing, detect if user is answering the clarification question
@@ -386,19 +473,78 @@ Base all responses on the CURRENT active relationship context only.
       console.log(`[${uid}] 📱 Relationship context loaded (retrieval: ${relationshipData.hasRetrieval}, participant mapping: ${!!relationshipData.participantContext})`);
     } else {
       // ═══════════════════════════════════════════════════════════════
-      // BUG FIX #2: No active relationship - inject LLM mapping protection
+      // STEP 2: No active relationship - check if user is asking about messages
       // ═══════════════════════════════════════════════════════════════
-      if (history.length > 0) {
-        // Only inject if there's existing conversation (to override any old mapping)
-        systemMessages.push({
-          role: "system",
-          content: "AKTİF İLİŞKİ YOK. Önceki USER/PARTNER eşleştirmelerini yok say. Kullanıcı ilişkiyle ilgili soru sorarsa, ilişki yüklemesini/aktifleştirmesini iste.",
-        });
-        console.log(`[${uid}] 🚫 No active relationship - LLM mapping protection injected`);
+      const readMessagesKeywords = [
+        "son mesaj", "last message", "mesajları oku", "read messages",
+        "mesajları gör", "mesajları incele", "mesajlara bak", "konuşmaları oku",
+        "yazışmaları oku", "sohbetleri oku"
+      ];
+      const messageLower = safeMessage.toLowerCase();
+      const isAskingForMessages = readMessagesKeywords.some(k => messageLower.includes(k));
+      
+      // TASK B: Don't inject system prompt, handle in response below
+      if (isAskingForMessages && isRelQuery) {
+        console.log(`[${uid}] ⚠️ User asking for messages but no active relationship`);
+      } else if (history.length > 0 && isRelQuery) {
+        console.log(`[${uid}] 🚫 No active relationship but relationship query detected`);
       }
     }
   } catch (memErr) {
     console.error(`[${uid}] Failed to load relationship context (non-critical):`, memErr);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // STEP 1 & 2: Build persona AFTER relationship context check
+  // Persona needs to know hasActiveRelationship status
+  // ═══════════════════════════════════════════════════════════════
+  const persona = buildUltimatePersona(
+    isPremium,
+    userProfile,
+    extractedTraits,
+    patterns,
+    conversationSummary,
+    mode,
+    hasActiveRelationship,
+    isRelQuery
+  );
+  
+  // Inject persona at the beginning of system messages
+  systemMessages.unshift({ role: "system", content: persona });
+  
+  console.log(`[${uid}] Persona built: hasActiveRelationship=${hasActiveRelationship}, isRelQuery=${isRelQuery}`);
+  
+  // ═══════════════════════════════════════════════════════════════
+  // TASK B: If relationship query but NO active relationship, return guidance immediately
+  // ═══════════════════════════════════════════════════════════════
+  if (isRelQuery && !hasActiveRelationship) {
+    const guidanceReply = `Şu an bu ilişki aktif değil ${genderPronoun}. "Relationship Upload" panelinden ilişkiyi aktif edersen son mesajlara bakabilirim. Hangi ilişkiyle ilgili konuşmak istiyorsun?`;
+    
+    console.log(`[${uid}] 🚫 Returning guidance for inactive relationship query`);
+    
+    // Save to history
+    await saveConversationHistory(uid, sessionId, safeMessage, guidanceReply, {
+      messages: Array.isArray(rawHistory?.messages) ? rawHistory.messages : [],
+      summary: rawHistory?.summary ?? null,
+      lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
+    }).catch((e) => console.error(`[${uid}] History save error →`, e));
+    
+    return {
+      reply: guidanceReply,
+      extractedTraits,
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+        inactiveRelationshipGuidance: true,
+      },
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -436,18 +582,46 @@ Base all responses on the CURRENT active relationship context only.
   let replyText = null;
   let openaiError = null;
 
-  // OPENAI CALL
+  // ═══════════════════════════════════════════════════════════════
+  // STEP 3: OUTPUT GUARD - retry if response is generic/empty
+  // STEP 4: MODEL FALLBACK - if primary fails, try fallback model
+  // ═══════════════════════════════════════════════════════════════
+  let retryAttempted = false;
+  let fallbackAttempted = false;
+  let originalModel = model;
+
+  // OPENAI CALL with fallback
   try {
     console.log(`[${uid}] Calling OpenAI → ${model}`);
 
-    const completion = await openai.chat.completions.create({
-      model,
-      messages: contextMessages,
-      temperature,
-      max_tokens: maxTokens,
-      presence_penalty: 0.6,
-      frequency_penalty: 0.3,
-    });
+    let completion;
+    
+    try {
+      completion = await openai.chat.completions.create({
+        model,
+        messages: contextMessages,
+        max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
+      });
+    } catch (primaryError) {
+      // TASK A: Check if error is rate limit or model-specific
+      const errorMessage = primaryError?.message?.toLowerCase() || '';
+      const isRateLimit = errorMessage.includes('rate') || errorMessage.includes('429');
+      const isModelError = errorMessage.includes('model') || errorMessage.includes('not found');
+      
+      if ((isRateLimit || isModelError) && model !== MODEL_FALLBACK) {
+        console.log(`[${uid}] ⚠️ Primary model failed (${primaryError.message}), falling back to ${MODEL_FALLBACK}`);
+        fallbackAttempted = true;
+        model = MODEL_FALLBACK; // Fallback to gpt-5-mini
+        
+        completion = await openai.chat.completions.create({
+          model,
+          messages: contextMessages,
+          max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
+        });
+      } else {
+        throw primaryError; // Re-throw if not a fallback scenario
+      }
+    }
 
     if (
       completion &&
@@ -456,8 +630,45 @@ Base all responses on the CURRENT active relationship context only.
     ) {
       replyText = completion.choices[0].message.content.trim();
       console.log(
-        `[${uid}] OpenAI success → Reply length: ${replyText.length}`
+        `[${uid}] OpenAI success → Model: ${model}, Reply length: ${replyText.length}`
       );
+      
+      // STEP 3: Check if response is too generic/empty
+      const isGeneric = checkIfGenericResponse(replyText);
+      
+      if (isGeneric && !retryAttempted) {
+        console.log(`[${uid}] ⚠️ Generic response detected, retrying with stronger prompt`);
+        retryAttempted = true;
+        
+        // Add stronger instruction and retry ONCE
+        const retryMessages = [
+          ...contextMessages.slice(0, -1), // All except last user message
+          {
+            role: "system",
+            content: `
+⚠️ CRITICAL QUALITY INSTRUCTION:
+Previous response was too generic/vague. This time:
+• Be CONCRETE and SPECIFIC
+• Give 1-3 ACTIONABLE steps
+• Ask MAX 1 clarifying question if truly needed
+• NO filler phrases ("Buradayım", "Yardımcı olabilirim", etc.)
+• Get straight to the point
+            `.trim()
+          },
+          contextMessages[contextMessages.length - 1] // Last user message
+        ];
+        
+        const retryCompletion = await openai.chat.completions.create({
+          model,
+          messages: retryMessages,
+          max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
+        });
+        
+        if (retryCompletion?.choices?.[0]?.message?.content) {
+          replyText = retryCompletion.choices[0].message.content.trim();
+          console.log(`[${uid}] ✅ Retry successful → Reply length: ${replyText.length}`);
+        }
+      }
     } else {
       openaiError = "EMPTY_COMPLETION";
     }
@@ -506,6 +717,8 @@ Base all responses on the CURRENT active relationship context only.
     meta: {
       intent,
       model,
+      originalModel: fallbackAttempted ? originalModel : model, // STEP 4: Track if fallback was used
+      usedFallback: fallbackAttempted, // STEP 4
       premium: isPremium,
       messageCount: userProfile.messageCount,
       processingTime,
@@ -578,4 +791,44 @@ async function checkRelationshipContextChange(uid, relationshipId, relationshipU
     console.error(`[${uid}] Error checking relationship context change:`, error);
     return false; // Safe default
   }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * STEP 3: Check if response is too generic/empty (OUTPUT GUARD)
+ * ═══════════════════════════════════════════════════════════════
+ * Returns true if response lacks actionable content
+ */
+function checkIfGenericResponse(text) {
+  if (!text || text.length < 10) {
+    return true; // Too short
+  }
+  
+  // Forbidden filler phrases that indicate generic response
+  const fillerPhrases = [
+    "buradayım",
+    "seni dinliyorum",
+    "yardımcı olabilirim",
+    "başka bir şey var mı",
+    "ne düşünüyorsun",
+    "umarım beğenirsin",
+    "ihtiyacın olan her şey",
+  ];
+  
+  const lowerText = text.toLowerCase();
+  
+  // Count how many filler phrases are present
+  const fillerCount = fillerPhrases.filter(phrase => lowerText.includes(phrase)).length;
+  
+  // If response is short AND has filler phrases, it's generic
+  if (text.length < 100 && fillerCount >= 2) {
+    return true;
+  }
+  
+  // If response has 3+ filler phrases regardless of length, it's generic
+  if (fillerCount >= 3) {
+    return true;
+  }
+  
+  return false;
 }

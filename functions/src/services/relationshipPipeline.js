@@ -599,21 +599,21 @@ ${sampledMessages}
     "${speakers[0] || "Kişi1"}": {
       "traits": ["<3-5 kişilik özelliği>"],
       "communicationStyle": "<iletişim tarzı, 1 cümle>",
-      "emotionalPattern": "<duygusal örüntü, 1 cümle>"
+      "duygusalOruntu": "<duygusal örüntü, 1 cümle>"
     },
     "${speakers[1] || "Kişi2"}": {
       "traits": ["<3-5 kişilik özelliği>"],
       "communicationStyle": "<iletişim tarzı, 1 cümle>",
-      "emotionalPattern": "<duygusal örüntü, 1 cümle>"
+      "duygusalOruntu": "<duygusal örüntü, 1 cümle>"
     }
   },
   "dynamics": {
     "powerBalance": "<'balanced', 'user_dominant', 'partner_dominant'>",
-    "attachmentPattern": "<'secure', 'anxious', 'avoidant', 'mixed'>",
+    "baglanmaTarzi": "<'secure', 'anxious', 'avoidant', 'mixed'>",
     "conflictStyle": "<nasıl tartışıyorlar, 1-2 cümle>",
     "loveLanguages": ["<sevgi dilleri>"]
   },
-  "patterns": {
+  "tekrarlar": {
     "recurringIssues": ["<tekrar eden sorunlar, 3-5 adet>"],
     "strengths": ["<ilişkinin güçlü yanları, 3-5 adet>"],
     "redFlags": ["<kırmızı bayraklar varsa, 0-3 adet>"],
@@ -651,7 +651,7 @@ ${sampledMessages}
       shortSummary: `${speakers.join(" ve ")} arasındaki ${messages.length} mesajlık sohbet analizi.`,
       personalities: {},
       dynamics: {},
-      patterns: {},
+      tekrarlar: {},
       timeline: {},
     };
   }
@@ -707,8 +707,19 @@ export async function searchChunks(uid, relationshipId, query, dateHint = null) 
   const snapshot = await chunksRef.get();
   const chunks = snapshot.docs.map(doc => doc.data());
   
+  // ═══════════════════════════════════════════════════════════════
+  // D) Query canonicalization - handle common misspellings
+  // ═══════════════════════════════════════════════════════════════
   const queryLower = query.toLowerCase();
-  const queryNormalized = normalizeTurkish(queryLower);
+  const canonicalQuery = canonicalizeQuery(queryLower);
+  const queryNormalized = normalizeTurkish(canonicalQuery);
+  
+  // Also tokenize query for partial matching
+  const queryTokens = canonicalQuery
+    .split(/\s+/)
+    .filter(t => t.length >= 3) // Ignore very short tokens
+    .map(t => normalizeTurkish(t));
+  
   const results = [];
   
   for (const chunk of chunks) {
@@ -737,23 +748,57 @@ export async function searchChunks(uid, relationshipId, query, dateHint = null) 
     }
     
     // ═══════════════════════════════════════════════════════════════
-    // TASK C: Keyword-based matching (works even without patterns)
+    // TASK C: Keyword-based matching (improved with typo tolerance)
     // ═══════════════════════════════════════════════════════════════
     
-    // Keyword match (normalized)
-    if (chunk.keywords?.some(k => {
-      const kNorm = normalizeTurkish(k.toLowerCase());
-      return kNorm.includes(queryNormalized) || queryNormalized.includes(kNorm);
-    })) {
-      score += 3;
+    // Exact or fuzzy keyword match
+    if (chunk.keywords) {
+      for (const keyword of chunk.keywords) {
+        const kNorm = normalizeTurkish(keyword.toLowerCase());
+        
+        // Exact match
+        if (kNorm === queryNormalized || kNorm.includes(queryNormalized) || queryNormalized.includes(kNorm)) {
+          score += 5;
+          continue;
+        }
+        
+        // Token-based partial match
+        for (const token of queryTokens) {
+          if (kNorm.includes(token) || token.includes(kNorm)) {
+            score += 3;
+            break;
+          }
+          
+          // Fuzzy match for longer words (edit distance <= 1)
+          if (token.length >= 5 && kNorm.length >= 5) {
+            if (areWordsClose(token, kNorm)) {
+              score += 2;
+              break;
+            }
+          }
+        }
+      }
     }
     
-    // Topic match (normalized)
-    if (chunk.topics?.some(t => {
-      const tNorm = normalizeTurkish(t.toLowerCase());
-      return tNorm.includes(queryNormalized) || queryNormalized.includes(tNorm);
-    })) {
-      score += 2;
+    // Topic match with token support
+    if (chunk.topics) {
+      for (const topic of chunk.topics) {
+        const tNorm = normalizeTurkish(topic.toLowerCase());
+        
+        // Exact match
+        if (tNorm.includes(queryNormalized) || queryNormalized.includes(tNorm)) {
+          score += 3;
+          continue;
+        }
+        
+        // Token match
+        for (const token of queryTokens) {
+          if (tNorm.includes(token)) {
+            score += 2;
+            break;
+          }
+        }
+      }
     }
     
     // Summary match (normalized)
@@ -792,6 +837,51 @@ function normalizeTurkish(text) {
     .replace(/ö/g, "o")
     .replace(/ü/g, "u")
     .replace(/ç/g, "c");
+}
+
+/**
+ * Canonicalize common query variants/misspellings
+ */
+function canonicalizeQuery(query) {
+  const variants = {
+    // Popeyes variations
+    'popoyes': 'popeyes',
+    'popayes': 'popeyes',
+    'popeys': 'popeyes',
+    'popyes': 'popeyes',
+    // Add more common variations as needed
+  };
+  
+  let canonical = query;
+  for (const [variant, correct] of Object.entries(variants)) {
+    canonical = canonical.replace(new RegExp(variant, 'gi'), correct);
+  }
+  
+  return canonical;
+}
+
+/**
+ * Check if two words are close (edit distance <= 1)
+ * Simple implementation for typo tolerance
+ */
+function areWordsClose(word1, word2) {
+  // If words differ by more than 1 character in length, they're not close
+  if (Math.abs(word1.length - word2.length) > 1) {
+    return false;
+  }
+  
+  // Quick check: if they differ in only one position
+  let differences = 0;
+  const maxLen = Math.max(word1.length, word2.length);
+  
+  for (let i = 0; i < maxLen; i++) {
+    if (word1[i] !== word2[i]) {
+      differences++;
+      if (differences > 2) return false; // Allow up to 2 differences for insertions/deletions
+    }
+  }
+  
+  return differences <= 2;
 }
 
 /**
@@ -1342,7 +1432,7 @@ function normalizeMasterSummary(existingSummary) {
       shortSummary: existingSummary,
       personalities: {},
       dynamics: {},
-      patterns: {},
+      tekrarlar: {},
       timeline: {},
       statsBySpeaker: {},
       statsCounts: {}
@@ -1354,7 +1444,7 @@ function normalizeMasterSummary(existingSummary) {
     shortSummary: '',
     personalities: {},
     dynamics: {},
-    patterns: {},
+    tekrarlar: {},
     timeline: {},
     statsBySpeaker: {},
     statsCounts: {}
@@ -1406,21 +1496,21 @@ IMPORTANT: Return a JSON object in this exact format:
     "${speakers[0] || 'Kişi1'}": {
       "traits": ["<kişilik özellikleri>"],
       "communicationStyle": "<iletişim tarzı>",
-      "emotionalPattern": "<duygusal örüntü>"
+      "duygusalOruntu": "<duygusal örüntü>"
     },
     "${speakers[1] || 'Kişi2'}": {
       "traits": ["<kişilik özellikleri>"],
       "communicationStyle": "<iletişim tarzı>",
-      "emotionalPattern": "<duygusal örüntü>"
+      "duygusalOruntu": "<duygusal örüntü>"
     }
   },
   "dynamics": {
     "powerBalance": "<balanced/user_dominant/partner_dominant>",
-    "attachmentPattern": "<secure/anxious/avoidant/mixed>",
+    "baglanmaTarzi": "<secure/anxious/avoidant/mixed>",
     "conflictStyle": "<çatışma tarzı>",
     "loveLanguages": ["<sevgi dilleri>"]
   },
-  "patterns": {
+  "tekrarlar": {
     "recurringIssues": ["<sorunlar>"],
     "strengths": ["<güçlü yanlar>"],
     "redFlags": ["<kırmızı bayraklar>"],
