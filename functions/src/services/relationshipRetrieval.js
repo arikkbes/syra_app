@@ -22,11 +22,123 @@ import {
 } from "./relationshipContext.js";
 
 /**
- * Get relationship context for chat
- * Returns master summary (always) + retrieval results (if needed)
+ * Check if relationship memory should be used based on user message
+ * Only returns true if user explicitly asks for relationship/chat log search
+ * TIGHTENED: Requires strong anchor terms to avoid false positives
  */
-export async function getRelationshipContext(uid, userMessage, conversationHistory = []) {
+function shouldUseRelationshipMemory(userMessage, conversationHistory = []) {
+  const message = userMessage.toLowerCase();
+  
+  // STRONG anchor terms that must be present (word-boundary aware)
+  const strongAnchors = [
+    'mesaj', 'konuşma', 'sohbet', 'chat', 'zip',
+    'alıntı', 'kanıt', 'kelime', 'tarih',
+    'nerede geçti', 'kaç kere', 'kaç defa'
+  ];
+  
+  // Check if message contains at least one strong anchor
+  const hasStrongAnchor = strongAnchors.some(anchor => {
+    // Use word boundary check for better precision
+    const regex = new RegExp(`\\b${anchor}`, 'i');
+    return regex.test(message);
+  });
+  
+  if (!hasStrongAnchor) {
+    return false;
+  }
+  
+  // Additional triggers that work ONLY with strong anchors
+  const additionalTriggers = [
+    'bul', 'ara', 'göster',
+    'söylemişti', 'demişti', 'yazmış', 'yazdı',
+    'aralığı', 'arasında', 'önceki',
+    'ifade', 'cümle', 'ne zaman'
+  ];
+  
+  // Check for additional triggers (optional but strengthens confidence)
+  const hasAdditionalTrigger = additionalTriggers.some(trigger => {
+    const regex = new RegExp(`\\b${trigger}`, 'i');
+    return regex.test(message);
+  });
+  
+  // Avoid false positives on general questions even with anchors
+  // e.g. "mesajımı gördü mü?" should NOT trigger memory
+  const falsePositivePatterns = [
+    /mesaj.*gördü/i,
+    /mesaj.*atmadı/i,
+    /mesaj.*cevap.*vermiyor/i,
+    /konuş.*istemiyor/i,
+    /sohbet.*etmiyor/i
+  ];
+  
+  const isFalsePositive = falsePositivePatterns.some(pattern => pattern.test(message));
+  
+  if (isFalsePositive) {
+    return false;
+  }
+  
+  // Strong anchor + additional trigger = high confidence
+  // Strong anchor alone = medium confidence (still allow)
+  return true;
+}
+
+/**
+ * Check if a retrieval query is underspecified and needs user permission
+ * Returns true if query lacks specific date/keyword context
+ */
+function checkIfUnderspecified(message, needsRetrieval) {
+  const msgLower = message.toLowerCase();
+  
+  // If there's a specific date, it's well-specified
+  if (needsRetrieval.parsedDate) {
+    return false;
+  }
+  
+  // If query has specific search terms (long enough), it's well-specified
+  if (needsRetrieval.query && needsRetrieval.query.length > 15) {
+    return false;
+  }
+  
+  // Check for vague questions that need clarification
+  const vaguePatterns = [
+    /benden.*istiyor/i,
+    /bana.*dedi/i,
+    /bir şey.*söyledi/i,
+    /ne.*demek istiyor/i,
+    /kanıt.*var/i,
+    /mesajlarda.*geçti/i,
+    /konuşmada.*bul/i,
+    /^ara\b/i, // Just "ara" without context
+    /^bul\b/i, // Just "bul" without context
+  ];
+  
+  const isVague = vaguePatterns.some(pattern => pattern.test(msgLower));
+  
+  return isVague;
+}
+
+/**
+ * Get relationship context for chat
+ * Returns master summary (only when needed) + retrieval results (if needed)
+ */
+export async function getRelationshipContext(uid, userMessage, conversationHistory = [], sessionState = null) {
   try {
+    // CRITICAL: Check if relationship memory should be used
+    // If pendingDeepScan exists, FORCE retrieval (bypass heuristics)
+    const hasPendingDeepScan = sessionState?.pendingDeepScan != null;
+    const needsMemory = hasPendingDeepScan || shouldUseRelationshipMemory(userMessage, conversationHistory);
+    
+    if (!needsMemory) {
+      console.log(`[${uid}] Relationship memory not needed for this message`);
+      return null;
+    }
+    
+    if (hasPendingDeepScan) {
+      console.log(`[${uid}] Relationship memory FORCED - pending deep scan confirmation`);
+    } else {
+      console.log(`[${uid}] Relationship memory requested - user query matched heuristics`);
+    }
+    
     // Get user's active relationship with participant mapping
     const relationshipContext = await getActiveRelationshipContext(uid);
     
@@ -67,6 +179,32 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
     const needsRetrieval = detectRetrievalNeed(userMessage, conversationHistory);
     
     // ═══════════════════════════════════════════════════════════════
+    // DEEP SCAN PERMISSION FLOW
+    // If retrieval is needed but query is underspecified, ask permission
+    // ═══════════════════════════════════════════════════════════════
+    if (needsRetrieval.needed && !hasPendingDeepScan) {
+      // Check if query is underspecified (needs permission)
+      const isUnderspecified = checkIfUnderspecified(userMessage, needsRetrieval);
+      
+      if (isUnderspecified) {
+        console.log(`[${uid}:${activeRelationshipId}] Underspecified query detected - requesting permission`);
+        
+        // Return special response indicating permission needed
+        return {
+          needsPermission: true,
+          queryHint: needsRetrieval.query || userMessage.slice(0, 100),
+          context: context,
+          participantContext: participantPrompt,
+          relationshipId: activeRelationshipId,
+          speakers: relationship.speakers,
+          selfParticipant,
+          partnerParticipant,
+          updatedAt: relationship.updatedAt,
+        };
+      }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════
     // TASK A: Debug logging (1/6)
     // ═══════════════════════════════════════════════════════════════
     console.log(`[${uid}:${activeRelationshipId}] detectRetrievalNeed result:`, {
@@ -84,6 +222,9 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
     if (needsRetrieval.needed) {
       console.log(`[${uid}:${activeRelationshipId}] Retrieval triggered: ${needsRetrieval.reason}`);
       
+      // PATCH 2: Debug log query terms (safe - no PII)
+      console.log(`[${uid}:${activeRelationshipId}] Search query terms: "${needsRetrieval.query}"`);
+      
       // Search for relevant chunks
       const relevantChunks = await searchChunks(
         uid, 
@@ -91,6 +232,9 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
         needsRetrieval.query,
         needsRetrieval.dateHint // TASK B: pass dateHint to searchChunks
       );
+      
+      // PATCH 2: Debug log match count
+      console.log(`[${uid}:${activeRelationshipId}] Search result: ${relevantChunks.length} chunks matched`);
       
       // ═══════════════════════════════════════════════════════════════
       // TASK A: Debug logging (2/6)
@@ -157,11 +301,12 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
         }
       } else {
         // ═══════════════════════════════════════════════════════════════
-        // TASK D: Disambiguation + Fallback (relevantChunks = 0)
+        // PATCH 1B: No match found - ask for date/keyword, NEVER say "can't see uploads"
         // ═══════════════════════════════════════════════════════════════
-        console.log(`[${uid}:${activeRelationshipId}] Fallback: relevantChunks=0, using masterSummary`);
-        context += `\n\n⚠️ Kullanıcının sorduğu spesifik konu/tarih için kayıtlarda eşleşme bulunamadı.`;
-        context += `\n\n📌 Kullanıcıya kibarca söyle ve şunu sor: "Hangi dönemden bahsediyorsun? (son 1 ay / 3 ay / daha eski) ya da spesifik ay-yıl söyleyebilir misin (örn: Mayıs 2025)?"`;
+        console.log(`[${uid}:${activeRelationshipId}] No chunks matched query: "${needsRetrieval.query}"`);
+        context += `\n\n⚠️ Kayıtlarda bu kelime/tarih için eşleşme bulamadım.`;
+        context += `\n\n📌 Kullanıcıya şunu sor: "Bir tarih aralığı (örn: Mayıs 2025) veya daha net anahtar kelime verir misin?"`;
+        context += `\n\n🚫 ÖNEMLİ: ASLA "yüklediğin dökümanları göremiyorum" veya benzeri ifade kullanma. İlişki zaten aktif, sadece arama sonucu yok.`;
       }
       
       // ═══════════════════════════════════════════════════════════════
@@ -255,17 +400,18 @@ function buildMasterContext(relationship, relationshipContext = null) {
     }
   }
   
-  // Patterns
-  if (ms.patterns) {
-    if (ms.patterns.recurringIssues?.length) {
+  // Tekrarlar (patterns renamed to tekrarlar)
+  const patternsData = ms.tekrarlar || ms.patterns; // Backwards compatibility
+  if (patternsData) {
+    if (patternsData.recurringIssues?.length) {
       context += `\n⚠️ TEKRAR EDEN SORUNLAR:\n`;
-      ms.patterns.recurringIssues.forEach(issue => {
+      patternsData.recurringIssues.forEach(issue => {
         context += `• ${issue}\n`;
       });
     }
-    if (ms.patterns.strengths?.length) {
+    if (patternsData.strengths?.length) {
       context += `\n✅ GÜÇLÜ YANLAR:\n`;
-      ms.patterns.strengths.forEach(s => {
+      patternsData.strengths.forEach(s => {
         context += `• ${s}\n`;
       });
     }
@@ -542,24 +688,53 @@ function normalizeTurkish(text) {
  * Extract meaningful search terms from user message
  */
 function extractSearchTerms(message) {
-  // Remove common words
+  // PATCH: Expanded stopwords including question particles
   const stopWords = [
     "ne", "neden", "nasıl", "kim", "ne zaman", "nerede",
     "bir", "bu", "şu", "o", "ve", "veya", "ile", "için",
-    "mı", "mi", "mu", "mü", "mısın", "misin",
+    "mı", "mi", "mu", "mü", "mısın", "misin", "musun", "müsün",
+    "miyim", "mıyım", "müyüm", "miyim",
     "var", "yok", "değil", "evet", "hayır",
     "ben", "sen", "biz", "siz", "onlar",
     "bana", "sana", "bize", "size",
     "dedi", "demişti", "söyledi", "yazdı",
+    "ya", "kanka", "abi", "abla"
   ];
   
-  const words = message
+  // Tokenize and clean
+  const allTokens = message
     .toLowerCase()
-    .replace(/[^\wğüşıöçĞÜŞİÖÇ\s]/g, "")
+    .replace(/[^\wğüşıöçĞÜŞİÖÇ\s\-_0-9]/g, " ") // Keep letters, numbers, dash, underscore
     .split(/\s+/)
-    .filter(w => w.length > 2 && !stopWords.includes(w));
+    .filter(w => w.length > 2);
   
-  return words.slice(0, 5).join(" ");
+  // PATCH: Collect special tokens (brand names, dates, unusual words)
+  // Heuristic: latin-only words (4+ chars), words with numbers, words with dash/underscore
+  const specialTokens = allTokens.filter(token => {
+    // Latin letters only (likely brand/proper name)
+    if (/^[a-z]{4,}$/i.test(token)) return true;
+    // Contains digits (dates, numbers)
+    if (/\d/.test(token)) return true;
+    // Contains dash or underscore
+    if (/[-_]/.test(token)) return true;
+    return false;
+  });
+  
+  // Get meaningful terms (non-stopwords)
+  const meaningfulTerms = allTokens.filter(w => !stopWords.includes(w));
+  
+  // PATCH: Combine special tokens + first 8 meaningful terms, remove duplicates
+  const combined = [...new Set([...specialTokens, ...meaningfulTerms.slice(0, 8)])];
+  
+  // Build final query
+  const finalQuery = combined.join(" ").trim();
+  
+  // PATCH: Fallback to cleaned full message if empty
+  if (!finalQuery) {
+    return message.toLowerCase().replace(/[^\wğüşıöçĞÜŞİÖÇ\s]/g, " ").trim();
+  }
+  
+  return finalQuery;
 }
 
 /**
