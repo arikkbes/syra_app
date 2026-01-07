@@ -43,19 +43,36 @@ class RelationshipMemory {
 
   /// Parse from new V2 Firestore structure
   /// Path: relationships/{uid}/relations/{relationshipId}
-  factory RelationshipMemory.fromFirestore(Map<String, dynamic> data, {String? docId}) {
-    // Extract masterSummary fields
-    final masterSummary = data['masterSummary'] as Map<String, dynamic>? ?? {};
+  factory RelationshipMemory.fromFirestore(Map<String, dynamic> data,
+      {String? docId}) {
+    // Extract masterSummary fields - TOLERANT PARSING
+    Map<String, dynamic> masterSummary = {};
+    String? shortSummaryText;
+
+    final rawMasterSummary = data['masterSummary'];
+    if (rawMasterSummary is Map) {
+      // masterSummary is an object - use it directly
+      masterSummary = Map<String, dynamic>.from(rawMasterSummary);
+      shortSummaryText = masterSummary['shortSummary'] as String?;
+    } else if (rawMasterSummary is String) {
+      // masterSummary is a plain string - treat it as shortSummary
+      shortSummaryText = rawMasterSummary;
+    }
+    // else: null or other type => leave masterSummary as {}
+
     final dateRange = data['dateRange'] as Map<String, dynamic>? ?? {};
-    
+
     return RelationshipMemory(
       id: docId ?? data['id'] as String?,
-      speakers: (data['speakers'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [],
+      speakers: (data['speakers'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          [],
       totalMessages: data['totalMessages'] as int?,
       totalChunks: data['totalChunks'] as int?,
       startDate: dateRange['start'] as String?,
       endDate: dateRange['end'] as String?,
-      shortSummary: masterSummary['shortSummary'] as String?,
+      shortSummary: shortSummaryText,
       personalities: masterSummary['personalities'] as Map<String, dynamic>?,
       dynamics: masterSummary['dynamics'] as Map<String, dynamic>?,
       patterns: masterSummary['patterns'] as Map<String, dynamic>?,
@@ -96,10 +113,11 @@ class RelationshipMemory {
       'speakers': speakers,
       if (totalMessages != null) 'totalMessages': totalMessages,
       if (totalChunks != null) 'totalChunks': totalChunks,
-      if (startDate != null || endDate != null) 'dateRange': {
-        if (startDate != null) 'start': startDate,
-        if (endDate != null) 'end': endDate,
-      },
+      if (startDate != null || endDate != null)
+        'dateRange': {
+          if (startDate != null) 'start': startDate,
+          if (endDate != null) 'end': endDate,
+        },
       'masterSummary': {
         if (shortSummary != null) 'shortSummary': shortSummary,
         if (personalities != null) 'personalities': personalities,
@@ -113,7 +131,7 @@ class RelationshipMemory {
   /// Get formatted date range for display
   String get dateRangeFormatted {
     if (startDate == null && endDate == null) return '';
-    
+
     String formatDate(String? isoDate) {
       if (isoDate == null) return '?';
       try {
@@ -123,7 +141,7 @@ class RelationshipMemory {
         return isoDate;
       }
     }
-    
+
     return '${formatDate(startDate)} — ${formatDate(endDate)}';
   }
 

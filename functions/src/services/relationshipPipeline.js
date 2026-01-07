@@ -24,10 +24,11 @@ const storage = admin.storage().bucket();
  * @param {string} chatText - Raw WhatsApp chat text
  * @param {string} relationshipId - Optional existing relationship ID (for updates)
  * @param {boolean} forceUpdate - Force update even if mismatch detected
+ * @param {string} updateMode - "smart" (delta update) or "force_rebuild" (clear and rebuild)
  * @returns {object} - { relationshipId, masterSummary, chunksCount, mismatchDetected?, reason? }
  */
-export async function processRelationshipUpload(uid, chatText, relationshipId = null, forceUpdate = false) {
-  console.log(`[${uid}] Starting relationship pipeline...`);
+export async function processRelationshipUpload(uid, chatText, relationshipId = null, forceUpdate = false, updateMode = "smart") {
+  console.log(`[${uid}] Starting relationship pipeline... (updateMode: ${updateMode})`);
   
   // Generate relationship ID if new
   const relId = relationshipId || crypto.randomUUID();
@@ -68,10 +69,67 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   }
   
   // ═══════════════════════════════════════════════════════════════
-  // MODULE 3: Clean update - clear old data before writing new
+  // MODULE 4: SMART DELTA UPDATE
   // ═══════════════════════════════════════════════════════════════
-  if (relationshipId) {
-    console.log(`[${uid}] Updating existing relationship ${relationshipId} - clearing old data`);
+  if (relationshipId && updateMode === "smart") {
+    console.log(`[${uid}] Attempting smart delta update for ${relationshipId}`);
+    
+    try {
+      const deltaResult = await performDeltaUpdate(uid, relId, messages, speakers);
+      
+      // If no changes detected, return early
+      if (deltaResult.noChanges) {
+        console.log(`[${uid}] No new messages detected - returning existing data`);
+        return {
+          relationshipId: relId,
+          masterSummary: deltaResult.existingMasterSummary,
+          chunksCount: deltaResult.existingChunksCount,
+          messagesCount: deltaResult.existingMessagesCount,
+          speakers: deltaResult.existingSpeakers,
+          noChanges: true,
+        };
+      }
+      
+      // If delta was successfully applied
+      if (deltaResult.success) {
+        console.log(`[${uid}] Delta update successful - ${deltaResult.newMessagesCount} new messages appended`);
+        return {
+          relationshipId: relId,
+          masterSummary: deltaResult.masterSummary,
+          chunksCount: deltaResult.totalChunks,
+          messagesCount: deltaResult.totalMessages,
+          speakers: deltaResult.speakers,
+          deltaApplied: true,
+          newMessagesCount: deltaResult.newMessagesCount,
+        };
+      }
+      
+      // If overlap not found but speakers match - suggest force update
+      if (deltaResult.overlapNotFound) {
+        console.log(`[${uid}] Could not find overlap - suggesting force update or new relationship`);
+        return {
+          mismatchDetected: true,
+          reason: "Mevcut verilerle örtüşme bulunamadı. Dosya farklı bir sohbet olabilir veya eski mesajlar silinmiş olabilir.",
+          suggestedAction: "force_update_or_new",
+          relationshipId: null,
+          masterSummary: null,
+          chunksCount: 0,
+          messagesCount: 0,
+          speakers: [],
+        };
+      }
+      
+    } catch (deltaError) {
+      console.error(`[${uid}] Delta update failed, falling back to full rebuild:`, deltaError);
+      // Continue to full rebuild below
+    }
+  }
+  
+  // ═══════════════════════════════════════════════════════════════
+  // FULL REBUILD (force_rebuild or fallback)
+  // ═══════════════════════════════════════════════════════════════
+  if (relationshipId && (updateMode === "force_rebuild" || forceUpdate)) {
+    console.log(`[${uid}] Performing full rebuild for ${relationshipId}`);
     
     try {
       // Clear Firestore chunks
@@ -132,6 +190,11 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   // Step 6: Save to Firestore
   console.log(`[${uid}] Saving to Firestore...`);
   
+  // Calculate metadata for delta updates
+  const contentHash = computeContentHash(messages);
+  const lastMessageSig = computeMessageSignature(messages[messages.length - 1]);
+  const tailSigs = computeTailSignatures(messages, 50); // Last 50 messages
+  
   // Save master document
   const relationshipRef = firestore
     .collection("relationships")
@@ -146,11 +209,19 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
     totalChunks: chunks.length,
     dateRange: {
       start: messages[0]?.date || null,
-      end: messages[messages.length - 1]?.date || null,
+      // Compute MAX timestamp for end date to ensure latest message is captured
+      end: messages.length > 0 
+        ? new Date(Math.max(...messages.map(m => new Date(m.date).getTime()))).toISOString()
+        : null,
     },
     masterSummary: masterSummary,
     statsCounts: relationshipStats.counts,
     statsBySpeaker: relationshipStats.bySpeaker,
+    // MODULE 4: Metadata for delta updates
+    contentHash: contentHash,
+    lastUploadAt: FieldValue.serverTimestamp(),
+    lastMessageSig: lastMessageSig,
+    tailSigs: tailSigs,
     isActive: true,
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
@@ -190,17 +261,31 @@ function parseWhatsAppMessages(text) {
   const messages = [];
   const lines = text.split("\n");
   
-  // Common WhatsApp date patterns
-  // [01/01/2024, 10:30:45] Name: Message
-  // 01/01/2024, 10:30 - Name: Message
-  // 01.01.2024, 10:30 - Name: Message
+  // Support ALL common WhatsApp date patterns:
+  // A) [06/01/2026, 23:55] Name: message
+  // B) [06.01.2026, 23:55] Name: message
+  // C) 06/01/2026, 23:55 - Name: message
+  // D) 06.01.2026 23:55 - Name: message
+  // E) [24/04/2025 21:37:40] Name: message (no comma, with seconds)
+  // Also accept en-dash (–) as separator
   const patterns = [
+    // Bracketed with slash separator and comma
     /^\[(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s*(.*)$/,
-    /^(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+-\s+([^:]+):\s*(.*)$/,
-    /^(\d{1,2}\.\d{1,2}\.\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+-\s+([^:]+):\s*(.*)$/,
+    // Bracketed with dot separator and comma
+    /^\[(\d{1,2}\.\d{1,2}\.\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s*(.*)$/,
+    // Bracketed with slash, NO comma, with space (e.g., [24/04/2025 21:37:40])
+    /^\[(\d{1,2}\/\d{1,2}\/\d{2,4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s*(.*)$/,
+    // Bracketed with dot, NO comma, with space
+    /^\[(\d{1,2}\.\d{1,2}\.\d{2,4})\s+(\d{1,2}:\d{2}(?::\d{2})?)\]\s+([^:]+):\s*(.*)$/,
+    // Non-bracketed slash with hyphen or en-dash
+    /^(\d{1,2}\/\d{1,2}\/\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+[-–]\s+([^:]+):\s*(.*)$/,
+    // Non-bracketed dot with hyphen or en-dash, with optional comma after date
+    /^(\d{1,2}\.\d{1,2}\.\d{2,4}),?\s+(\d{1,2}:\d{2}(?::\d{2})?)\s+[-–]\s+([^:]+):\s*(.*)$/,
   ];
   
   let currentMessage = null;
+  let failedParseCount = 0;
+  const MAX_FAILED_LOGS = 5;
   
   for (const line of lines) {
     let matched = false;
@@ -231,6 +316,10 @@ function parseWhatsAppMessages(text) {
     // Continuation of previous message (multi-line)
     if (!matched && currentMessage && line.trim()) {
       currentMessage.content += "\n" + line.trim();
+    } else if (!matched && !currentMessage && line.trim() && failedParseCount < MAX_FAILED_LOGS) {
+      // Log lines that fail to parse (capped to avoid spam)
+      console.log(`[WhatsApp Parser] Failed to parse line: ${line.substring(0, 100)}`);
+      failedParseCount++;
     }
   }
   
@@ -239,13 +328,19 @@ function parseWhatsAppMessages(text) {
     messages.push(currentMessage);
   }
   
+  if (failedParseCount >= MAX_FAILED_LOGS) {
+    console.log(`[WhatsApp Parser] ... and ${failedParseCount - MAX_FAILED_LOGS} more failed lines (suppressed)`);
+  }
+  
   // Filter out system messages
   return messages.filter(m => 
     !m.content.includes("Messages and calls are end-to-end encrypted") &&
+    !m.content.includes("Mesajlar ve aramalar uçtan uca şifrelidir") &&
     !m.content.includes("created group") &&
     !m.content.includes("added you") &&
     !m.content.includes("changed the subject") &&
     !m.content.includes("<Media omitted>") &&
+    !m.content.includes("‎") && // Zero-width space in WhatsApp system messages
     m.content.length > 0
   );
 }
@@ -959,4 +1054,538 @@ export async function detectRelationshipMismatch(uid, relationshipId, newSpeaker
     console.error(`[${uid}] Error detecting mismatch:`, e);
     return { mismatch: false, reason: "Error checking mismatch" };
   }
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * MODULE 4: DELTA UPDATE FUNCTIONS
+ * ═══════════════════════════════════════════════════════════════
+ */
+
+/**
+ * Perform smart delta update - append only new messages
+ * @param {string} uid - User ID
+ * @param {string} relationshipId - Relationship ID
+ * @param {Array} newMessages - All messages from new upload
+ * @param {Array} newSpeakers - Speakers from new upload
+ * @returns {Promise<object>} - Delta update result
+ */
+async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers) {
+  console.log(`[${uid}] Performing delta update for ${relationshipId}`);
+  
+  // Get existing relationship data
+  const relationshipRef = firestore
+    .collection("relationships")
+    .doc(uid)
+    .collection("relations")
+    .doc(relationshipId);
+  
+  const relationshipDoc = await relationshipRef.get();
+  
+  if (!relationshipDoc.exists) {
+    return { success: false, overlapNotFound: true };
+  }
+  
+  const existingData = relationshipDoc.data();
+  const existingTailSigs = existingData.tailSigs || [];
+  const existingLastMessageSig = existingData.lastMessageSig || null;
+  const existingTotalMessages = existingData.totalMessages || 0;
+  const existingTotalChunks = existingData.totalChunks || 0;
+  
+  console.log(`[${uid}] Existing data: ${existingTotalMessages} messages, ${existingTotalChunks} chunks`);
+  console.log(`[${uid}] New upload: ${newMessages.length} messages`);
+  
+  // Find overlap using tail signatures
+  const overlapIndex = findOverlapIndex(newMessages, existingTailSigs, existingLastMessageSig);
+  
+  if (overlapIndex === -1) {
+    console.log(`[${uid}] No overlap found - cannot safely append`);
+    return { success: false, overlapNotFound: true };
+  }
+  
+  // Extract only new messages (after overlap)
+  const newMessagesOnly = newMessages.slice(overlapIndex + 1);
+  
+  console.log(`[${uid}] Overlap found at index ${overlapIndex}, ${newMessagesOnly.length} new messages`);
+  
+  // If no new messages, short-circuit
+  if (newMessagesOnly.length === 0) {
+    console.log(`[${uid}] No new messages to append`);
+    return {
+      success: false,
+      noChanges: true,
+      existingMasterSummary: existingData.masterSummary,
+      existingChunksCount: existingTotalChunks,
+      existingMessagesCount: existingTotalMessages,
+      existingSpeakers: existingData.speakers,
+    };
+  }
+  
+  // Create chunks from new messages only
+  const newChunks = createTimeBasedChunks(newMessagesOnly);
+  console.log(`[${uid}] Created ${newChunks.length} new chunks from delta`);
+  
+  // Process each new chunk
+  const newChunkIndexes = [];
+  for (let i = 0; i < newChunks.length; i++) {
+    const chunk = newChunks[i];
+    console.log(`[${uid}] Processing new chunk ${i + 1}/${newChunks.length}`);
+    
+    // Generate chunk summary and keywords with LLM
+    const chunkMeta = await generateChunkIndex(chunk, newSpeakers);
+    
+    // Save raw chunk to Storage (use timestamp-based ID to avoid collision)
+    const storagePath = `relationship_chunks/${uid}/${relationshipId}/${chunk.id}.txt`;
+    await saveChunkToStorage(storagePath, chunk.rawText);
+    
+    // Prepare index document
+    newChunkIndexes.push({
+      chunkId: chunk.id,
+      dateRange: chunk.dateRange,
+      startDate: chunk.startDate,
+      endDate: chunk.endDate,
+      messageCount: chunk.messages.length,
+      speakers: chunk.speakers,
+      keywords: chunkMeta.keywords,
+      topics: chunkMeta.topics,
+      sentiment: chunkMeta.sentiment,
+      summary: chunkMeta.summary,
+      anchors: chunkMeta.anchors,
+      storagePath: storagePath,
+    });
+  }
+  
+  // Update master summary incrementally
+  console.log(`[${uid}] Updating master summary incrementally...`);
+  const updatedMasterSummary = await updateMasterSummaryIncremental(
+    existingData.masterSummary,
+    newMessagesOnly,
+    newSpeakers,
+    newChunkIndexes
+  );
+  
+  // Recompute relationship stats incrementally
+  console.log(`[${uid}] Updating relationship stats incrementally...`);
+  const updatedStats = computeRelationshipStatsIncremental(
+    newMessagesOnly,
+    newSpeakers,
+    existingData.statsCounts || {}
+  );
+  
+  // Calculate new metadata
+  const newContentHash = computeContentHash(newMessages);
+  const newLastMessageSig = computeMessageSignature(newMessages[newMessages.length - 1]);
+  const newTailSigs = computeTailSignatures(newMessages, 50);
+  
+  // Update master document
+  await relationshipRef.update({
+    totalMessages: existingTotalMessages + newMessagesOnly.length,
+    totalChunks: existingTotalChunks + newChunks.length,
+    dateRange: {
+      start: existingData.dateRange?.start || newMessages[0]?.date,
+      // Compute MAX timestamp for end date
+      end: Math.max(
+        new Date(existingData.dateRange?.end || 0).getTime(),
+        ...newMessages.map(m => new Date(m.date).getTime())
+      ) > 0 
+        ? new Date(Math.max(
+            new Date(existingData.dateRange?.end || 0).getTime(),
+            ...newMessages.map(m => new Date(m.date).getTime())
+          )).toISOString()
+        : newMessages[newMessages.length - 1]?.date,
+    },
+    masterSummary: updatedMasterSummary,
+    statsCounts: updatedStats.counts,
+    statsBySpeaker: updatedStats.bySpeaker,
+    contentHash: newContentHash,
+    lastUploadAt: FieldValue.serverTimestamp(),
+    lastMessageSig: newLastMessageSig,
+    tailSigs: newTailSigs,
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+  
+  // Save new chunk indexes to subcollection
+  const chunksCollection = relationshipRef.collection("chunks");
+  const batch = firestore.batch();
+  
+  for (const index of newChunkIndexes) {
+    const chunkRef = chunksCollection.doc(index.chunkId);
+    batch.set(chunkRef, index);
+  }
+  
+  await batch.commit();
+  
+  console.log(`[${uid}] Delta update complete`);
+  
+  return {
+    success: true,
+    masterSummary: updatedMasterSummary,
+    totalMessages: existingTotalMessages + newMessagesOnly.length,
+    totalChunks: existingTotalChunks + newChunks.length,
+    newMessagesCount: newMessagesOnly.length,
+    speakers: newSpeakers,
+  };
+}
+
+/**
+ * Find the index of overlap between new messages and existing tail signatures
+ * @param {Array} newMessages - Messages from new upload
+ * @param {Array} existingTailSigs - Tail signatures from existing relationship
+ * @param {string} existingLastMessageSig - Last message signature from existing relationship
+ * @returns {number} - Index of last overlapping message in newMessages, or -1 if not found
+ */
+function findOverlapIndex(newMessages, existingTailSigs, existingLastMessageSig) {
+  // Strategy: Find the last message in newMessages that matches any signature in existingTailSigs
+  
+  if (!existingTailSigs || existingTailSigs.length === 0) {
+    console.log(`No tail signatures available for overlap detection`);
+    return -1;
+  }
+  
+  // Create a Set for fast lookup
+  const tailSigSet = new Set(existingTailSigs);
+  
+  // Search backwards through new messages to find the latest overlap
+  for (let i = newMessages.length - 1; i >= 0; i--) {
+    const msgSig = computeMessageSignature(newMessages[i]);
+    
+    if (tailSigSet.has(msgSig)) {
+      console.log(`Found overlap at index ${i} with signature: ${msgSig}`);
+      return i;
+    }
+  }
+  
+  // Also check if the last message matches exactly
+  if (existingLastMessageSig) {
+    for (let i = newMessages.length - 1; i >= 0; i--) {
+      const msgSig = computeMessageSignature(newMessages[i]);
+      if (msgSig === existingLastMessageSig) {
+        console.log(`Found overlap at index ${i} matching last message signature`);
+        return i;
+      }
+    }
+  }
+  
+  console.log(`No overlap found in ${newMessages.length} messages`);
+  return -1;
+}
+
+/**
+ * Compute a hash of all message content for change detection
+ * @param {Array} messages - Messages to hash
+ * @returns {string} - SHA256 hash
+ */
+function computeContentHash(messages) {
+  // Create a normalized string representation
+  const normalized = messages
+    .map(m => `${m.sender}|${m.date}|${normalizeMessageContent(m.content)}`)
+    .join("||");
+  
+  return crypto.createHash("sha256").update(normalized).digest("hex");
+}
+
+/**
+ * Compute a signature for a single message
+ * @param {object} message - Message object
+ * @returns {string} - Message signature
+ */
+function computeMessageSignature(message) {
+  if (!message) return "";
+  
+  const normalized = `${message.sender}|${message.date}|${normalizeMessageContent(message.content)}`;
+  return crypto.createHash("sha256").update(normalized).digest("hex").substring(0, 16);
+}
+
+/**
+ * Compute signatures for the last N messages
+ * @param {Array} messages - All messages
+ * @param {number} count - Number of tail messages to include
+ * @returns {Array<string>} - Array of message signatures
+ */
+function computeTailSignatures(messages, count = 50) {
+  const startIndex = Math.max(0, messages.length - count);
+  const tailMessages = messages.slice(startIndex);
+  
+  return tailMessages.map(msg => computeMessageSignature(msg));
+}
+
+/**
+ * Normalize message content for consistent hashing
+ * @param {string} content - Message content
+ * @returns {string} - Normalized content
+ */
+function normalizeMessageContent(content) {
+  if (!content) return "";
+  
+  // Remove extra whitespace, normalize line endings
+  return content
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\r\n/g, "\n")
+    .toLowerCase();
+}
+
+/**
+ * Normalize existing summary to ensure it's always an object
+ * @param {any} existingSummary - Current master summary (can be object, string, or null)
+ * @returns {object} - Normalized object with expected structure
+ */
+function normalizeMasterSummary(existingSummary) {
+  // If it's already an object with expected fields, return as-is
+  if (existingSummary && typeof existingSummary === 'object' && !Array.isArray(existingSummary)) {
+    return existingSummary;
+  }
+  
+  // If it's a string, wrap it in the expected structure
+  if (typeof existingSummary === 'string') {
+    return {
+      shortSummary: existingSummary,
+      personalities: {},
+      dynamics: {},
+      patterns: {},
+      timeline: {},
+      statsBySpeaker: {},
+      statsCounts: {}
+    };
+  }
+  
+  // Null or other invalid types => return empty object structure
+  return {
+    shortSummary: '',
+    personalities: {},
+    dynamics: {},
+    patterns: {},
+    timeline: {},
+    statsBySpeaker: {},
+    statsCounts: {}
+  };
+}
+
+/**
+ * Update master summary incrementally with new messages
+ * @param {object} existingSummary - Current master summary
+ * @param {Array} newMessages - New messages to incorporate
+ * @param {Array} speakers - All speakers
+ * @param {Array} newChunkIndexes - Indexes of new chunks
+ * @returns {Promise<object>} - Updated master summary
+ */
+async function updateMasterSummaryIncremental(existingSummary, newMessages, speakers, newChunkIndexes) {
+  // NORMALIZE existing summary to ensure it's always an object
+  const normalizedExisting = normalizeMasterSummary(existingSummary);
+  
+  // Take last ~200 new messages or all if less
+  const recentNewMessages = newMessages.slice(-200);
+  const recentText = recentNewMessages
+    .map(m => `${m.sender}: ${m.content}`)
+    .join("\n");
+  
+  // Extract summaries from new chunks
+  const newChunkSummaries = newChunkIndexes
+    .map(idx => idx.summary)
+    .filter(Boolean)
+    .join("\n\n");
+  
+  const systemPrompt = `Sen bir ilişki analizi uzmanısın. Mevcut bir ilişki özetine yeni mesajlar eklendi. 
+Görentin, önceki özeti yeni bilgilerle güncellemek ve tutarlı bir master özet oluşturmak.
+
+Önceki Özet:
+${JSON.stringify(normalizedExisting, null, 2)}
+
+Yeni Chunk Özetleri:
+${newChunkSummaries}
+
+Son ${recentNewMessages.length} yeni mesaj örneği:
+${recentText}
+
+Lütfen master özeti güncelle. Önceki önemlı bilgileri koru, yeni gelişmeleri ekle.
+
+IMPORTANT: Return a JSON object in this exact format:
+{
+  "shortSummary": "<3-4 cümlelik güncellenmiş özet>",
+  "personalities": {
+    "${speakers[0] || 'Kişi1'}": {
+      "traits": ["<kişilik özellikleri>"],
+      "communicationStyle": "<iletişim tarzı>",
+      "emotionalPattern": "<duygusal örüntü>"
+    },
+    "${speakers[1] || 'Kişi2'}": {
+      "traits": ["<kişilik özellikleri>"],
+      "communicationStyle": "<iletişim tarzı>",
+      "emotionalPattern": "<duygusal örüntü>"
+    }
+  },
+  "dynamics": {
+    "powerBalance": "<balanced/user_dominant/partner_dominant>",
+    "attachmentPattern": "<secure/anxious/avoidant/mixed>",
+    "conflictStyle": "<çatışma tarzı>",
+    "loveLanguages": ["<sevgi dilleri>"]
+  },
+  "patterns": {
+    "recurringIssues": ["<sorunlar>"],
+    "strengths": ["<güçlü yanlar>"],
+    "redFlags": ["<kırmızı bayraklar>"],
+    "greenFlags": ["<yeşil bayraklar>"]
+  }
+}`;
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "system", content: systemPrompt }],
+      temperature: 0.3,
+      max_tokens: 2000,
+    });
+    
+    const responseText = completion.choices[0]?.message?.content?.trim();
+    if (!responseText) return existingSummary;
+    
+    // Try to parse as JSON
+    try {
+      // Remove markdown code blocks if present
+      const cleanedText = responseText.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(cleanedText);
+      return parsed;
+    } catch (parseError) {
+      console.error("Failed to parse incremental summary as JSON:", parseError);
+      // Fallback: Return normalized existing summary
+      return normalizedExisting;
+    }
+  } catch (error) {
+    console.error("Error updating master summary incrementally:", error);
+    return normalizedExisting;
+  }
+}
+
+/**
+ * Fetch existing messages from stored chunks (for stats recomputation)
+ * NOTE: This is a simplified version - in production, you might want to cache this
+ * or store message counts differently to avoid reading all chunks
+ * @param {string} uid - User ID
+ * @param {string} relationshipId - Relationship ID
+ * @returns {Promise<Array>} - Array of messages
+ */
+async function fetchExistingMessages(uid, relationshipId) {
+  // For now, we'll approximate by returning empty array
+  // and rely on the fact that stats are already stored
+  // In a full implementation, you'd fetch chunks from storage and parse them
+  
+  // Since we're recomputing stats from ALL messages (existing + new),
+  // and the existing messages are already in chunks, we can:
+  // 1. Either fetch all chunk files from storage and parse them (expensive)
+  // 2. Or use incremental stats update (simpler)
+  
+  // For simplicity, let's return empty and instead use incremental stats
+  return [];
+}
+
+/**
+ * Compute relationship stats incrementally (add new messages to existing counts)
+ * This is more efficient than recomputing from all messages
+ * @param {Array} newMessages - Only new messages
+ * @param {Array} speakers - All speakers
+ * @param {object} existingCounts - Existing stat counts
+ * @returns {object} - Updated stats
+ */
+function computeRelationshipStatsIncremental(newMessages, speakers, existingCounts) {
+  // Initialize with existing counts
+  const messageCount = { ...existingCounts.messageCount };
+  const loveYouCount = { ...existingCounts.loveYou };
+  const apologyCount = { ...existingCounts.apology };
+  const emojiCount = { ...existingCounts.emoji };
+  
+  // Patterns for detection
+  const lovePatterns = [
+    /\bseni seviyorum\b/i,
+    /\bseviyorum\b/i,
+    /\bi love you\b/i,
+    /\blove you\b/i,
+    /\başkımsın\b/i,
+    /\bcanımsın\b/i,
+  ];
+  
+  const apologyPatterns = [
+    /\bözür\b/i,
+    /\bpardon\b/i,
+    /\bsorry\b/i,
+    /\bkusura bakma\b/i,
+    /\bafedersin\b/i,
+    /\baffet\b/i,
+  ];
+  
+  const emojiRegex = /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F700}-\u{1F77F}\u{1F780}-\u{1F7FF}\u{1F800}-\u{1F8FF}\u{1F900}-\u{1F9FF}\u{1FA00}-\u{1FA6F}\u{1FA70}-\u{1FAFF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu;
+  
+  // Process only new messages
+  for (const msg of newMessages) {
+    const sender = msg.sender;
+    const content = msg.content || "";
+    
+    if (!speakers.includes(sender)) continue;
+    
+    // Initialize if speaker not in counts yet
+    if (!(sender in messageCount)) {
+      messageCount[sender] = 0;
+      loveYouCount[sender] = 0;
+      apologyCount[sender] = 0;
+      emojiCount[sender] = 0;
+    }
+    
+    messageCount[sender]++;
+    
+    for (const pattern of lovePatterns) {
+      if (pattern.test(content)) {
+        loveYouCount[sender]++;
+        break;
+      }
+    }
+    
+    for (const pattern of apologyPatterns) {
+      if (pattern.test(content)) {
+        apologyCount[sender]++;
+        break;
+      }
+    }
+    
+    const emojis = content.match(emojiRegex);
+    if (emojis) {
+      emojiCount[sender] += emojis.length;
+    }
+  }
+  
+  // Determine winners
+  function findWinner(counts) {
+    const entries = Object.entries(counts);
+    if (entries.length === 0) return "none";
+    
+    const sorted = entries.sort((a, b) => b[1] - a[1]);
+    const max = sorted[0][1];
+    
+    if (max === 0) return "none";
+    
+    if (speakers.length === 2) {
+      const diff = Math.abs(sorted[0][1] - sorted[1][1]);
+      const avg = (sorted[0][1] + sorted[1][1]) / 2;
+      if (avg > 0 && diff / avg < 0.1) {
+        return "balanced";
+      }
+    }
+    
+    return sorted[0][0];
+  }
+  
+  const bySpeaker = {
+    whoSentMoreMessages: findWinner(messageCount),
+    whoSaidILoveYouMore: findWinner(loveYouCount),
+    whoApologizedMore: findWinner(apologyCount),
+    whoUsedMoreEmojis: findWinner(emojiCount),
+  };
+  
+  return {
+    counts: {
+      messageCount,
+      loveYou: loveYouCount,
+      apology: apologyCount,
+      emoji: emojiCount,
+    },
+    bySpeaker,
+  };
 }

@@ -20,10 +20,16 @@ class RelationshipAnalysisService {
   /// Returns RelationshipAnalysisResult with relationshipId for future reference
   ///
   /// MODULE 3: Added forceUpdate parameter for mismatch handling
+  /// MODULE 4: Added updateMode parameter for smart incremental updates
+  ///
+  /// [updateMode] options:
+  /// - "smart" (default): Attempt delta update by detecting overlap
+  /// - "force_rebuild": Clear all existing data and rebuild from scratch
   static Future<RelationshipAnalysisResult> analyzeChat(
     File file, {
     String? existingRelationshipId,
     bool forceUpdate = false, // MODULE 3: Force update even if mismatch
+    String updateMode = "smart", // MODULE 4: "smart" or "force_rebuild"
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -61,6 +67,9 @@ class RelationshipAnalysisService {
       if (forceUpdate) {
         request.fields['forceUpdate'] = 'true';
       }
+
+      // MODULE 4: Add updateMode field
+      request.fields['updateMode'] = updateMode;
 
       // Send request with timeout
       final streamedResponse = await request.send().timeout(
@@ -115,12 +124,25 @@ class RelationshipAnalysisService {
       // }
 
       final relationshipId = responseData['relationshipId'] as String?;
-      final summary = responseData['summary'] as Map<String, dynamic>? ?? {};
+
+      // Handle summary - can be either String or Map depending on backend version
+      Map<String, dynamic> summary = {};
+      String shortSummary = '';
+
+      if (responseData['summary'] is String) {
+        // New backend: summary is a plain string
+        shortSummary = responseData['summary'] as String;
+      } else if (responseData['summary'] is Map) {
+        // Old backend: summary is a map with structured data
+        summary = responseData['summary'] as Map<String, dynamic>;
+        shortSummary = summary['shortSummary'] as String? ?? '';
+      }
+
       final stats = responseData['stats'] as Map<String, dynamic>? ?? {};
 
       return RelationshipAnalysisResult.fromV2Response(
         relationshipId: relationshipId,
-        summary: summary,
+        summary: summary.isEmpty ? {'shortSummary': shortSummary} : summary,
         stats: stats,
       );
     } catch (e) {
