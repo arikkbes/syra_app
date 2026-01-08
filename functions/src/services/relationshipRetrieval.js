@@ -22,123 +22,11 @@ import {
 } from "./relationshipContext.js";
 
 /**
- * Check if relationship memory should be used based on user message
- * Only returns true if user explicitly asks for relationship/chat log search
- * TIGHTENED: Requires strong anchor terms to avoid false positives
- */
-function shouldUseRelationshipMemory(userMessage, conversationHistory = []) {
-  const message = userMessage.toLowerCase();
-  
-  // STRONG anchor terms that must be present (word-boundary aware)
-  const strongAnchors = [
-    'mesaj', 'konuşma', 'sohbet', 'chat', 'zip',
-    'alıntı', 'kanıt', 'kelime', 'tarih',
-    'nerede geçti', 'kaç kere', 'kaç defa'
-  ];
-  
-  // Check if message contains at least one strong anchor
-  const hasStrongAnchor = strongAnchors.some(anchor => {
-    // Use word boundary check for better precision
-    const regex = new RegExp(`\\b${anchor}`, 'i');
-    return regex.test(message);
-  });
-  
-  if (!hasStrongAnchor) {
-    return false;
-  }
-  
-  // Additional triggers that work ONLY with strong anchors
-  const additionalTriggers = [
-    'bul', 'ara', 'göster',
-    'söylemişti', 'demişti', 'yazmış', 'yazdı',
-    'aralığı', 'arasında', 'önceki',
-    'ifade', 'cümle', 'ne zaman'
-  ];
-  
-  // Check for additional triggers (optional but strengthens confidence)
-  const hasAdditionalTrigger = additionalTriggers.some(trigger => {
-    const regex = new RegExp(`\\b${trigger}`, 'i');
-    return regex.test(message);
-  });
-  
-  // Avoid false positives on general questions even with anchors
-  // e.g. "mesajımı gördü mü?" should NOT trigger memory
-  const falsePositivePatterns = [
-    /mesaj.*gördü/i,
-    /mesaj.*atmadı/i,
-    /mesaj.*cevap.*vermiyor/i,
-    /konuş.*istemiyor/i,
-    /sohbet.*etmiyor/i
-  ];
-  
-  const isFalsePositive = falsePositivePatterns.some(pattern => pattern.test(message));
-  
-  if (isFalsePositive) {
-    return false;
-  }
-  
-  // Strong anchor + additional trigger = high confidence
-  // Strong anchor alone = medium confidence (still allow)
-  return true;
-}
-
-/**
- * Check if a retrieval query is underspecified and needs user permission
- * Returns true if query lacks specific date/keyword context
- */
-function checkIfUnderspecified(message, needsRetrieval) {
-  const msgLower = message.toLowerCase();
-  
-  // If there's a specific date, it's well-specified
-  if (needsRetrieval.parsedDate) {
-    return false;
-  }
-  
-  // If query has specific search terms (long enough), it's well-specified
-  if (needsRetrieval.query && needsRetrieval.query.length > 15) {
-    return false;
-  }
-  
-  // Check for vague questions that need clarification
-  const vaguePatterns = [
-    /benden.*istiyor/i,
-    /bana.*dedi/i,
-    /bir şey.*söyledi/i,
-    /ne.*demek istiyor/i,
-    /kanıt.*var/i,
-    /mesajlarda.*geçti/i,
-    /konuşmada.*bul/i,
-    /^ara\b/i, // Just "ara" without context
-    /^bul\b/i, // Just "bul" without context
-  ];
-  
-  const isVague = vaguePatterns.some(pattern => pattern.test(msgLower));
-  
-  return isVague;
-}
-
-/**
  * Get relationship context for chat
- * Returns master summary (only when needed) + retrieval results (if needed)
+ * Returns master summary (always) + retrieval results (if needed)
  */
-export async function getRelationshipContext(uid, userMessage, conversationHistory = [], sessionState = null) {
+export async function getRelationshipContext(uid, userMessage, conversationHistory = []) {
   try {
-    // CRITICAL: Check if relationship memory should be used
-    // If pendingDeepScan exists, FORCE retrieval (bypass heuristics)
-    const hasPendingDeepScan = sessionState?.pendingDeepScan != null;
-    const needsMemory = hasPendingDeepScan || shouldUseRelationshipMemory(userMessage, conversationHistory);
-    
-    if (!needsMemory) {
-      console.log(`[${uid}] Relationship memory not needed for this message`);
-      return null;
-    }
-    
-    if (hasPendingDeepScan) {
-      console.log(`[${uid}] Relationship memory FORCED - pending deep scan confirmation`);
-    } else {
-      console.log(`[${uid}] Relationship memory requested - user query matched heuristics`);
-    }
-    
     // Get user's active relationship with participant mapping
     const relationshipContext = await getActiveRelationshipContext(uid);
     
@@ -177,32 +65,6 @@ export async function getRelationshipContext(uid, userMessage, conversationHisto
     
     // Check if user message needs retrieval
     const needsRetrieval = detectRetrievalNeed(userMessage, conversationHistory);
-    
-    // ═══════════════════════════════════════════════════════════════
-    // DEEP SCAN PERMISSION FLOW
-    // If retrieval is needed but query is underspecified, ask permission
-    // ═══════════════════════════════════════════════════════════════
-    if (needsRetrieval.needed && !hasPendingDeepScan) {
-      // Check if query is underspecified (needs permission)
-      const isUnderspecified = checkIfUnderspecified(userMessage, needsRetrieval);
-      
-      if (isUnderspecified) {
-        console.log(`[${uid}:${activeRelationshipId}] Underspecified query detected - requesting permission`);
-        
-        // Return special response indicating permission needed
-        return {
-          needsPermission: true,
-          queryHint: needsRetrieval.query || userMessage.slice(0, 100),
-          context: context,
-          participantContext: participantPrompt,
-          relationshipId: activeRelationshipId,
-          speakers: relationship.speakers,
-          selfParticipant,
-          partnerParticipant,
-          updatedAt: relationship.updatedAt,
-        };
-      }
-    }
     
     // ═══════════════════════════════════════════════════════════════
     // TASK A: Debug logging (1/6)
@@ -400,18 +262,17 @@ function buildMasterContext(relationship, relationshipContext = null) {
     }
   }
   
-  // Tekrarlar (patterns renamed to tekrarlar)
-  const patternsData = ms.tekrarlar || ms.patterns; // Backwards compatibility
-  if (patternsData) {
-    if (patternsData.recurringIssues?.length) {
+  // Patterns
+  if (ms.patterns) {
+    if (ms.patterns.recurringIssues?.length) {
       context += `\n⚠️ TEKRAR EDEN SORUNLAR:\n`;
-      patternsData.recurringIssues.forEach(issue => {
+      ms.patterns.recurringIssues.forEach(issue => {
         context += `• ${issue}\n`;
       });
     }
-    if (patternsData.strengths?.length) {
+    if (ms.patterns.strengths?.length) {
       context += `\n✅ GÜÇLÜ YANLAR:\n`;
-      patternsData.strengths.forEach(s => {
+      ms.patterns.strengths.forEach(s => {
         context += `• ${s}\n`;
       });
     }

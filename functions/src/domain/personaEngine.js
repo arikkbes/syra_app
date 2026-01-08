@@ -69,7 +69,7 @@ export function buildUltimatePersona(
 🌟 PREMIUM DEPTH MODE:
 • Daha derin analiz yap
 • Red/green flag'leri belirgin göster
-• Tekrar eden davranışları tespit et
+• Psikolojik pattern'leri tespit et
 • Manipulation taktiklerini açığa çıkar
 • Uzun vadeli outcome tahmini yap
 `
@@ -89,7 +89,7 @@ Bu bilgileri kullanarak daha tutarlı ve kişisel yanıt ver.
     patterns?.repeatingMistakes?.length > 0
       ? `
 
-⚠️ TEKRAR EDEN DAVRANIŞLAR:
+⚠️ PATTERN UYARISI:
 Kullanıcı ${patterns.repeatingMistakes.length} kez benzer hata yapıyor.
 Nazikçe farkındalık oluştur.
 `
@@ -267,7 +267,7 @@ function getModeModifier(mode) {
     deep: `
 🔍 DERİN ANALİZ MODU:
 • Daha detaylı psikolojik analiz yap
-• Altında yatan tekrar eden davranışları ve nedenleri açıkla
+• Altında yatan pattern'leri ve nedenleri açıkla
 • Attachment theory, trauma, defense mechanisms gibi kavramlara değin
 • Uzun vadeli sonuçları ve alternatifleri tartış
 • Daha uzun ve kapsamlı yanıt ver (ama yine de okunaklı paragraflar kullan)
