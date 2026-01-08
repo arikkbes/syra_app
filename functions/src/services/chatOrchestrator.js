@@ -25,8 +25,6 @@ import {
 import {
   getConversationHistory,
   saveConversationHistory,
-  getSessionState,
-  setSessionState,
 } from "../firestore/conversationRepository.js";
 
 import { db as firestore } from "../config/firebaseAdmin.js";
@@ -60,11 +58,10 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     console.log(`[${uid}] Processing tarot follow-up question`);
   }
 
-  // Load user + history + session state
-  const [userProfile, rawHistory, sessionState] = await Promise.all([
+  // Load user + history
+  const [userProfile, rawHistory] = await Promise.all([
     getUserProfile(uid),
     getConversationHistory(uid, sessionId), // MODULE 1: Pass sessionId
-    getSessionState(uid, sessionId), // Load session state for deep scan permissions
   ]);
 
   const history = rawHistory?.messages || [];
@@ -296,99 +293,20 @@ Keep it simple and actionable.
   if (tarotContext) {
     systemMessages.push({
       role: "system",
-      content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, tekrar odaklı, dürüst.`,
+      content: `🔮 TAROT CONTEXT:\n${tarotContext}\n\nŞimdi kullanıcı bu tarot açılımı hakkında soru soruyor. Açılımdaki kartları ve yorumu referans alarak cevap ver. Tarot yorumcusu gibi konuş - spesifik, pattern-based, dürüst.`,
     });
   }
 
   // ═══════════════════════════════════════════════════════════════
   // RELATIONSHIP MEMORY V2: Smart retrieval with chunked storage
-  // + DEEP SCAN PERMISSION FLOW
+  // STEP 2 FIX: Proper gating - only use if isActive=true
   // ═══════════════════════════════════════════════════════════════
   let relationshipData = null;
-  let needsDeepScanPermission = false;
-  
   try {
-    // ═══════════════════════════════════════════════════════════════
-    // HANDLE PENDING DEEP SCAN CONFIRMATION
-    // ═══════════════════════════════════════════════════════════════
-    if (sessionState?.pendingDeepScan) {
-      console.log(`[${uid}] Pending deep scan detected, checking user response`);
-      
-      const userResponse = safeMessage.toLowerCase().trim();
-      const affirmativeResponses = ['evet', 'tamam', 'olur', 'yap', 'hadi', 'başlat', 'yapabilirsin', 'istiyorum'];
-      const negativeResponses = ['hayır', 'boşver', 'gerek yok', 'istemiyorum', 'vazgeçtim'];
-      
-      if (affirmativeResponses.some(r => userResponse.includes(r))) {
-        // User confirmed - run retrieval with stored queryHint
-        console.log(`[${uid}] User confirmed deep scan - proceeding with retrieval`);
-        
-        // Combine stored queryHint with current message for better context
-        const combinedQuery = `${sessionState.pendingDeepScan.queryHint} ${safeMessage}`;
-        relationshipData = await getRelationshipContext(uid, combinedQuery, history, sessionState);
-        
-        // Clear pendingDeepScan after use
-        await setSessionState(uid, sessionId, { pendingDeepScan: null });
-      } else if (negativeResponses.some(r => userResponse.includes(r))) {
-        // User declined - clear pending state and continue without memory
-        console.log(`[${uid}] User declined deep scan - continuing without relationship memory`);
-        await setSessionState(uid, sessionId, { pendingDeepScan: null });
-        relationshipData = null;
-      } else {
-        // Ambiguous response - ask for clarification
-        systemMessages.push({
-          role: "system",
-          content: `
-🔄 CLARIFICATION NEEDED:
-User has a pending deep scan permission request.
-Their response was unclear. Ask them directly in Turkish:
-"Kayıtlarda arama yapmamı istiyor musun? (Evet/Hayır)"
-Keep it short and conversational.
-          `.trim(),
-        });
-      }
-    } else {
-      // Normal flow - check if relationship context is needed
-      relationshipData = await getRelationshipContext(uid, safeMessage, history, sessionState);
-    }
+    relationshipData = await getRelationshipContext(uid, safeMessage, history);
     
-    // ═══════════════════════════════════════════════════════════════
-    // HANDLE PERMISSION REQUEST
-    // ═══════════════════════════════════════════════════════════════
-    if (relationshipData?.needsPermission) {
-      console.log(`[${uid}] Deep scan permission needed - setting pendingDeepScan`);
-      needsDeepScanPermission = true;
-      
-      // Store pending deep scan in session state
-      await setSessionState(uid, sessionId, {
-        pendingDeepScan: {
-          type: 'search_request',
-          queryHint: relationshipData.queryHint,
-          createdAt: new Date().toISOString(),
-        }
-      });
-      
-      // Inject permission prompt
-      systemMessages.push({
-        role: "system",
-        content: `
-🔍 DEEP SCAN PERMISSION REQUEST:
-User asked for evidence/search but query is underspecified.
-Respond ONLY with this permission question in Turkish (natural, conversational):
-
-"Bunu daha net görmek için ilişki kayıtlarında arama yapıp 1–2 kısa alıntı çıkarabilirim. Yapmamı ister misin?"
-
-Do NOT answer their question yet. Do NOT provide analysis. Just ask permission.
-        `.trim(),
-      });
-      
-      // Don't inject full relationship context yet
-      hasActiveRelationship = true; // Mark as having relationship for persona
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // INJECT RELATIONSHIP CONTEXT (if not waiting for permission)
-    // ═══════════════════════════════════════════════════════════════
-    if (relationshipData && relationshipData.context && !needsDeepScanPermission) {
+    // STEP 2: Relationship MUST be active to use context
+    if (relationshipData && relationshipData.context) {
       hasActiveRelationship = true;
       
       // ═══════════════════════════════════════════════════════════════
