@@ -14,9 +14,14 @@ import {
  * Detect intent type from user message
  * 
  * Intent types:
+ * - greeting: Simple greeting only (selam, naber, etc.) - MODULE 3.1.1
+ * - message_drafting: User wants help writing a message (MODULE 3.1)
+ * - context_missing: User wants something but target/relationship unclear (MODULE 3.1)
  * - technical: Programming/tech questions
  * - emergency: Urgent emotional crisis
  * - deep_analysis: Long detailed analysis requests
+ * - deep_relationship_issue: Money, dependency, manipulation keywords (MODULE 3)
+ * - pattern_analysis: Frequency indicators like "sürekli", "hep" (MODULE 3)
  * - deep: Relationship deep-dive
  * - short: Quick questions
  * - normal: Standard conversation
@@ -24,6 +29,31 @@ import {
 export function detectIntentType(text, history = []) {
   const msg = text.toLowerCase();
   const len = msg.length;
+
+  // MODULE 3.1.1 HOTFIX: Greeting detection
+  const GREETING_ONLY = [
+    "selam", "merhaba", "naber", "mrb", "hey", 
+    "iyi misin", "nasılsın", "selamlar", "slm"
+  ];
+  
+  const isGreetingOnly = GREETING_ONLY.some(g => msg.includes(g)) && len < 30;
+  
+  if (isGreetingOnly) {
+    return "greeting";
+  }
+
+  // MODULE 3.1: Message drafting detection
+  const MESSAGE_DRAFTING_TRIGGERS = [
+    "ne yazayım", "ne yazsam", "mesaja ne cevap", "cevap yaz",
+    "ss", "ekran görüntüsü", "screenshot", "mesaj yaz",
+    "nasıl cevap", "ne desem", "yazmalı mıyım"
+  ];
+  
+  const hasMessageDrafting = MESSAGE_DRAFTING_TRIGGERS.some(t => msg.includes(t));
+  
+  if (hasMessageDrafting) {
+    return "message_drafting";
+  }
 
   const hasCode =
     msg.includes("http") ||
@@ -58,6 +88,43 @@ export function detectIntentType(text, history = []) {
     msg.includes("ne düşünüyorsun") ||
     msg.includes("yorumla") ||
     msg.includes("incele");
+  
+  // MODULE 3: Deep analysis triggers
+  const DEEP_ANALYSIS_TRIGGERS = {
+    money_dependency: [
+      "maddiyat", "para", "yemek", "geçim", "bağımlı",
+      "maddi", "nafaka", "borç", "ödeme"
+    ],
+    frequency_indicators: [
+      "sürekli", "hep", "her zaman", "hiç", "asla",
+      "daima", "devamlı", "bitmek bilmez"
+    ],
+    manipulation_keywords: [
+      "manipüle", "kontrol", "izin vermiyor", "baskı",
+      "suçluyor", "tehdit", "kıskançlık", "kıskanç",
+      "güven vermiyor", "özgürlük yok"
+    ],
+    living_situation: [
+      "aynı evde değil", "yan yana değil", "uzaktayız",
+      "görüşmüyoruz", "uzaktan", "farklı şehir"
+    ]
+  };
+  
+  // Check for deep relationship issue
+  const hasMoneyDependency = DEEP_ANALYSIS_TRIGGERS.money_dependency.some(k => msg.includes(k));
+  const hasFrequencyIndicator = DEEP_ANALYSIS_TRIGGERS.frequency_indicators.some(k => msg.includes(k));
+  const hasManipulation = DEEP_ANALYSIS_TRIGGERS.manipulation_keywords.some(k => msg.includes(k));
+  const hasLivingSituation = DEEP_ANALYSIS_TRIGGERS.living_situation.some(k => msg.includes(k));
+  
+  // Deep relationship issue: Money + Frequency OR Manipulation
+  if ((hasMoneyDependency && hasFrequencyIndicator) || hasManipulation) {
+    return "deep_relationship_issue";
+  }
+  
+  // Pattern analysis: Frequency + behavior keywords
+  if (hasFrequencyIndicator && (msg.includes("istiyor") || msg.includes("yapıyor"))) {
+    return "pattern_analysis";
+  }
 
   const hasContext = history.length > 3;
 
@@ -66,6 +133,20 @@ export function detectIntentType(text, history = []) {
   if (needsAnalysis && len > 200) return "deep_analysis";
   if (hasDeep || len > 600) return "deep";
   if (len < 100 && !hasDeep && !hasContext) return "short";
+
+  // MODULE 3.1: context_missing detection
+  // User wants something but it's vague
+  const VAGUE_REQUEST_INDICATORS = [
+    "yardım et", "ne yapayım", "ne yapmalı", "nasıl olur",
+    "bi şey sor", "bir şey sor"
+  ];
+  
+  const hasVagueRequest = VAGUE_REQUEST_INDICATORS.some(i => msg.includes(i));
+  const hasNoContext = !hasDeep && history.length < 2;
+  
+  if (hasVagueRequest && hasNoContext) {
+    return "context_missing";
+  }
 
   return "normal";
 }

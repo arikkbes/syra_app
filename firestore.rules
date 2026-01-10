@@ -1,86 +1,89 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     // ───────────── HELPERS ─────────────
     function isAuthenticated() {
       return request.auth != null;
     }
-
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-
     // ───────────── USERS + SUBCOLLECTIONS ─────────────
     match /users/{userId} {
-
-      // kendi profilini oku / oluştur / güncelle
       allow read, create, update: if isOwner(userId);
-
-      // hesabı silmeyi client'a vermiyoruz (ileride istersen açarız)
       allow delete: if false;
-
-      // /users/{uid}/chat_sessions/{sessionId}
       match /chat_sessions/{sessionId} {
         allow read, create, update, delete: if isOwner(userId);
-
-        // /users/{uid}/chat_sessions/{sessionId}/messages/{messageId}
         match /messages/{messageId} {
           allow read, create, update, delete: if isOwner(userId);
         }
       }
-
-      // /users/{uid}/conversations/{dateId}
       match /conversations/{conversationId} {
         allow read, create, update, delete: if isOwner(userId);
-
-        // /users/{uid}/conversations/{dateId}/messages/{messageId}
         match /messages/{messageId} {
           allow read, create, update, delete: if isOwner(userId);
         }
       }
-
-      // /users/{uid}/profile_memory/{traitId}
       match /profile_memory/{traitId} {
         allow read, create, update, delete: if isOwner(userId);
       }
+      // ───────────── MODULE 1: ASYNC JOB TRACKING ─────────────
+      match /relationship_jobs/{jobId} {
+        allow read, delete: if isOwner(userId);  // Users can delete completed jobs
+        allow create, update: if false; // Only backend can create/update
+      }
     }
-
-    // ───────────── RELATIONSHIP ANALYSES (MODÜL 2 & 3) ─────────────
-    // /relationship_analyses/{uid}/analyses/{analysisId}
-    match /relationship_analyses/{userId} {
-      // Ana dokümanı sadece backend yazabilir (Cloud Functions)
+    // ───────────── RELATIONSHIPS V2 (NEW CHUNKED ARCHITECTURE) ─────────────
+    match /relationships/{userId} {
       allow read: if isOwner(userId);
-      allow write: if false; // Client'tan yazma yok
       
-      // Subcollection: analyses
-      match /analyses/{analysisId} {
-        // Kullanıcı kendi analizlerini okuyabilir
+      match /relations/{relationshipId} {
         allow read: if isOwner(userId);
-        // Sadece backend (Cloud Functions) yazabilir
+        // ═══════════════════════════════════════════════════════════════
+        // PATCH C FIX: Added 'relationshipType' to allowed update fields
+        // User can now update: isActive, isHidden, selfParticipant, 
+        // partnerParticipant, relationshipType
+        // ═══════════════════════════════════════════════════════════════
+        allow update: if isOwner(userId) && 
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly([
+              'isActive', 
+              'isHidden', 
+              'updatedAt', 
+              'selfParticipant', 
+              'partnerParticipant',
+              'relationshipType',  // ← NEW: PATCH C support
+              'deletedAt',         // ← MODULE 1: Forget relationship support
+              'lastForgottenAt'    // ← MODULE 1: Forget relationship support
+            ]);
+        allow delete: if isOwner(userId);
+        allow create: if false;
+        match /chunks/{chunkId} {
+          allow read: if isOwner(userId);
+          allow delete: if isOwner(userId);
+          allow create, update: if false;
+        }
+      }
+    }
+    // ───────────── RELATIONSHIP ANALYSES (LEGACY) ─────────────
+    match /relationship_analyses/{userId} {
+      allow read: if isOwner(userId);
+      allow write: if false;
+      
+      match /analyses/{analysisId} {
+        allow read: if isOwner(userId);
         allow write: if false;
       }
     }
-
-    // ───────────── RELATIONSHIP MEMORY (MODÜL 2 & 4B) ─────────────
-    // /relationship_memory/{uid}
+    // ───────────── RELATIONSHIP MEMORY (LEGACY) ─────────────
     match /relationship_memory/{userId} {
-      // Kullanıcı kendi memory dokümanını okuyabilir
       allow read: if isOwner(userId);
-      
-      // UPDATE: Module 4B için toggle switch çalışması için
-      // Sadece isActive field'ını güncellemeye izin ver
       allow update: if isOwner(userId) && 
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']);
-      
-      // DELETE: Module 4B için "ilişkiyi unut" butonu çalışması için
       allow delete: if isOwner(userId);
-      
-      // CREATE: Sadece backend (Cloud Functions) yazabilir
       allow create: if false;
     }
-
-    // Her ihtimale karşı geri kalan her şeyi kapat
+    // ───────────── CATCH-ALL: DENY ─────────────
     match /{document=**} {
       allow read, write: if false;
     }
