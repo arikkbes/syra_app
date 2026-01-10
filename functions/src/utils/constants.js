@@ -14,15 +14,16 @@ export const SUMMARY_THRESHOLD = 20;
 
 export const PATTERN_DETECTION_MIN_MESSAGES = 10;
 
-// TASK A: Model routing with gpt-5.2 and gpt-5-mini
-export const MODEL_GPT5_2 = "gpt-5.2";
-export const MODEL_GPT5_MINI = "gpt-5-mini";
-
-// Legacy models (kept for backward compatibility, not used in routing)
+// OpenAI model constants - Using GPT-4 models
 export const MODEL_GPT4O = "gpt-4o";
 export const MODEL_GPT4O_MINI = "gpt-4o-mini";
 
 // Active model routing constants
-export const MODEL_FREE_DEFAULT = MODEL_GPT5_MINI; // Free users
-export const MODEL_PREMIUM_DEFAULT = MODEL_GPT5_2; // Premium users
-export const MODEL_FALLBACK = MODEL_GPT5_MINI; // Fallback if primary fails
+export const MODEL_FREE_DEFAULT = MODEL_GPT4O_MINI; // Free users
+export const MODEL_PREMIUM_DEFAULT = MODEL_GPT4O; // Premium users
+export const MODEL_FALLBACK = MODEL_GPT4O_MINI; // Fallback if primary fails
+
+// MODULE 2.5: Retry configuration
+export const MAX_RETRY_ATTEMPTS = 3;
+export const RETRY_BASE_DELAY_MS = 1000; // 1 second base delay
+export const RETRY_MAX_JITTER_MS = 500; // Up to 500ms random jitter

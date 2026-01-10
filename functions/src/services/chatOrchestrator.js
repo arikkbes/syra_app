@@ -13,7 +13,17 @@ import { extractDeepTraits } from "../domain/traitEngine.js";
 import { predictOutcome } from "../domain/outcomePredictionEngine.js";
 import { detectUserPatterns } from "../domain/patternEngine.js";
 import { detectGenderSmart } from "../domain/genderEngine.js";
-import { MODEL_FALLBACK } from "../utils/constants.js";
+import { 
+  analyzeTurkishCulturalContext,
+  extractContextFromMessage,
+  generateRedFlagSummary
+} from "../domain/turkishCultureEngine.js"; // MODULE 3
+import { 
+  MODEL_FALLBACK,
+  MAX_RETRY_ATTEMPTS,
+  RETRY_BASE_DELAY_MS,
+  RETRY_MAX_JITTER_MS
+} from "../utils/constants.js";
 
 import {
   getUserProfile,
@@ -29,6 +39,170 @@ import {
 
 import { db as firestore } from "../config/firebaseAdmin.js";
 import { getRelationshipContext } from "./relationshipRetrieval.js";
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * MODULE 2.5: RETRY HELPER WITH EXPONENTIAL BACKOFF + JITTER
+ * ═══════════════════════════════════════════════════════════════
+ */
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getRetryDelay(attemptNumber) {
+  // Exponential backoff: 2^attempt * base delay
+  const exponentialDelay = Math.pow(2, attemptNumber) * RETRY_BASE_DELAY_MS;
+  // Add random jitter to prevent thundering herd
+  const jitter = Math.random() * RETRY_MAX_JITTER_MS;
+  return exponentialDelay + jitter;
+}
+
+function isRetryableError(error) {
+  if (!error) return false;
+  
+  const errorMessage = error?.message?.toLowerCase() || '';
+  const errorCode = error?.status || error?.code;
+  
+  // Retry on rate limits
+  if (errorCode === 429 || errorMessage.includes('rate limit')) {
+    return true;
+  }
+  
+  // Retry on 5xx server errors
+  if (errorCode >= 500 && errorCode < 600) {
+    return true;
+  }
+  
+  // Retry on network timeouts
+  if (errorMessage.includes('timeout') || 
+      errorMessage.includes('econnreset') ||
+      errorMessage.includes('network')) {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * MODULE 2.5: ROBUST OPENAI CALL WITH RETRY + FALLBACK
+ * ═══════════════════════════════════════════════════════════════
+ */
+async function callOpenAIWithRetry(uid, model, messages, maxTokens) {
+  let lastError = null;
+  let currentModel = model;
+  let usedFallback = false;
+  
+  // Try primary model with retries
+  for (let attempt = 0; attempt < MAX_RETRY_ATTEMPTS; attempt++) {
+    try {
+      console.log(`[${uid}] [OPENAI_ATTEMPT] Attempt ${attempt + 1}/${MAX_RETRY_ATTEMPTS} with model ${currentModel}`);
+      
+      const completion = await openai.chat.completions.create({
+        model: currentModel,
+        messages: messages,
+        max_completion_tokens: maxTokens,
+        temperature: 0.4,
+      });
+      
+      // Check for empty completion
+      if (!completion?.choices?.[0]?.message?.content) {
+        throw new Error('EMPTY_COMPLETION');
+      }
+      
+      const replyText = completion.choices[0].message.content.trim();
+      
+      if (!replyText || replyText.length < 5) {
+        throw new Error('EMPTY_COMPLETION');
+      }
+      
+      console.log(`[${uid}] ✅ OpenAI success → Model: ${currentModel}, Reply length: ${replyText.length}`);
+      
+      return {
+        replyText,
+        model: currentModel,
+        originalModel: model,
+        usedFallback,
+        hadError: false,
+      };
+      
+    } catch (error) {
+      lastError = error;
+      const errorMessage = error?.message || 'Unknown error';
+      const errorStatus = error?.status || error?.code || 'N/A';
+      
+      console.error(`[${uid}] [OPENAI_RETRY] Attempt ${attempt + 1} failed → Status: ${errorStatus}, Error: ${errorMessage}`);
+      
+      // Check if this is retryable
+      const shouldRetry = isRetryableError(error) || errorMessage.includes('EMPTY_COMPLETION');
+      
+      if (shouldRetry && attempt < MAX_RETRY_ATTEMPTS - 1) {
+        const delay = getRetryDelay(attempt);
+        console.log(`[${uid}] [OPENAI_RETRY] Waiting ${Math.round(delay)}ms before retry ${attempt + 2}`);
+        await sleep(delay);
+        continue; // Try again with same model
+      }
+      
+      // If we've exhausted retries, break and try fallback
+      break;
+    }
+  }
+  
+  // If primary model failed after all retries, try fallback model
+  if (currentModel !== MODEL_FALLBACK) {
+    console.log(`[${uid}] [OPENAI_FALLBACK_MODEL] Primary model ${currentModel} failed after ${MAX_RETRY_ATTEMPTS} attempts. Trying fallback: ${MODEL_FALLBACK}`);
+    
+    try {
+      // Trim messages to reduce payload size for fallback
+      const trimmedMessages = messages.length > 10 
+        ? [...messages.slice(0, 5), ...messages.slice(-5)] // Keep first 5 and last 5
+        : messages;
+      
+      const completion = await openai.chat.completions.create({
+        model: MODEL_FALLBACK,
+        messages: trimmedMessages,
+        max_completion_tokens: Math.min(maxTokens, 800), // Reduce token limit for fallback
+        temperature: 0.4,
+      });
+      
+      if (!completion?.choices?.[0]?.message?.content) {
+        throw new Error('EMPTY_COMPLETION');
+      }
+      
+      const replyText = completion.choices[0].message.content.trim();
+      
+      if (!replyText || replyText.length < 5) {
+        throw new Error('EMPTY_COMPLETION');
+      }
+      
+      console.log(`[${uid}] ✅ [OPENAI_FALLBACK_MODEL] Fallback successful → Model: ${MODEL_FALLBACK}, Reply length: ${replyText.length}`);
+      
+      return {
+        replyText,
+        model: MODEL_FALLBACK,
+        originalModel: model,
+        usedFallback: true,
+        hadError: false,
+      };
+      
+    } catch (fallbackError) {
+      console.error(`[${uid}] [OPENAI_FINAL_FAIL] Fallback model also failed → ${fallbackError?.message}`);
+      lastError = fallbackError;
+    }
+  }
+  
+  // All attempts failed
+  console.error(`[${uid}] [OPENAI_FINAL_FAIL] All retry attempts exhausted. Last error: ${lastError?.message}`);
+  
+  return {
+    replyText: null,
+    model: currentModel,
+    originalModel: model,
+    usedFallback,
+    hadError: true,
+    errorType: lastError?.message || 'UNKNOWN_OPENAI_ERROR',
+  };
+}
 
 /**
  * MAIN CHAT PROCESSOR
@@ -85,12 +259,12 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
 
   // ═══════════════════════════════════════════════════════════════
   // VISION MODEL OVERRIDE: Eğer resim varsa, vision destekli model kullan
-  // TASK A: Use gpt-5.2 for vision (assuming gpt-5 supports vision)
+  // gpt-4o models support vision
   // ═══════════════════════════════════════════════════════════════
   if (imageUrl) {
-    // gpt-5 models should support vision
-    if (model === "gpt-5-mini") {
-      model = isPremium ? "gpt-5.2" : "gpt-5-mini";
+    // gpt-4o models support vision
+    if (model === "gpt-4o-mini") {
+      model = isPremium ? "gpt-4o" : "gpt-4o-mini";
       console.log(`[${uid}] Model kept for vision → ${model}`);
     }
   }
@@ -98,6 +272,31 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   console.log(
     `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}, Image: ${!!imageUrl}`
   );
+
+  // ═══════════════════════════════════════════════════════════════
+  // MODULE 3: Deep Analysis Trigger Detection
+  // ═══════════════════════════════════════════════════════════════
+  let turkishCultureAnalysis = null;
+  let shouldDeepAnalyze = false;
+  
+  if (intent === "deep_relationship_issue" || intent === "pattern_analysis") {
+    console.log(`[${uid}] 🔬 MODULE 3: Deep analysis triggered - Intent: ${intent}`);
+    shouldDeepAnalyze = true;
+    
+    // Extract context from message
+    const extractedContext = extractContextFromMessage(safeMessage);
+    
+    // Analyze with Turkish culture engine
+    turkishCultureAnalysis = analyzeTurkishCulturalContext(extractedContext);
+    
+    console.log(`[${uid}] 🚩 MODULE 3: Detected ${turkishCultureAnalysis.length} red flag pattern(s)`);
+    
+    if (turkishCultureAnalysis.length > 0) {
+      turkishCultureAnalysis.forEach(flag => {
+        console.log(`[${uid}]    - ${flag.type} (${flag.severity})`);
+      });
+    }
+  }
 
   // Gender detection
   let detectedGender = await detectGenderSmart(safeMessage, userProfile);
@@ -218,6 +417,178 @@ Cevabını buna göre kurgula.
       role: "system",
       content:
         "💙 Kullanıcı duygusal destek istiyor. Yumuşak ve empatik ol.",
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MODULE 3: Deep Analysis Context Injection
+  // ═══════════════════════════════════════════════════════════════
+  if (shouldDeepAnalyze && turkishCultureAnalysis && turkishCultureAnalysis.length > 0) {
+    const redFlagSummary = generateRedFlagSummary(turkishCultureAnalysis);
+    
+    systemMessages.push({
+      role: "system",
+      content: `
+🔬 DERIN ANALİZ MODU AKTİF (MODULE 3)
+
+Kullanıcı ilişkisinde ciddi pattern'ler tespit edildi.
+Türk kültürü bağlamında şu red flag'ler var:
+
+${redFlagSummary}
+
+ÖNEMLİ TALIMATLAR:
+1. Bu pattern'leri kullanıcıya açıkla (yargılamadan)
+2. Türk kültürü bağlamını ver (neden bu önemli?)
+3. Somut aksiyon adımları öner
+4. Empati göster ama gerçekçi ol
+5. Red flag ciddiyse, net söyle
+
+Eğer relationship context aktifse, ZIP'ten mesaj örnekleri de göster.
+      `.trim()
+    });
+    
+    console.log(`[${uid}] 🔬 MODULE 3: Deep analysis context injected into system prompt`);
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MODULE 3.1: Intent-Based Question Policy
+  // ═══════════════════════════════════════════════════════════════
+  if (intent === "greeting") {
+    // MODULE 3.1.1 HOTFIX 1: Natural greeting with ONE greeting question
+    systemMessages.push({
+      role: "system",
+      content: `
+💬 GREETING MODE (MODULE 3.1.1 HOTFIX)
+
+User sent a simple greeting (selam, naber, etc.).
+Your response:
+"İyiyim kanka. Sende naber?"
+
+RULES:
+✅ ONE natural greeting question: "Sende naber?" or "Sen nasılsın?"
+❌ NO generic topic questions: "Ne hakkında konuşalım?"
+❌ NO extended conversation prompts
+
+Keep it SHORT and NATURAL.
+      `.trim()
+    });
+  } else if (intent === "message_drafting") {
+    // MODULE 3.1.1 HOTFIX 3: Multi-choice question for message drafting
+    systemMessages.push({
+      role: "system",
+      content: `
+🎯 MESSAGE DRAFTING MODE (MODULE 3.1.1 HOTFIX)
+
+User wants help writing a message.
+
+STEP 1: Ask ONE multi-choice question (if context missing):
+"Kanka 1) yeni tanıştınız 2) flört 3) sevgili 4) ex — hangisi?
+ Hedef: A) ilgiyi artır B) randevu C) sınır koy D) barış"
+
+STEP 2: Immediately provide 2-3 draft options anyway (don't wait):
+- Soft: [yumuşak versiyon]
+- Cool: [rahat versiyon]
+- Spicy: [flört/cesur versiyon]
+
+Max 1 question. Always provide drafts even before user answers.
+
+FORBIDDEN:
+❌ "Ne hakkında konuşmak istersin?"
+❌ "Başka bir şey var mı?"
+      `.trim()
+    });
+  } else if (intent === "context_missing") {
+    systemMessages.push({
+      role: "system",
+      content: `
+🔍 CONTEXT MISSING MODE (MODULE 3.1)
+
+User wants help but request is vague. Your response:
+1. Make reasonable assumption
+2. Provide solution based on assumption
+3. If truly critical info missing, ask 1 specific question
+
+ALLOWED QUESTION (max 1):
+✅ "Hangi ilişkiden bahsediyorsun?"
+✅ "Kime/neyle ilgili bu?"
+
+THEN provide direct advice. Don't wait for answer.
+      `.trim()
+    });
+  } else if (intent === "deep_relationship_issue" || intent === "pattern_analysis") {
+    // MODULE 3.1.1 HOTFIX 2: Evidence-gated question policy
+    const hasEvidence = relationshipData && relationshipData.hasRetrieval && 
+                       relationshipData.context && relationshipData.context.includes("📎 ALAKALI SOHBET");
+    
+    if (hasEvidence) {
+      // Evidence exists - NO questions allowed
+      systemMessages.push({
+        role: "system",
+        content: `
+🔬 DEEP ANALYSIS MODE - EVIDENCE AVAILABLE (MODULE 3.1.1)
+
+You have concrete evidence from relationship messages.
+Provide grounded analysis WITHOUT asking questions.
+
+Use probabilistic language:
+✅ "Mesajlara bakınca [pattern] görüyorum"
+✅ "X kez bu davranış var"
+✅ "Bu [pattern]'e benziyor"
+❌ "Kesinlikle manipülasyon" (unless evidence is very strong)
+
+Provide analysis + action steps directly.
+NO QUESTIONS.
+        `.trim()
+      });
+    } else {
+      // No evidence - Allow 1 targeted question
+      systemMessages.push({
+        role: "system",
+        content: `
+🔬 DEEP ANALYSIS MODE - NO EVIDENCE (MODULE 3.1.1)
+
+No ZIP messages available for this relationship.
+You can ask ONE targeted clarification question to reduce hallucination.
+
+ALLOWED (max 1 targeted question):
+✅ "Bu istek haftada kaç kez oluyor?"
+✅ "Sen 'hayır' deyince trip/guilt yapıyor mu?"
+✅ "Karşılıklı mı yoksa tek taraflı mı?"
+
+FORBIDDEN:
+❌ "Ne hakkında konuşmak istersin?"
+❌ "Daha fazla bilgi verir misin?"
+
+CRITICAL: After question, immediately provide boundary-setting suggestion.
+Do NOT wait for answer. Give both question AND advice in same message.
+
+Use probabilistic language:
+✅ "Bu [pattern]'e benziyor"
+✅ "Olabilir"
+❌ "Kesinlikle manipülasyon"
+        `.trim()
+      });
+    }
+  } else if (intent === "normal") {
+    // Small talk / normal conversation
+    systemMessages.push({
+      role: "system",
+      content: `
+💬 NORMAL CONVERSATION MODE - NO QUESTIONS (MODULE 3.1)
+
+This is small talk or casual conversation.
+Keep response SHORT (1-2 sentences).
+NO follow-up questions.
+
+Examples:
+User: "Naber"
+✅ "İyi kanka."
+❌ "İyiyim! Sen nasılsın? Ne yapıyorsun?"
+
+User: "İyiyim"
+✅ "Güzel. Bir sorun olursa söyle."
+❌ "İyi! Neyle ilgileniyorsun?"
+      `.trim()
     });
   }
 
@@ -501,98 +872,22 @@ Base all responses on the CURRENT active relationship context only.
   let openaiError = null;
 
   // ═══════════════════════════════════════════════════════════════
-  // STEP 3: OUTPUT GUARD - retry if response is generic/empty
-  // STEP 4: MODEL FALLBACK - if primary fails, try fallback model
+  // MODULE 2.5: ROBUST OPENAI CALL WITH RETRY + FALLBACK
   // ═══════════════════════════════════════════════════════════════
-  let retryAttempted = false;
-  let fallbackAttempted = false;
   let originalModel = model;
+  let usedFallback = false;
 
-  // OPENAI CALL with fallback
-  try {
-    console.log(`[${uid}] Calling OpenAI → ${model}`);
+  console.log(`[${uid}] Calling OpenAI with robust retry → ${model}`);
 
-    let completion;
-    
-    try {
-      completion = await openai.chat.completions.create({
-        model,
-        messages: contextMessages,
-        max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
-      });
-    } catch (primaryError) {
-      // TASK A: Check if error is rate limit or model-specific
-      const errorMessage = primaryError?.message?.toLowerCase() || '';
-      const isRateLimit = errorMessage.includes('rate') || errorMessage.includes('429');
-      const isModelError = errorMessage.includes('model') || errorMessage.includes('not found');
-      
-      if ((isRateLimit || isModelError) && model !== MODEL_FALLBACK) {
-        console.log(`[${uid}] ⚠️ Primary model failed (${primaryError.message}), falling back to ${MODEL_FALLBACK}`);
-        fallbackAttempted = true;
-        model = MODEL_FALLBACK; // Fallback to gpt-5-mini
-        
-        completion = await openai.chat.completions.create({
-          model,
-          messages: contextMessages,
-          max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
-        });
-      } else {
-        throw primaryError; // Re-throw if not a fallback scenario
-      }
-    }
-
-    if (
-      completion &&
-      completion.choices &&
-      completion.choices[0]?.message?.content
-    ) {
-      replyText = completion.choices[0].message.content.trim();
-      console.log(
-        `[${uid}] OpenAI success → Model: ${model}, Reply length: ${replyText.length}`
-      );
-      
-      // STEP 3: Check if response is too generic/empty
-      const isGeneric = checkIfGenericResponse(replyText);
-      
-      if (isGeneric && !retryAttempted) {
-        console.log(`[${uid}] ⚠️ Generic response detected, retrying with stronger prompt`);
-        retryAttempted = true;
-        
-        // Add stronger instruction and retry ONCE
-        const retryMessages = [
-          ...contextMessages.slice(0, -1), // All except last user message
-          {
-            role: "system",
-            content: `
-⚠️ CRITICAL QUALITY INSTRUCTION:
-Previous response was too generic/vague. This time:
-• Be CONCRETE and SPECIFIC
-• Give 1-3 ACTIONABLE steps
-• Ask MAX 1 clarifying question if truly needed
-• NO filler phrases ("Buradayım", "Yardımcı olabilirim", etc.)
-• Get straight to the point
-            `.trim()
-          },
-          contextMessages[contextMessages.length - 1] // Last user message
-        ];
-        
-        const retryCompletion = await openai.chat.completions.create({
-          model,
-          messages: retryMessages,
-          max_completion_tokens: maxTokens, // GPT-5 models use max_completion_tokens
-        });
-        
-        if (retryCompletion?.choices?.[0]?.message?.content) {
-          replyText = retryCompletion.choices[0].message.content.trim();
-          console.log(`[${uid}] ✅ Retry successful → Reply length: ${replyText.length}`);
-        }
-      }
-    } else {
-      openaiError = "EMPTY_COMPLETION";
-    }
-  } catch (e) {
-    console.error(`[${uid}] 🔥 OpenAI API ERROR:`, e);
-    openaiError = e?.message || "UNKNOWN_OPENAI_ERROR";
+  const openaiResult = await callOpenAIWithRetry(uid, model, contextMessages, maxTokens);
+  
+  replyText = openaiResult.replyText;
+  model = openaiResult.model;
+  originalModel = openaiResult.originalModel;
+  usedFallback = openaiResult.usedFallback;
+  
+  if (openaiResult.hadError) {
+    openaiError = openaiResult.errorType;
   }
 
   // FALLBACK REPLY
@@ -600,6 +895,50 @@ Previous response was too generic/vague. This time:
     replyText =
       "Sistem şu an cevap üretemedi kanka. Bir daha dene, bu sefer olacak. 💪";
     console.warn(`[${uid}] Fallback reply used → ${openaiError}`);
+  } else {
+    // STEP 3: Check if response is too generic/empty (OUTPUT GUARD)
+    const isGeneric = checkIfGenericResponse(replyText);
+    
+    if (isGeneric) {
+      console.log(`[${uid}] ⚠️ Generic response detected, retrying with stronger prompt`);
+      
+      // Add stronger instruction and retry ONCE
+      const retryMessages = [
+        ...contextMessages.slice(0, -1), // All except last user message
+        {
+          role: "system",
+          content: `
+⚠️ CRITICAL QUALITY INSTRUCTION:
+Previous response was too generic/vague. This time:
+• Be CONCRETE and SPECIFIC
+• Give 1-3 ACTIONABLE steps
+• Ask MAX 1 clarifying question if truly needed
+• NO filler phrases ("Buradayım", "Yardımcı olabilirim", etc.)
+• Get straight to the point
+          `.trim()
+        },
+        contextMessages[contextMessages.length - 1] // Last user message
+      ];
+      
+      try {
+        const retryCompletion = await openai.chat.completions.create({
+          model,
+          messages: retryMessages,
+          max_completion_tokens: maxTokens,
+          temperature: 0.4,
+        });
+        
+        if (retryCompletion?.choices?.[0]?.message?.content) {
+          const retryReply = retryCompletion.choices[0].message.content.trim();
+          if (retryReply && retryReply.length > 10) {
+            replyText = retryReply;
+            console.log(`[${uid}] ✅ Generic retry successful → Reply length: ${replyText.length}`);
+          }
+        }
+      } catch (retryError) {
+        console.error(`[${uid}] Generic retry failed, keeping original response:`, retryError?.message);
+      }
+    }
   }
 
   /**
@@ -635,8 +974,8 @@ Previous response was too generic/vague. This time:
     meta: {
       intent,
       model,
-      originalModel: fallbackAttempted ? originalModel : model, // STEP 4: Track if fallback was used
-      usedFallback: fallbackAttempted, // STEP 4
+      originalModel,
+      usedFallback,
       premium: isPremium,
       messageCount: userProfile.messageCount,
       processingTime,
