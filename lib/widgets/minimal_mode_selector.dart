@@ -183,13 +183,7 @@ class _MinimalModeSelectorState extends State<MinimalModeSelector>
                     ),
                     const SizedBox(height: 8),
                     _buildModeItem(
-                      mode: 'deep',
-                      label: 'Derin Analiz',
-                      description: 'Psikolojik analiz ve içgörü',
-                    ),
-                    const SizedBox(height: 8),
-                    _buildModeItem(
-                      mode: 'mentor',
+                      mode: 'dost_aci',
                       label: 'Dost Acı Söyler',
                       description: 'Direkt ve samimi',
                     ),

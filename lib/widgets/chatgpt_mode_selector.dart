@@ -234,17 +234,7 @@ class _ChatGPTModeSelectorState extends State<ChatGPTModeSelector>
                       ],
                     ),
                     _buildModeItem(
-                      mode: 'deep',
-                      icon: Icons.psychology_rounded,
-                      label: 'Derin Analiz',
-                      description: 'Psikolojik analiz ve içgörü',
-                      gradient: [
-                        const Color(0xFF9B7DFF),
-                        const Color(0xFF7B5DC9),
-                      ],
-                    ),
-                    _buildModeItem(
-                      mode: 'mentor',
+                      mode: 'dost_aci',
                       icon: Icons.psychology_alt_rounded,
                       label: 'Dost Acı Söyler',
                       description: 'Direkt ve samimi',

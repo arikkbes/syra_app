@@ -2826,16 +2826,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   String _getModeDisplayName() {
     switch (_selectedMode) {
-      case 'tarot':
-        return 'Tarot';
-      case 'flirt':
-        return 'Flört';
-      case 'deep':
-        return 'Derin';
-      case 'tactical':
-        return 'Taktik';
+      case 'dost_aci':
+        return 'Dost Acı';
       default:
-        return 'Pro';
+        return 'Normal';
     }
   }
 
@@ -2906,11 +2900,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   Widget _buildModeTrigger() {
     String modeLabel;
     switch (_selectedMode) {
-      case 'deep':
-        modeLabel = 'Derin';
-        break;
-      case 'mentor':
-        modeLabel = 'Mentor';
+      case 'dost_aci':
+        modeLabel = 'Dost';
         break;
       default:
         modeLabel = 'Normal';

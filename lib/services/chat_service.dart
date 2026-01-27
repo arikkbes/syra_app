@@ -145,7 +145,7 @@ class ChatService {
   /// - userMessage: The user's text message
   /// - conversationHistory: Previous messages for context
   /// - replyingTo: Optional message being replied to
-  /// - mode: Chat mode (standard, deep, mentor, tarot)
+  /// - mode: Chat mode (standard, dost_aci, tarot)
   /// - imageUrl: Optional image URL for vision analysis
   ///
   /// Returns ChatSendResult with success/error information
