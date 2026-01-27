@@ -100,8 +100,13 @@ export async function syraChatHandler(req, res) {
       }
     }
 
-    // Validate mode
-    const validMode = ['standard', 'deep', 'mentor'].includes(mode) ? mode : 'standard';
+    // Validate mode (Phase 1: standard | dost_aci)
+    const normalizedMode = (rawMode) => {
+      if (rawMode === "mentor" || rawMode === "dost_aci") return "dost_aci";
+      if (rawMode === "deep") return "standard";
+      return "standard";
+    };
+    const validMode = normalizedMode(mode);
     
     // Tarot context (if this is a follow-up question about a tarot reading)
     const hasTarotContext = tarotContext && typeof tarotContext === 'string' && tarotContext.trim();

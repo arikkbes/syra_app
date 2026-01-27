@@ -94,7 +94,7 @@ class TarotService {
 
       final requestBody = {
         "message": question,
-        "mode": "mentor", // Use mentor mode for direct, insightful responses
+        "mode": "dost_aci", // Direct, insightful responses
         "tarotContext": contextMessage, // Special context for tarot follow-up
       };
 

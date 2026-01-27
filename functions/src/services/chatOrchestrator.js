@@ -38,7 +38,17 @@ import {
 } from "../firestore/conversationRepository.js";
 
 import { db as firestore } from "../config/firebaseAdmin.js";
-import { getRelationshipContext } from "./relationshipRetrieval.js";
+import {
+  buildContextWindow,
+  buildEvidencePack,
+  formatRelationshipBrief,
+  getActiveRelationshipSnapshot,
+  getRelationshipBrief,
+} from "./relationshipRetrieval.js";
+import {
+  detectSelfParticipantFromMessage,
+  persistSelfParticipant,
+} from "./relationshipContext.js";
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -81,6 +91,145 @@ function isRetryableError(error) {
   }
   
   return false;
+}
+
+function getDefaultTraits() {
+  return {
+    flags: { red: [], green: [] },
+    tone: "neutral",
+    urgency: "low",
+    needsSupport: false,
+    relationshipStage: "none",
+    attachmentStyle: "unknown",
+  };
+}
+
+function buildAppHelpReply() {
+  return [
+    "İlişkiyi yüklemek için chat bar'daki SYRA logosuna dokun.",
+    "WhatsApp sohbet ZIP veya .txt dosyanı seç ve yükle.",
+    "Yükledikten sonra panelden \"Chat'te kullan\"ı aç.",
+  ].join(" ");
+}
+
+function decideRoute(message) {
+  const msg = (message || "").toLowerCase();
+
+  const isAppHelp =
+    /(nereden|nasıl|nereye).{0,20}(yükle|yüklen|upload|ekle)/.test(msg) ||
+    /ilişki(yi)?\s+yükle/.test(msg);
+
+  if (isAppHelp) {
+    return { intent: "APP_HELP", retrievalPolicy: "OFF" };
+  }
+
+  const evidenceKeywords = [
+    "kanıt",
+    "timestamp",
+    "mesajlardan göster",
+    "mesajlardan getir",
+    "mesajı göster",
+    "alinti",
+    "alıntı",
+    "quote",
+    "proof",
+    "saat kaçta",
+    "hangi mesaj",
+  ];
+
+  if (evidenceKeywords.some((k) => msg.includes(k))) {
+    return { intent: "EVIDENCE_REQUEST", retrievalPolicy: "EVIDENCE" };
+  }
+
+  const contextFetchKeywords = [
+    "son kavgamız",
+    "son konuşmamız",
+    "son tartışma",
+    "o gün ne dedik",
+    "son mesajlarımız",
+    "son mesajda ne dedi",
+    "son kez ne dedi",
+  ];
+
+  if (contextFetchKeywords.some((k) => msg.includes(k))) {
+    return { intent: "CONTEXT_FETCH", retrievalPolicy: "WINDOW" };
+  }
+
+  const relBriefKeywords = [
+    "ilişkim hakkında neler biliyorsun",
+    "ilişkim hakkında ne biliyorsun",
+    "ilişkim hakkında ne var",
+    "ilişki aktif mi",
+    "tarih aralığı",
+    "kaç mesaj",
+    "toplam mesaj",
+    "konuşmacılar",
+    "katılımcılar",
+  ];
+
+  if (relBriefKeywords.some((k) => msg.includes(k))) {
+    return { intent: "REL_BRIEF", retrievalPolicy: "OFF" };
+  }
+
+  const deepAnalysisKeywords = [
+    "zipten analiz",
+    "zip'ten analiz",
+    "whatsapp döküm",
+    "whatsapp dökümü",
+    "sohbet dökümü",
+    "konuşmalardan analiz",
+    "sohbetten analiz",
+    "chatten analiz",
+  ];
+
+  if (deepAnalysisKeywords.some((k) => msg.includes(k))) {
+    return { intent: "DEEP_ANALYSIS", retrievalPolicy: "DEEP" };
+  }
+
+  return { intent: "NORMAL_COACHING", retrievalPolicy: "OFF" };
+}
+
+function formatEvidenceReply(evidence) {
+  if (!evidence.items || evidence.items.length === 0) {
+    return "Kayıtlarda bu kelime/tarih için kanıt bulamadım. Daha net bir anahtar kelime veya tarih aralığı verir misin?";
+  }
+
+  const lines = [];
+  if (evidence.items.length === 1) {
+    lines.push("Sadece 1 kanıt bulabildim:");
+  } else {
+    lines.push("Evidence Pack:");
+  }
+
+  evidence.items.forEach((item, index) => {
+    lines.push(`\n${index + 1}) [${item.timestamp}] ${item.sender}`);
+    lines.push(`Eşleşen: ${item.matchedLine}`);
+
+    const before = item.contextBefore || [];
+    const after = item.contextAfter || [];
+
+    if (before.length) {
+      lines.push("Öncesi:");
+      before.forEach((line) => lines.push(`- ${line}`));
+    }
+    if (after.length) {
+      lines.push("Sonrası:");
+      after.forEach((line) => lines.push(`- ${line}`));
+    }
+  });
+
+  return lines.join("\n");
+}
+
+function formatContextWindowReply(windowResult) {
+  if (!windowResult.items || windowResult.items.length === 0) {
+    return "İlgili konuşma penceresi bulamadım. Daha net bir anahtar kelime veya tarih aralığı verir misin?";
+  }
+
+  return [
+    "İlgili konuşma penceresi (20–60 mesaj):",
+    windowResult.items.join("\n"),
+  ].join("\n");
 }
 
 /**
@@ -212,7 +361,7 @@ async function callOpenAIWithRetry(uid, model, messages, maxTokens) {
  * @param {string} replyTo
  * @param {boolean} isPremium
  * @param {string} imageUrl - Optional image URL for vision analysis
- * @param {string} mode - Conversation mode: 'standard', 'deep', 'mentor'
+ * @param {string} mode - Conversation mode: 'standard', 'dost_aci'
  * @param {string} tarotContext - Optional tarot reading context for follow-up questions
  */
 export async function processChat(uid, sessionId, message, replyTo, isPremium, imageUrl = null, mode = 'standard', tarotContext = null) {
@@ -249,10 +398,127 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     `[${uid}] Processing - Session: ${sessionId}, Premium: ${isPremium}, Mode: ${mode}, History: ${history.length}, Summary: ${!!conversationSummary}`
   );
 
-  // Intent detection
-  const intent = detectIntentType(safeMessage, history);
+  const historySnapshot = {
+    messages: Array.isArray(rawHistory?.messages) ? rawHistory.messages : [],
+    summary: rawHistory?.summary ?? null,
+    lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
+  };
+
+  // Router-first intent detection (Phase 1)
+  const route = decideRoute(safeMessage);
+  console.log(
+    `[${uid}] Route: ${route.intent} (retrieval=${route.retrievalPolicy})`
+  );
+
+  if (route.intent === "APP_HELP") {
+    const reply = buildAppHelpReply();
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: route.intent,
+        retrievalPolicy: route.retrievalPolicy,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  if (route.intent === "REL_BRIEF") {
+    const brief = await getRelationshipBrief(uid);
+    const reply = brief ? formatRelationshipBrief(brief) : buildAppHelpReply();
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: route.intent,
+        retrievalPolicy: route.retrievalPolicy,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+        hasActiveRelationship: !!brief,
+      },
+    };
+  }
+
+  if (route.intent === "EVIDENCE_REQUEST") {
+    const evidence = await buildEvidencePack(uid, safeMessage);
+    const reply =
+      evidence.error === "no_active_relationship"
+        ? buildAppHelpReply()
+        : formatEvidenceReply(evidence);
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: route.intent,
+        retrievalPolicy: route.retrievalPolicy,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  if (route.intent === "CONTEXT_FETCH") {
+    const windowResult = await buildContextWindow(uid, safeMessage);
+    const reply =
+      windowResult.error === "no_active_relationship"
+        ? buildAppHelpReply()
+        : formatContextWindowReply(windowResult);
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: route.intent,
+        retrievalPolicy: route.retrievalPolicy,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  // Local intent detection for style/config decisions
+  const localIntent = detectIntentType(safeMessage, history);
+  const configIntent =
+    route.intent === "DEEP_ANALYSIS" ? "deep_analysis" : localIntent;
+
   let { model, temperature, maxTokens } = getChatConfig(
-    intent,
+    configIntent,
     isPremium,
     userProfile
   );
@@ -270,32 +536,21 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   }
 
   console.log(
-    `[${uid}] Intent: ${intent}, Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}, Image: ${!!imageUrl}`
+    `[${uid}] Intent: ${localIntent} (route=${route.intent}), Model: ${model}, Temp: ${temperature}, MaxTokens: ${maxTokens}, Image: ${!!imageUrl}`
   );
 
   // ═══════════════════════════════════════════════════════════════
-  // MODULE 3: Deep Analysis Trigger Detection
+  // MODULE 3: Deep Analysis Trigger Detection (Intent-driven)
   // ═══════════════════════════════════════════════════════════════
   let turkishCultureAnalysis = null;
-  let shouldDeepAnalyze = false;
-  
-  if (intent === "deep_relationship_issue" || intent === "pattern_analysis") {
-    console.log(`[${uid}] 🔬 MODULE 3: Deep analysis triggered - Intent: ${intent}`);
-    shouldDeepAnalyze = true;
-    
-    // Extract context from message
+  const shouldDeepAnalyze = route.intent === "DEEP_ANALYSIS";
+
+  if (shouldDeepAnalyze) {
+    console.log(`[${uid}] 🔬 Deep analysis requested`);
     const extractedContext = extractContextFromMessage(safeMessage);
-    
-    // Analyze with Turkish culture engine
     turkishCultureAnalysis = analyzeTurkishCulturalContext(extractedContext);
-    
-    console.log(`[${uid}] 🚩 MODULE 3: Detected ${turkishCultureAnalysis.length} red flag pattern(s)`);
-    
-    if (turkishCultureAnalysis.length > 0) {
-      turkishCultureAnalysis.forEach(flag => {
-        console.log(`[${uid}]    - ${flag.type} (${flag.severity})`);
-      });
-    }
+
+    console.log(`[${uid}] 🚩 Deep analysis flags: ${turkishCultureAnalysis.length}`);
   }
 
   // Gender detection
@@ -309,61 +564,68 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     await incrementGenderAttempts(uid);
   }
 
-  // Trait extraction
-  const extractedTraits = await extractDeepTraits(
-    safeMessage,
-    replyTo,
-    history
-  );
+  const shouldUseHeavyEngines = route.intent !== "NORMAL_COACHING";
 
-  console.log(
-    `[${uid}] Traits → Tone: ${extractedTraits.tone}, Urgency: ${extractedTraits.urgency}, Flags: R${extractedTraits.flags.red.length}/G${extractedTraits.flags.green.length}`
-  );
+  let extractedTraits = getDefaultTraits();
+  let patterns = null;
+  let outcomePrediction = null;
 
-  // Pattern detection
-  const patterns = await detectUserPatterns(history, userProfile, isPremium);
-
-  if (patterns) {
-    console.log(
-      `[${uid}] Patterns → Mistakes: ${patterns.repeatingMistakes?.length || 0}, Type: ${patterns.relationshipType}`
+  if (shouldUseHeavyEngines) {
+    extractedTraits = await extractDeepTraits(
+      safeMessage,
+      replyTo,
+      history
     );
-  }
 
-  // Outcome prediction
-  const outcomePrediction = await predictOutcome(
-    safeMessage,
-    history,
-    isPremium
-  );
-
-  if (outcomePrediction) {
     console.log(
-      `[${uid}] Outcome → Interest: ${outcomePrediction.interestLevel}% / Date: ${outcomePrediction.dateProbability}%`
+      `[${uid}] Traits → Tone: ${extractedTraits.tone}, Urgency: ${extractedTraits.urgency}, Flags: R${extractedTraits.flags.red.length}/G${extractedTraits.flags.green.length}`
     );
+
+    patterns = await detectUserPatterns(history, userProfile, isPremium);
+
+    if (patterns) {
+      console.log(
+        `[${uid}] Patterns → Mistakes: ${patterns.repeatingMistakes?.length || 0}, Type: ${patterns.relationshipType}`
+      );
+    }
+
+    outcomePrediction = await predictOutcome(
+      safeMessage,
+      history,
+      isPremium
+    );
+
+    if (outcomePrediction) {
+      console.log(
+        `[${uid}] Outcome → Interest: ${outcomePrediction.interestLevel}% / Date: ${outcomePrediction.dateProbability}%`
+      );
+    }
   }
 
   // Update user profile
-  userProfile.lastTone = normalizeTone(extractedTraits.tone);
+  if (shouldUseHeavyEngines) {
+    userProfile.lastTone = normalizeTone(extractedTraits.tone);
 
-  if (
-    extractedTraits.relationshipStage &&
-    extractedTraits.relationshipStage !== "none"
-  ) {
-    userProfile.relationshipStage = extractedTraits.relationshipStage;
+    if (
+      extractedTraits.relationshipStage &&
+      extractedTraits.relationshipStage !== "none"
+    ) {
+      userProfile.relationshipStage = extractedTraits.relationshipStage;
+    }
+
+    if (
+      extractedTraits.attachmentStyle &&
+      extractedTraits.attachmentStyle !== "unknown"
+    ) {
+      userProfile.attachmentStyle = extractedTraits.attachmentStyle;
+    }
+
+    userProfile.totalAdviceGiven = (userProfile.totalAdviceGiven || 0) + 1;
+
+    updateUserProfile(uid, userProfile).catch((e) =>
+      console.error(`[${uid}] UserProfile update error →`, e)
+    );
   }
-
-  if (
-    extractedTraits.attachmentStyle &&
-    extractedTraits.attachmentStyle !== "unknown"
-  ) {
-    userProfile.attachmentStyle = extractedTraits.attachmentStyle;
-  }
-
-  userProfile.totalAdviceGiven = (userProfile.totalAdviceGiven || 0) + 1;
-
-  updateUserProfile(uid, userProfile).catch((e) =>
-    console.error(`[${uid}] UserProfile update error →`, e)
-  );
 
   // ═══════════════════════════════════════════════════════════════
   // STEP 1 & 2: Detect if query is relationship-related
@@ -443,7 +705,7 @@ ${redFlagSummary}
 4. Empati göster ama gerçekçi ol
 5. Red flag ciddiyse, net söyle
 
-Eğer relationship context aktifse, ZIP'ten mesaj örnekleri de göster.
+Eğer konuşma penceresi verildiyse, sadece onu referans al.
       `.trim()
     });
     
@@ -453,7 +715,7 @@ Eğer relationship context aktifse, ZIP'ten mesaj örnekleri de göster.
   // ═══════════════════════════════════════════════════════════════
   // MODULE 3.1: Intent-Based Question Policy
   // ═══════════════════════════════════════════════════════════════
-  if (intent === "greeting") {
+  if (localIntent === "greeting") {
     // MODULE 3.1.1 HOTFIX 1: Natural greeting with ONE greeting question
     systemMessages.push({
       role: "system",
@@ -472,8 +734,7 @@ RULES:
 Keep it SHORT and NATURAL.
       `.trim()
     });
-  } else if (intent === "message_drafting") {
-    // MODULE 3.1.1 HOTFIX 3: Multi-choice question for message drafting
+  } else if (localIntent === "message_drafting") {
     systemMessages.push({
       role: "system",
       content: `
@@ -481,9 +742,8 @@ Keep it SHORT and NATURAL.
 
 User wants help writing a message.
 
-STEP 1: Ask ONE multi-choice question (if context missing):
-"Kanka 1) yeni tanıştınız 2) flört 3) sevgili 4) ex — hangisi?
- Hedef: A) ilgiyi artır B) randevu C) sınır koy D) barış"
+STEP 1: Ask ONE short clarification question only if critical info is missing:
+"Kime yazıyorsun ve amaç ne? (barış/ilgi artır/sınır)"
 
 STEP 2: Immediately provide 2-3 draft options anyway (don't wait):
 - Soft: [yumuşak versiyon]
@@ -497,7 +757,7 @@ FORBIDDEN:
 ❌ "Başka bir şey var mı?"
       `.trim()
     });
-  } else if (intent === "context_missing") {
+  } else if (localIntent === "context_missing") {
     systemMessages.push({
       role: "system",
       content: `
@@ -515,70 +775,16 @@ ALLOWED QUESTION (max 1):
 THEN provide direct advice. Don't wait for answer.
       `.trim()
     });
-  } else if (intent === "deep_relationship_issue" || intent === "pattern_analysis") {
-    // MODULE 3.1.1 HOTFIX 2: Evidence-gated question policy
-    const hasEvidence = relationshipData && relationshipData.hasRetrieval && 
-                       relationshipData.context && relationshipData.context.includes("📎 ALAKALI SOHBET");
-    
-    if (hasEvidence) {
-      // Evidence exists - NO questions allowed
-      systemMessages.push({
-        role: "system",
-        content: `
-🔬 DEEP ANALYSIS MODE - EVIDENCE AVAILABLE (MODULE 3.1.1)
-
-You have concrete evidence from relationship messages.
-Provide grounded analysis WITHOUT asking questions.
-
-Use probabilistic language:
-✅ "Mesajlara bakınca [pattern] görüyorum"
-✅ "X kez bu davranış var"
-✅ "Bu [pattern]'e benziyor"
-❌ "Kesinlikle manipülasyon" (unless evidence is very strong)
-
-Provide analysis + action steps directly.
-NO QUESTIONS.
-        `.trim()
-      });
-    } else {
-      // No evidence - Allow 1 targeted question
-      systemMessages.push({
-        role: "system",
-        content: `
-🔬 DEEP ANALYSIS MODE - NO EVIDENCE (MODULE 3.1.1)
-
-No ZIP messages available for this relationship.
-You can ask ONE targeted clarification question to reduce hallucination.
-
-ALLOWED (max 1 targeted question):
-✅ "Bu istek haftada kaç kez oluyor?"
-✅ "Sen 'hayır' deyince trip/guilt yapıyor mu?"
-✅ "Karşılıklı mı yoksa tek taraflı mı?"
-
-FORBIDDEN:
-❌ "Ne hakkında konuşmak istersin?"
-❌ "Daha fazla bilgi verir misin?"
-
-CRITICAL: After question, immediately provide boundary-setting suggestion.
-Do NOT wait for answer. Give both question AND advice in same message.
-
-Use probabilistic language:
-✅ "Bu [pattern]'e benziyor"
-✅ "Olabilir"
-❌ "Kesinlikle manipülasyon"
-        `.trim()
-      });
-    }
-  } else if (intent === "normal") {
+  } else if (localIntent === "normal") {
     // Small talk / normal conversation
     systemMessages.push({
       role: "system",
       content: `
-💬 NORMAL CONVERSATION MODE - NO QUESTIONS (MODULE 3.1)
+💬 NORMAL CONVERSATION MODE (MODULE 3.1)
 
 This is small talk or casual conversation.
 Keep response SHORT (1-2 sentences).
-NO follow-up questions.
+Max 1 short follow-up question only if needed.
 
 Examples:
 User: "Naber"
@@ -593,38 +799,15 @@ User: "İyiyim"
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // UPLOAD GUIDANCE GUARD: Detect upload questions and give UI instructions only
+  // A/B explanation helper (non-routing)
   // ═══════════════════════════════════════════════════════════════
-  const uploadKeywords = [
-    "nereden yükle", "nasıl yükle", "ilişki yükleme", "ilişkiyi yükle",
-    "upload", "zip", "whatsapp sohbet", "sohbeti yükle", "dosya yükle",
-    "nereye yükle", "nasıl ekle"
-  ];
-  
   const abKeywords = [
     "a ve b ne", "a b ne demek", "a veya b", "a/b ne", "kim a kim b",
     "a kimdir", "b kimdir", "a ile b"
   ];
   
   const messageLower = message.toLowerCase();
-  const isUploadQuestion = uploadKeywords.some(keyword => messageLower.includes(keyword));
   const isAbQuestion = abKeywords.some(keyword => messageLower.includes(keyword));
-  
-  if (isUploadQuestion) {
-    systemMessages.push({
-      role: "system",
-      content: `
-🔒 UPLOAD GUIDANCE OVERRIDE:
-User is asking how to upload relationship. Give ONLY these UI instructions (short, confident, 1-3 sentences):
-
-1) "İlişkiyi yüklemek için chat bar'daki SYRA logosuna dokun."
-2) "WhatsApp sohbet ZIP veya .txt dosyanı seç ve yükle."
-3) "Yükledikten sonra panelden 'Chat'te kullan'ı aç."
-
-Do NOT ask for names, details, or relationship info. Just give UI steps.
-      `.trim(),
-    });
-  }
   
   if (isAbQuestion) {
     systemMessages.push({
@@ -668,119 +851,84 @@ Keep it simple and actionable.
     });
   }
 
-  // ═══════════════════════════════════════════════════════════════
-  // RELATIONSHIP MEMORY V2: Smart retrieval with chunked storage
-  // STEP 2 FIX: Proper gating - only use if isActive=true
-  // ═══════════════════════════════════════════════════════════════
-  let relationshipData = null;
-  try {
-    relationshipData = await getRelationshipContext(uid, safeMessage, history);
-    
-    // STEP 2: Relationship MUST be active to use context
-    if (relationshipData && relationshipData.context) {
-      hasActiveRelationship = true;
-      
-      // ═══════════════════════════════════════════════════════════════
-      // AUTO-PERSIST SELFPARTICIPANT
-      // If selfParticipant is missing, detect if user is answering the clarification question
-      // ═══════════════════════════════════════════════════════════════
-      if (!relationshipData.selfParticipant && relationshipData.speakers && relationshipData.speakers.length >= 2) {
-        const { detectSelfParticipantFromMessage, persistSelfParticipant, getActiveRelationshipContext, buildParticipantContextPrompt } = await import("./relationshipContext.js");
-        
-        const detectedSpeaker = detectSelfParticipantFromMessage(safeMessage, relationshipData.speakers);
-        
-        if (detectedSpeaker) {
-          console.log(`[${uid}] 🎯 Detected self-participant from message: ${detectedSpeaker}`);
-          
-          // Persist to Firestore
-          const persistSuccess = await persistSelfParticipant(
-            uid,
-            relationshipData.relationshipId,
-            detectedSpeaker,
-            relationshipData.speakers
-          );
-          
-          if (persistSuccess) {
-            console.log(`[${uid}] ✅ Auto-set selfParticipant to: ${detectedSpeaker}`);
-            
-            // Rebuild relationship context with updated participant mapping
-            const updatedContext = await getActiveRelationshipContext(uid);
-            if (updatedContext) {
-              relationshipData.selfParticipant = updatedContext.selfParticipant;
-              relationshipData.partnerParticipant = updatedContext.partnerParticipant;
-              
-              // Rebuild participant context prompt
-              relationshipData.participantContext = buildParticipantContextPrompt(updatedContext);
-              
-              console.log(`[${uid}] 🔄 Rebuilt participant context with USER=${updatedContext.selfParticipant}, PARTNER=${updatedContext.partnerParticipant}`);
-            }
-          }
-        }
-      }
-      
-      // Inject relationship context
+  if (route.intent === "DEEP_ANALYSIS") {
+    const windowResult = await buildContextWindow(uid, safeMessage);
+    if (windowResult.items && windowResult.items.length > 0) {
       systemMessages.push({
         role: "system",
-        content: relationshipData.context,
+        content: `📎 KONUŞMA PENCERESİ:\n${windowResult.items.join("\n")}\n\n⚠️ ALINTI KURALI: Sadece bu penceredeki ifadeleri kullan. Uydurma yapma.`,
       });
-      
-      // ═══════════════════════════════════════════════════════════════
-      // PATCH C: Detect relationship context change and inject override
-      // ═══════════════════════════════════════════════════════════════
-      const shouldInjectOverride = await checkRelationshipContextChange(
-        uid,
-        relationshipData.relationshipId,
-        relationshipData.updatedAt
-      );
-      
-      if (shouldInjectOverride) {
-        systemMessages.push({
-          role: "system",
-          content: `
-🔄 RELATIONSHIP CONTEXT UPDATED (CRITICAL):
-The active relationship has just been changed or toggled ON.
-IGNORE any previous assumptions about who is who from earlier in this chat.
-Use ONLY the current relationship participants provided above:
-- USER = ${relationshipData.selfParticipant || 'to be determined'}
-- PARTNER = ${relationshipData.partnerParticipant || 'to be determined'}
-
-Previous partner names or relationship details from earlier turns are now INVALID.
-Base all responses on the CURRENT active relationship context only.
-          `.trim(),
-        });
-        console.log(`[${uid}] 🔄 Relationship context change detected - override injected`);
-      }
-      
-      // CRITICAL: Inject participant mapping context
-      if (relationshipData.participantContext) {
-        systemMessages.push({
-          role: "system",
-          content: relationshipData.participantContext,
-        });
-      }
-      
-      console.log(`[${uid}] 📱 Relationship context loaded (retrieval: ${relationshipData.hasRetrieval}, participant mapping: ${!!relationshipData.participantContext})`);
     } else {
-      // ═══════════════════════════════════════════════════════════════
-      // STEP 2: No active relationship - check if user is asking about messages
-      // ═══════════════════════════════════════════════════════════════
-      const readMessagesKeywords = [
-        "son mesaj", "last message", "mesajları oku", "read messages",
-        "mesajları gör", "mesajları incele", "mesajlara bak", "konuşmaları oku",
-        "yazışmaları oku", "sohbetleri oku"
-      ];
-      const messageLower = safeMessage.toLowerCase();
-      const isAskingForMessages = readMessagesKeywords.some(k => messageLower.includes(k));
-      
-      // TASK B: Don't inject system prompt, handle in response below
-      if (isAskingForMessages && isRelQuery) {
-        console.log(`[${uid}] ⚠️ User asking for messages but no active relationship`);
-      } else if (history.length > 0 && isRelQuery) {
-        console.log(`[${uid}] 🚫 No active relationship but relationship query detected`);
+      systemMessages.push({
+        role: "system",
+        content: "⚠️ Bu soruya uygun konuşma penceresi bulunamadı. Spesifik alıntı yapma; gerekirse tek kısa soru sor.",
+      });
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // RELATIONSHIP CONTEXT (metadata only unless DEEP_ANALYSIS)
+  // ═══════════════════════════════════════════════════════════════
+  let relationshipSnapshot = null;
+  try {
+    if (route.intent === "DEEP_ANALYSIS" || isRelQuery) {
+      relationshipSnapshot = await getActiveRelationshipSnapshot(uid);
+    }
+
+    if (relationshipSnapshot) {
+      hasActiveRelationship = true;
+
+      const speakers = relationshipSnapshot.relationship?.speakers || [];
+      if (
+        !relationshipSnapshot.relationshipContext?.selfParticipant &&
+        speakers.length >= 2
+      ) {
+        const detectedSpeaker = detectSelfParticipantFromMessage(
+          safeMessage,
+          speakers
+        );
+        if (detectedSpeaker) {
+          await persistSelfParticipant(
+            uid,
+            relationshipSnapshot.relationshipId,
+            detectedSpeaker,
+            speakers
+          );
+        }
+      }
+
+      if (route.intent === "DEEP_ANALYSIS" && relationshipSnapshot.participantPrompt) {
+        systemMessages.push({
+          role: "system",
+          content: relationshipSnapshot.participantPrompt,
+        });
       }
     }
   } catch (memErr) {
-    console.error(`[${uid}] Failed to load relationship context (non-critical):`, memErr);
+    console.error(`[${uid}] Failed to load relationship metadata:`, memErr);
+  }
+
+  if (route.intent === "DEEP_ANALYSIS" && !relationshipSnapshot) {
+    const reply = buildAppHelpReply();
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: route.intent,
+        retrievalPolicy: route.retrievalPolicy,
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
   }
 
   // ═══════════════════════════════════════════════════════════════
@@ -803,39 +951,6 @@ Base all responses on the CURRENT active relationship context only.
   
   console.log(`[${uid}] Persona built: hasActiveRelationship=${hasActiveRelationship}, isRelQuery=${isRelQuery}`);
   
-  // ═══════════════════════════════════════════════════════════════
-  // TASK B: If relationship query but NO active relationship, return guidance immediately
-  // ═══════════════════════════════════════════════════════════════
-  if (isRelQuery && !hasActiveRelationship) {
-    const guidanceReply = `Şu an bu ilişki aktif değil ${genderPronoun}. "Relationship Upload" panelinden ilişkiyi aktif edersen son mesajlara bakabilirim. Hangi ilişkiyle ilgili konuşmak istiyorsun?`;
-    
-    console.log(`[${uid}] 🚫 Returning guidance for inactive relationship query`);
-    
-    // Save to history
-    await saveConversationHistory(uid, sessionId, safeMessage, guidanceReply, {
-      messages: Array.isArray(rawHistory?.messages) ? rawHistory.messages : [],
-      summary: rawHistory?.summary ?? null,
-      lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
-    }).catch((e) => console.error(`[${uid}] History save error →`, e));
-    
-    return {
-      reply: guidanceReply,
-      extractedTraits,
-      outcomePrediction: undefined,
-      patterns: undefined,
-      meta: {
-        intent,
-        model: "none",
-        premium: isPremium,
-        messageCount: userProfile.messageCount,
-        processingTime: Date.now() - startTime,
-        hadError: false,
-        errorType: null,
-        inactiveRelationshipGuidance: true,
-      },
-    };
-  }
-
   // ═══════════════════════════════════════════════════════════════
   // VISION SUPPORT: Eğer imageUrl varsa, user message'ı vision formatında gönder
   // ═══════════════════════════════════════════════════════════════
@@ -948,15 +1063,7 @@ Previous response was too generic/vague. This time:
    * lastSummaryAt, summary, messages… hiçbir alan artık undefined kalamaz.
    */
 
-  const safeHistoryObject = {
-    messages: Array.isArray(rawHistory?.messages)
-      ? rawHistory.messages
-      : [],
-    summary: rawHistory?.summary ?? null,
-    lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
-  };
-
-  await saveConversationHistory(uid, sessionId, safeMessage, replyText, safeHistoryObject).catch(
+  await saveConversationHistory(uid, sessionId, safeMessage, replyText, historySnapshot).catch(
     (e) => console.error(`[${uid}] History save error →`, e)
   );
 
@@ -972,7 +1079,8 @@ Previous response was too generic/vague. This time:
     outcomePrediction: isPremium ? outcomePrediction : undefined,
     patterns: isPremium ? patterns : undefined,
     meta: {
-      intent,
+      intent: route.intent,
+      localIntent,
       model,
       originalModel,
       usedFallback,

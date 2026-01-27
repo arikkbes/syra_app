@@ -87,12 +87,8 @@ class ChatAppBar extends StatelessWidget {
     Color modeColor;
 
     switch (selectedMode) {
-      case 'deep':
-        modeLabel = 'Derin';
-        modeColor = SyraColors.accent;
-        break;
-      case 'mentor':
-        modeLabel = 'Mentor';
+      case 'dost_aci':
+        modeLabel = 'Dost';
         modeColor = SyraColors.warning;
         break;
       default:
