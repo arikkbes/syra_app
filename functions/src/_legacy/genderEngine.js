@@ -38,7 +38,7 @@ export function detectGenderFromPattern(text) {
 
 /**
  * Smart gender detection combining patterns and AI
- * 
+ *
  * Strategy:
  * 1. Return if already detected
  * 2. Try pattern matching first

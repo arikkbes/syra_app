@@ -3,13 +3,12 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_endpoints.dart';
 
 /// TAROT SERVICE — Handles tarot reading requests and follow-up conversations
 class TarotService {
-  static const String _tarotEndpoint =
-      "https://us-central1-syra-ai-b562f.cloudfunctions.net/tarotReading";
-  static const String _chatEndpoint =
-      "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
+  static const String _tarotEndpoint = ApiEndpoints.tarotReading;
+  static const String _chatEndpoint = ApiEndpoints.syraChatV2;
 
   /// Request a tarot reading for selected cards
   /// Returns JSON string with reading and card metadata
@@ -78,6 +77,7 @@ class TarotService {
 
       final idToken = await user.getIdToken();
       final uri = Uri.parse(_chatEndpoint);
+      print("CHAT_ENDPOINT: $uri");
 
       // Build context message about the tarot reading
       String contextMessage = "Kullanıcı az önce bir tarot açılımı yaptı. ";

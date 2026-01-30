@@ -6,55 +6,74 @@
  */
 
 import { onRequest } from "firebase-functions/v2/https";
+import { defineSecret } from "firebase-functions/params";
+
 import { syraChatHandler } from "./src/http/syraChatHandler.js";
+import { syraChatV2Handler } from "./src/http/syraChatV2.js";
 import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisHandlerV2.js";
 import { tarotReadingHandler } from "./src/http/tarotReadingHandler.js";
 import { relationshipStatsHandler } from "./src/http/relationshipStatsHandler.js";
 
+// ✅ Secrets (Firebase Functions v2) — ÇAKIŞMAMASI İÇİN *_SECRET
+const SUPABASE_URL_SECRET = defineSecret("SUPABASE_URL_SECRET");
+const SUPABASE_SERVICE_ROLE_KEY_SECRET = defineSecret("SUPABASE_SERVICE_ROLE_KEY_SECRET");
+const OPENAI_API_KEY_SECRET = defineSecret("OPENAI_API_KEY_SECRET");
+
 /**
  * Main SYRA chat endpoint
- * 
- * IMPORTANT: Function name kept as 'flortIQChat' to maintain
- * compatibility with existing mobile app builds and deployments.
+ * Function name kept as 'flortIQChat' for backwards compatibility
  */
 export const flortIQChat = onRequest(
   {
     cors: true,
     timeoutSeconds: 120,
     memory: "256MiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
   },
   syraChatHandler
 );
 
 /**
+ * New SYRA chat endpoint (V2)
+ */
+export const syraChatV2 = onRequest(
+  {
+    cors: true,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
+  },
+  syraChatV2Handler
+);
+
+/**
  * Relationship analysis endpoint
- * Analyzes uploaded WhatsApp chat files
  */
 export const analyzeRelationshipChat = onRequest(
   {
     cors: true,
-    timeoutSeconds: 300, // 5 minutes for processing
-    memory: "512MiB",
+    timeoutSeconds: 900,
+    memory: "1GiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
   },
   analyzeRelationshipChatHandler
 );
 
 /**
  * Tarot reading endpoint
- * Generates AI-powered tarot card readings
  */
 export const tarotReading = onRequest(
   {
     cors: true,
     timeoutSeconds: 60,
     memory: "256MiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
   },
   tarotReadingHandler
 );
 
 /**
  * Relationship stats endpoint
- * Returns "Who More?" statistics from uploaded relationship data
  */
 export const getRelationshipStats = onRequest(
   {
@@ -62,6 +81,7 @@ export const getRelationshipStats = onRequest(
     cors: true,
     timeoutSeconds: 60,
     memory: "256MiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
   },
   relationshipStatsHandler
 );

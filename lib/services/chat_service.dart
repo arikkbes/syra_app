@@ -5,13 +5,14 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/firestore_user.dart';
+import '../services/api_endpoints.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// CHAT SERVICE — Handles chat logic, message limits, premium checks
 /// ═══════════════════════════════════════════════════════════════
 ///
 /// Responsibilities:
-/// - Send messages to Cloud Function (flortIQChat)
+/// - Send messages to chat backend (syraChatV2)
 /// - Parse responses
 /// - Handle errors gracefully
 /// - Manage message limits and premium status
@@ -65,8 +66,7 @@ class ChatSendResult {
 }
 
 class ChatService {
-  static const String _endpoint =
-      "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
+  static const String _endpoint = ApiEndpoints.syraChatV2;
 
   static const Duration _requestTimeout = Duration(seconds: 30);
 
@@ -193,6 +193,7 @@ class ChatService {
       final context =
           _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
+      print("CHAT_ENDPOINT: $uri");
 
       final requestBody = {
         "message": userMessage,

@@ -28,8 +28,7 @@ if (!apiKey) {
 }
 
 console.log("✅ OPENAI_API_KEY found");
-console.log(`   Format: ${apiKey.slice(0, 10)}...${apiKey.slice(-4)}`);
-console.log(`   Length: ${apiKey.length} characters\n`);
+console.log("   Ready to test connection\n");
 
 if (!apiKey.startsWith("sk-")) {
   console.warn("⚠️  Warning: Key doesn't start with 'sk-' - might be invalid\n");

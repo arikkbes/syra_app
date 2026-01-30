@@ -26,7 +26,7 @@ export async function getConversationHistory(uid, sessionId) {
 
     if (!historySnap.exists) {
       console.log(`[${uid}] No history found for session ${sessionId}`);
-      return { messages: [], summary: null };
+      return { messages: [], summary: null, lastSummaryAt: null };
     }
 
     const data = historySnap.data();
@@ -34,12 +34,12 @@ export async function getConversationHistory(uid, sessionId) {
     
     return {
       messages: data.messages || [],
-      summary: data.summary || null,
-      lastSummaryAt: data.lastSummaryAt || null,
+      summary: data.summary ?? null,
+      lastSummaryAt: data.lastSummaryAt ?? null,
     };
   } catch (e) {
     console.error(`[${uid}] History load error (session: ${sessionId}):`, e);
-    return { messages: [], summary: null };
+    return { messages: [], summary: null, lastSummaryAt: null };
   }
 }
 
@@ -56,7 +56,8 @@ export async function saveConversationHistory(
   sessionId,
   userMessage,
   assistantReply,
-  historyData
+  historyData,
+  assistantMeta = null
 ) {
   try {
     const historyRef = db
@@ -75,6 +76,7 @@ export async function saveConversationHistory(
       role: "assistant",
       content: assistantReply,
       timestamp: new Date().toISOString(),
+      ...(assistantMeta ? { meta: assistantMeta } : {}),
     };
 
     const updatedMessages = [
@@ -88,8 +90,8 @@ export async function saveConversationHistory(
       (!historyData.lastSummaryAt ||
         updatedMessages.length - (historyData.lastSummaryAt || 0) >= 10);
 
-    let newSummary = historyData.summary;
-    let lastSummaryAt = historyData.lastSummaryAt;
+    let newSummary = historyData.summary ?? null;
+    let lastSummaryAt = historyData.lastSummaryAt ?? null;
 
     if (needsSummary && openai) {
       try {
@@ -110,8 +112,8 @@ export async function saveConversationHistory(
     await historyRef.set(
       {
         messages: updatedMessages,
-        summary: newSummary,
-        lastSummaryAt: lastSummaryAt,
+        summary: newSummary ?? null,
+        lastSummaryAt: lastSummaryAt ?? null,
         lastUpdated: FieldValue.serverTimestamp(),
       },
       { merge: true }

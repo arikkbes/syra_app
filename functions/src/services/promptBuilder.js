@@ -1,0 +1,458 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * SMART SYSTEM PROMPT BUILDER (V1.1)
+ * ═══════════════════════════════════════════════════════════════
+ * Builds a single, rich system prompt for SYRA chat.
+ */
+
+import {
+  buildEvidencePack,
+  getActiveRelationshipSnapshot,
+} from "./relationshipRetrieval.js";
+
+const MAX_FOUND_MESSAGES = 4;
+
+export async function buildSmartSystemPrompt(
+  uid,
+  userMessage,
+  conversationHistory
+) {
+  const meta = {
+    relationship: {
+      hasRelationship: false,
+      relationshipId: null,
+    },
+    messageSearch: {
+      requested: false,
+      found: 0,
+      needsTopicHint: false,
+    },
+    deepAnalysis: {
+      requested: false,
+    },
+  };
+
+  let systemPrompt = `
+Sen SYRA'sın - kullanıcının ilişkisini bilen arkadaşı.
+
+## KİMLİK
+- Türkçe, samimi, "kanka" dili
+- İnsan psikolojisinde uzman
+- Türk kültürünü, mikro dinamikleri, sosyal kodları biliyorsun
+- Yargılamayan ama dürüst bir arkadaş
+- Gerektiğinde acı gerçekleri söyleyebilen biri
+
+## KONUŞMA TARZI
+- Doğal, akıcı, gerçek arkadaş gibi
+- Kısa soru → kısa cevap (1-2 cümle)
+- Derin konu → detaylı ama okunabilir
+- Emoji kullanabilirsin (abartmadan)
+- "ya", "işte", "bak", "kanka" gibi doğal dolgu kelimeleri kullan
+- Her cevabın sonunda soru sorma (bazen sor, bazen sorma)
+
+## YASAKLAR
+- Robot gibi konuşma ("Size yardımcı olabilirim")
+- Sürekli analiz çıktısı verme
+- Her şeye "harika soru!" deme
+- Uydurma mesaj/tarih/kanıt verme
+- Kullanıcıyı yargılama
+
+## KRİTİK KURAL
+- ASLA uydurma mesaj/tarih/timestamp verme. Kanıt yoksa "bulamadım" de.
+- Eğer kanıt bulunamazsa açıkça "bulamadım" de ve daha spesifik bilgi iste
+- İlişki yüklüyse "mesajlara erişemiyorum" deme
+- Kanıt yoksa timestamp veya alıntı verme, sadece özetle
+
+## KANIT KULLANIM KURALLARI (ZORUNLU)
+- "BULUNAN MESAJLAR" bloğundaki satırları AYNEN kopyala/yapıştır
+- Timestamp formatını ASLA değiştirme
+- Saniyeyi yuvarlama veya yaklaşık yazma YASAK
+- "benzer örnek mesaj" UYDURMA
+`;
+
+  // ═══════════════════════════════════════════════════════════
+  // RELATIONSHIP CONTEXT (IF AVAILABLE)
+  // ═══════════════════════════════════════════════════════════
+  const snapshot = await getActiveRelationshipSnapshot(uid);
+  if (snapshot?.relationship) {
+    const {
+      relationship,
+      relationshipContext,
+      participantPrompt,
+      relationshipId,
+    } = snapshot;
+
+    meta.relationship.hasRelationship = true;
+    meta.relationship.relationshipId = relationshipId;
+
+    const relationshipLines = buildRelationshipSummaryLines(
+      relationship,
+      relationshipContext
+    );
+
+    systemPrompt += `
+
+## 📱 KULLANICININ YÜKLÜ İLİŞKİSİ VAR
+${relationshipLines.join("\n")}
+`;
+
+    const statsLines = buildRelationshipStatsLines(relationship);
+    if (statsLines.length) {
+      systemPrompt += `
+
+İstatistikler:
+${statsLines.join("\n")}
+`;
+    }
+
+    const patternLines = buildPatternSummaryLines(relationship);
+    if (patternLines.length) {
+      systemPrompt += `
+
+## ⚠️ TESPİT EDİLEN PATTERN'LER
+(Bunları zorla söyleme, konu açılırsa veya uygun an gelirse kullan)
+${patternLines.join("\n")}
+`;
+    }
+
+    const dynamicLines = buildDynamicContextLines(relationship);
+    if (dynamicLines.length) {
+      systemPrompt += `
+
+## 📈 SON GELİŞMELER
+${dynamicLines.join("\n")}
+`;
+    }
+
+    if (relationship?.dynamic?.currentFocus) {
+      systemPrompt += `
+
+## 🎯 ŞU AN ODAKLANDIĞIN KONU
+${relationship.dynamic.currentFocus}
+`;
+    }
+
+    if (participantPrompt) {
+      systemPrompt += `
+
+## 👥 KATILIMCI EŞLEŞTİRME
+${participantPrompt}
+`;
+    }
+  } else {
+    systemPrompt += `
+
+## 📱 İLİŞKİ DURUMU
+Kullanıcının yüklü bir ilişkisi yok. 
+- Normal sohbet edebilirsin
+- İlişki tavsiyeleri verebilirsin
+- SS analizi yapabilirsin
+- Yeri gelirse ilişki yüklemesini önerebilirsin (zorlamadan)
+`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // MESSAGE SEARCH (SUPABASE) - IF NEEDED
+  // ═══════════════════════════════════════════════════════════
+  const shouldSearch =
+    meta.relationship.hasRelationship && shouldSearchMessages(userMessage);
+  if (shouldSearch) {
+    meta.messageSearch.requested = true;
+    const evidence = await searchMessages(uid, userMessage);
+    const items = (evidence?.items || []).slice(0, MAX_FOUND_MESSAGES);
+    meta.messageSearch.found = items.length;
+    meta.messageSearch.needsTopicHint = !!evidence?.needsTopicHint;
+
+    if (items.length > 0) {
+      const foundLines = formatFoundMessages(items);
+      systemPrompt += `
+
+## ✅ BULUNAN MESAJLAR
+(Aşağıdaki satırlar kanıttır. Sadece bu satırları AYNEN kopyala.)
+${foundLines.join("\n")}
+`;
+    } else {
+      systemPrompt += `
+
+## ❌ MESAJ BULUNAMADI
+Kanıt bulunamadı. "bulamadım" de.
+Kullanıcıdan SADECE TEK bir anahtar kelime veya tarih aralığı iste.
+Asla örnek/benzer mesaj uydurma.
+`;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // DEEP ANALYSIS MODE
+  // ═══════════════════════════════════════════════════════════
+  const wantsDeepAnalysis = isDeepAnalysisRequest(userMessage);
+  meta.deepAnalysis.requested = wantsDeepAnalysis;
+
+  if (wantsDeepAnalysis) {
+    systemPrompt += `
+
+## 🔬 DERİN ANALİZ MODU AKTİF
+Kullanıcı detaylı analiz istedi. Şu formatta cevap ver:
+
+📊 ANALİZ: [Konu]
+
+🔍 Tespit:
+[Net, sayısal verilerle]
+
+📱 Örnek Mesajlar:
+Eğer "✅ BULUNAN MESAJLAR" yoksa "örnek bulamadım" de.
+Varsa sadece gerçek mesajlardan 1-2 satırı AYNEN kopyala.
+Timestamp formatını değiştirme, yeni timestamp uydurma.
+
+🚩 Neden Sorun? / ✅ Neden İyi?
+[Açıklama]
+
+💡 Öneri:
+[Somut adım]
+`;
+  }
+
+  return { systemPrompt: systemPrompt.trim(), meta };
+}
+
+function buildRelationshipSummaryLines(relationship, relationshipContext) {
+  const lines = [];
+  const userSpeaker = relationshipContext?.selfParticipant;
+  const partnerSpeaker = relationshipContext?.partnerParticipant;
+
+  if (userSpeaker || partnerSpeaker) {
+    lines.push(
+      `- Kişiler: ${userSpeaker || "Kullanıcı"} (kullanıcı) ve ${
+        partnerSpeaker || "partner"
+      }`
+    );
+  } else if (relationship?.speakers?.length) {
+    lines.push(`- Konuşmacılar: ${relationship.speakers.join(", ")}`);
+  }
+
+  const dateRange = relationship?.dateRange || {};
+  if (dateRange.start || dateRange.end) {
+    lines.push(`- Tarih aralığı: ${dateRange.start || "?"} → ${dateRange.end || "?"}`);
+  }
+
+  if (typeof relationship?.totalMessages === "number") {
+    lines.push(`- Toplam mesaj: ${relationship.totalMessages}`);
+  }
+
+  const summaryText = extractSummaryText(relationship?.masterSummary);
+  if (summaryText) {
+    lines.push("");
+    lines.push("İlişki Özeti:");
+    lines.push(summaryText);
+  }
+
+  return lines;
+}
+
+function extractSummaryText(masterSummary) {
+  if (!masterSummary) return "";
+  if (typeof masterSummary === "string") return masterSummary;
+  if (typeof masterSummary === "object") {
+    if (masterSummary.shortSummary) return masterSummary.shortSummary;
+    if (masterSummary.summary) return masterSummary.summary;
+  }
+  return "";
+}
+
+function buildRelationshipStatsLines(relationship) {
+  const statsCounts = relationship?.statsCounts || {};
+  const speakers = relationship?.speakers || [];
+  if (!statsCounts?.messageCount || speakers.length === 0) return [];
+
+  const totalMessages = sumCounts(statsCounts.messageCount);
+  const totalLove = sumCounts(statsCounts.loveYou);
+  const totalApology = sumCounts(statsCounts.apology);
+
+  const lines = [];
+  if (speakers.length === 2) {
+    const [a, b] = speakers;
+    lines.push(
+      `- Mesaj: ${a} %${percentOf(statsCounts.messageCount[a], totalMessages)}, ${b} %${percentOf(
+        statsCounts.messageCount[b],
+        totalMessages
+      )}`
+    );
+    if (totalLove > 0) {
+      lines.push(
+        `- Seviyorum: ${a} %${percentOf(statsCounts.loveYou[a], totalLove)}, ${b} %${percentOf(
+          statsCounts.loveYou[b],
+          totalLove
+        )}`
+      );
+    }
+    if (totalApology > 0) {
+      lines.push(
+        `- Özür: ${a} %${percentOf(statsCounts.apology[a], totalApology)}, ${b} %${percentOf(
+          statsCounts.apology[b],
+          totalApology
+        )}`
+      );
+    }
+  } else {
+    lines.push(`- Konuşmacı sayısı: ${speakers.length}`);
+  }
+
+  return lines;
+}
+
+function buildPatternSummaryLines(relationship) {
+  const patterns = relationship?.masterSummary?.patterns || {};
+  const lines = [];
+
+  const redFlags = Array.isArray(patterns.redFlags) ? patterns.redFlags : [];
+  const recurring = Array.isArray(patterns.recurringIssues)
+    ? patterns.recurringIssues
+    : [];
+
+  redFlags.slice(0, 3).forEach((flag) => {
+    lines.push(`- ${flag}`);
+  });
+
+  recurring.slice(0, 3).forEach((issue) => {
+    lines.push(`- ${issue}`);
+  });
+
+  return lines.filter(Boolean);
+}
+
+function buildDynamicContextLines(relationship) {
+  const dynamic = relationship?.dynamic;
+  if (!dynamic) return [];
+
+  const lines = [];
+  if (dynamic?.userRole?.trend === "improving" && dynamic?.userRole?.note) {
+    lines.push(`Kullanıcı son zamanlarda ilerleme kaydediyor: ${dynamic.userRole.note}`);
+    lines.push("Bunu destekle ve cesaretlendir.");
+  }
+
+  return lines;
+}
+
+function formatFoundMessages(items) {
+  return items.map((item) => buildRawLine(item));
+}
+
+function percentOf(value, total) {
+  if (!total || !Number.isFinite(total)) return 0;
+  const safeValue = Number.isFinite(value) ? value : 0;
+  return Math.max(0, Math.round((safeValue / total) * 100));
+}
+
+function sumCounts(counts = {}) {
+  return Object.values(counts).reduce((sum, value) => sum + (value || 0), 0);
+}
+
+export function shouldSearchMessages(message) {
+  const msg = (message || "").toLowerCase();
+  if (!msg) return false;
+
+  const intentTriggers = [
+    "bul",
+    "göster",
+    "goster",
+    "getir",
+    "kanıt",
+    "quote",
+    "alıntı",
+    "alinti",
+    "geçti mi",
+    "gecti mi",
+    "geçiyor mu",
+    "geciyor mu",
+    "kelimesi geçen",
+    "kelimesi gecen",
+    "nerede konuştuk",
+    "nerede konustuk",
+    "ne konuştuk",
+    "ne konustuk",
+    "ne dedik",
+    "ne zaman",
+    "2 kanıt",
+    "2 kanit",
+    "kanıt paketi",
+    "kanit paketi",
+    "evidence",
+  ];
+
+  if (intentTriggers.some((k) => msg.includes(k))) return true;
+  if (hasDateHint(msg)) return true;
+
+  return false;
+}
+
+function hasDateHint(message) {
+  return (
+    /\b\d{4}-\d{1,2}-\d{1,2}\b/.test(message) ||
+    /\b\d{1,2}[\.\/]\d{1,2}(?:[\.\/]\d{2,4})?\b/.test(message) ||
+    /\b(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)\b/.test(
+      message
+    ) ||
+    /\bgeçen\s*(hafta|ay)\b/.test(message)
+  );
+}
+
+export function isDeepAnalysisRequest(message) {
+  const msg = (message || "").toLowerCase();
+  if (!msg) return false;
+
+  const deepAnalysisKeywords = [
+    "derin analiz",
+    "detaylı analiz",
+    "detayli analiz",
+    "derinlemesine analiz",
+    "derin analiz yap",
+    "detaylı incele",
+  ];
+
+  return deepAnalysisKeywords.some((k) => msg.includes(k));
+}
+
+export async function searchMessages(uid, userMessage) {
+  const evidence = await buildEvidencePack(uid, userMessage);
+  return {
+    items: evidence?.items || [],
+    needsTopicHint: !!evidence?.needsTopicHint,
+  };
+}
+
+function maskSensitiveText(text) {
+  if (!text) return "";
+
+  let masked = text;
+
+  // IBAN (TR + 24 digits)
+  masked = masked.replace(/\bTR\d{2}(?:\s?\d{4}){5}\s?\d{2}\b/gi, (match) => {
+    const clean = match.replace(/\s+/g, "");
+    return `TR••••••••••••••••${clean.slice(-4)}`;
+  });
+
+  // Email
+  masked = masked.replace(
+    /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi,
+    "[email]"
+  );
+
+  // Phone numbers (simple)
+  masked = masked.replace(/\+?\d[\d\s().-]{7,}\d/g, (match) => {
+    const digits = match.replace(/\D/g, "");
+    if (digits.length < 8) return match;
+    return `•••${digits.slice(-4)}`;
+  });
+
+  return masked;
+}
+
+function buildRawLine(item) {
+  const sender = item?.sender || "Unknown";
+  const content = item?.matchedLine || "";
+  const timestamp = item?.timestamp || "";
+  if (timestamp) {
+    return `[${timestamp}] ${sender}: ${content}`;
+  }
+  return `${sender}: ${content}`;
+}

@@ -11,7 +11,7 @@ import {
   getUserProfile,
   incrementMessageCount,
 } from "../firestore/userProfileRepository.js";
-import { hasHitBackendLimit } from "../domain/limitEngine.js";
+import { hasHitBackendLimit } from "../_legacy/limitEngine.js";
 
 export async function tarotReadingHandler(req, res) {
   // Basic CORS
