@@ -27,3 +27,17 @@ export const MODEL_FALLBACK = MODEL_GPT4O_MINI; // Fallback if primary fails
 export const MAX_RETRY_ATTEMPTS = 3;
 export const RETRY_BASE_DELAY_MS = 1000; // 1 second base delay
 export const RETRY_MAX_JITTER_MS = 500; // Up to 500ms random jitter
+
+// Response quality guardrails (shared)
+export const GENERIC_FILLER_PHRASES = [
+  "buradayım",
+  "seni dinliyorum",
+  "yardımcı olabilirim",
+  "başka bir şey var mı",
+  "ne düşünüyorsun",
+  "umarım beğenirsin",
+  "ihtiyacın olan her şey",
+  "ne hakkında konuşmak istersin",
+  "neyle ilgilenmek istersin",
+  "ne yapmak istersin",
+];

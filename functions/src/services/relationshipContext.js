@@ -14,7 +14,13 @@ import { db as firestore } from "../config/firebaseAdmin.js";
  * @param {string} uid - User ID
  * @returns {Promise<Object|null>} - { relationshipId, selfParticipant, partnerParticipant, speakers }
  */
-export async function getActiveRelationshipContext(uid) {
+export function isRelationshipEligible(relationshipDoc, forceIncludeInactive = false) {
+  if (forceIncludeInactive) return true;
+  return relationshipDoc?.isActive !== false;
+}
+
+export async function getActiveRelationshipContext(uid, options = {}) {
+  const { forceIncludeInactive = false } = options;
   try {
     console.log(`[${uid}] Getting active relationship context...`);
     
@@ -52,7 +58,7 @@ export async function getActiveRelationshipContext(uid) {
     // ═══════════════════════════════════════════════════════════════
     // BUG FIX #2: Check isActive flag - if false, treat as no relationship
     // ═══════════════════════════════════════════════════════════════
-    if (relationshipDoc.isActive === false) {
+    if (!isRelationshipEligible(relationshipDoc, forceIncludeInactive)) {
       console.log(`[${uid}] Relationship exists but isActive=false`);
       return null;
     }

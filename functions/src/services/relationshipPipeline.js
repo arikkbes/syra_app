@@ -14,9 +14,18 @@
 import { db as firestore, FieldValue } from "../config/firebaseAdmin.js";
 import admin from "../config/firebaseAdmin.js";
 import { openai } from "../config/openaiClient.js";
+import { clearSemanticIndex, indexChunksToSupabase } from "./semanticIndexing.js";
 import crypto from "crypto";
 
 const storage = admin.storage().bucket();
+
+const INVISIBLE_RE = /[\u200E\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g;
+function sanitizeWA(s = "") {
+  return s
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .replace(INVISIBLE_RE, "");
+}
 
 /**
  * Main pipeline entry point
@@ -137,6 +146,9 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
       
       // Clear Storage files
       await clearStorageFolder(uid, relationshipId);
+
+      // Clear semantic index
+      await clearSemanticIndex(uid, relationshipId);
       
       console.log(`[${uid}] Old data cleared successfully`);
     } catch (e) {
@@ -155,7 +167,7 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
     const chunk = chunks[i];
     console.log(`[${uid}] Processing chunk ${i + 1}/${chunks.length}: ${chunk.dateRange}`);
     
-    // Generate chunk summary and keywords with LLM
+    // Generate chunk summary with LLM
     const chunkMeta = await generateChunkIndex(chunk, speakers);
     
     // Save raw chunk to Storage
@@ -170,8 +182,6 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
       endDate: chunk.endDate,
       messageCount: chunk.messages.length,
       speakers: chunk.speakers,
-      keywords: chunkMeta.keywords,
-      topics: chunkMeta.topics,
       sentiment: chunkMeta.sentiment,
       summary: chunkMeta.summary,
       anchors: chunkMeta.anchors,
@@ -238,6 +248,34 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   
   await batch.commit();
   
+  // Step 7: Index chunks for semantic search
+  console.log(`[${uid}] Indexing ${chunkIndexes.length} chunks for semantic search...`);
+  try {
+    await indexChunksToSupabase({ uid, relationshipId: relId, chunkIndexes });
+    await relationshipRef.set(
+      {
+        semanticIndex: {
+          ready: true,
+          indexedChunks: chunkIndexes.length,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error(`[${uid}] Chunk semantic indexing failed:`, e);
+    await relationshipRef.set(
+      {
+        semanticIndex: {
+          ready: false,
+          error: e?.message || String(e),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  }
+
   // Update user's active relationship pointer
   await firestore.collection("users").doc(uid).set({
     activeRelationshipId: relId,
@@ -259,6 +297,7 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
  */
 function parseWhatsAppMessages(text) {
   const messages = [];
+  text = sanitizeWA(text);
   const lines = text.split("\n");
   
   // Support ALL common WhatsApp date patterns:
@@ -304,8 +343,8 @@ function parseWhatsAppMessages(text) {
         currentMessage = {
           date: dateStr,
           timestamp: new Date(dateStr).getTime() || Date.now(),
-          sender: sender.trim(),
-          content: content.trim(),
+          sender: sanitizeWA(sender).trim(),
+          content: sanitizeWA(content).trim(),
         };
         
         matched = true;
@@ -332,17 +371,41 @@ function parseWhatsAppMessages(text) {
     console.log(`[WhatsApp Parser] ... and ${failedParseCount - MAX_FAILED_LOGS} more failed lines (suppressed)`);
   }
   
-  // Filter out system messages
-  return messages.filter(m => 
+  // Normalize Turkish media omitted phrases before filtering
+  for (const msg of messages) {
+    msg.content = msg.content.replace(
+      /görüntü dahil edilmedi|video dahil edilmedi|ses dahil edilmedi|çıkartma dahil edilmedi|cikartma dahil edilmedi/gi,
+      "<Media omitted>"
+    );
+  }
+
+  const parsedCount = messages.length;
+  const filteredMessages = messages.filter(m => 
     !m.content.includes("Messages and calls are end-to-end encrypted") &&
     !m.content.includes("Mesajlar ve aramalar uçtan uca şifrelidir") &&
     !m.content.includes("created group") &&
     !m.content.includes("added you") &&
     !m.content.includes("changed the subject") &&
     !m.content.includes("<Media omitted>") &&
-    !m.content.includes("‎") && // Zero-width space in WhatsApp system messages
     m.content.length > 0
   );
+
+  const speakerCounts = {};
+  for (const msg of filteredMessages) {
+    speakerCounts[msg.sender] = (speakerCounts[msg.sender] || 0) + 1;
+  }
+  const topSpeakers = Object.entries(speakerCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 10);
+  const timestamps = filteredMessages.map(m => m.timestamp).filter(t => Number.isFinite(t));
+  const firstTs = timestamps.length > 0 ? new Date(Math.min(...timestamps)).toISOString() : null;
+  const lastTs = timestamps.length > 0 ? new Date(Math.max(...timestamps)).toISOString() : null;
+
+  console.log(`[WhatsApp Parser] parsedCount=${parsedCount}, filteredCount=${filteredMessages.length}`);
+  console.log(`[WhatsApp Parser] detected speakers (top 10): ${topSpeakers.map(([s, c]) => `${s}(${c})`).join(", ")}`);
+  console.log(`[WhatsApp Parser] firstTs=${firstTs}, lastTs=${lastTs}`);
+
+  return filteredMessages;
 }
 
 /**
@@ -489,7 +552,7 @@ function finalizeChunk(messages, chunkNumber) {
 }
 
 /**
- * Generate chunk index using LLM (summary, keywords, topics, anchors)
+ * Generate chunk index using LLM (summary, sentiment, anchors)
  */
 async function generateChunkIndex(chunk, allSpeakers) {
   // Truncate if too long for LLM
@@ -515,8 +578,6 @@ ${textForAnalysis}
 Şu JSON formatında döndür:
 {
   "summary": "<2-3 cümlelik bu dönemin özeti, Türkçe>",
-  "keywords": ["<en önemli 5-10 anahtar kelime>"],
-  "topics": ["<bu dönemde konuşulan ana konular, 3-5 adet>"],
   "sentiment": "<'positive', 'negative', 'neutral' veya 'mixed'>",
   "anchors": [
     {
@@ -547,8 +608,6 @@ NOT:
     
     return {
       summary: result.summary || "",
-      keywords: result.keywords || [],
-      topics: result.topics || [],
       sentiment: result.sentiment || "neutral",
       anchors: result.anchors || [],
     };
@@ -556,8 +615,6 @@ NOT:
     console.error("generateChunkIndex error:", e);
     return {
       summary: `${chunk.messages.length} mesaj, ${chunk.dateRange}`,
-      keywords: [],
-      topics: [],
       sentiment: "neutral",
       anchors: [],
     };
@@ -687,111 +744,6 @@ export async function getChunkFromStorage(storagePath) {
     console.error(`getChunkFromStorage error (${storagePath}):`, e);
     return null;
   }
-}
-
-/**
- * Search chunks by keyword/topic/date
- * @param {string} uid
- * @param {string} relationshipId
- * @param {string} query - Search query
- * @param {object} dateHint - Optional { startISO, endISO } for date range matching
- */
-export async function searchChunks(uid, relationshipId, query, dateHint = null) {
-  const chunksRef = firestore
-    .collection("relationships")
-    .doc(uid)
-    .collection("relations")
-    .doc(relationshipId)
-    .collection("chunks");
-  
-  const snapshot = await chunksRef.get();
-  const chunks = snapshot.docs.map(doc => doc.data());
-  
-  const queryLower = query.toLowerCase();
-  const queryNormalized = normalizeTurkish(queryLower);
-  const results = [];
-  
-  for (const chunk of chunks) {
-    let score = 0;
-    
-    // ═══════════════════════════════════════════════════════════════
-    // TASK B: Date range matching (primary scoring if dateHint exists)
-    // ═══════════════════════════════════════════════════════════════
-    if (dateHint && dateHint.startISO && dateHint.endISO && chunk.startDate && chunk.endDate) {
-      // Check if chunk overlaps with requested date range
-      // chunk.startDate <= dateHint.endISO AND chunk.endDate >= dateHint.startISO
-      const chunkStart = new Date(chunk.startDate).getTime();
-      const chunkEnd = new Date(chunk.endDate).getTime();
-      const queryStart = new Date(dateHint.startISO).getTime();
-      const queryEnd = new Date(dateHint.endISO).getTime();
-      
-      if (chunkStart <= queryEnd && chunkEnd >= queryStart) {
-        // Overlapping date range - HIGH SCORE
-        score += 10;
-        
-        // Bonus if it's a perfect match (contains the entire query range)
-        if (chunkStart <= queryStart && chunkEnd >= queryEnd) {
-          score += 5;
-        }
-      }
-    }
-    
-    // ═══════════════════════════════════════════════════════════════
-    // TASK C: Keyword-based matching (works even without patterns)
-    // ═══════════════════════════════════════════════════════════════
-    
-    // Keyword match (normalized)
-    if (chunk.keywords?.some(k => {
-      const kNorm = normalizeTurkish(k.toLowerCase());
-      return kNorm.includes(queryNormalized) || queryNormalized.includes(kNorm);
-    })) {
-      score += 3;
-    }
-    
-    // Topic match (normalized)
-    if (chunk.topics?.some(t => {
-      const tNorm = normalizeTurkish(t.toLowerCase());
-      return tNorm.includes(queryNormalized) || queryNormalized.includes(tNorm);
-    })) {
-      score += 2;
-    }
-    
-    // Summary match (normalized)
-    if (chunk.summary) {
-      const summaryNorm = normalizeTurkish(chunk.summary.toLowerCase());
-      if (summaryNorm.includes(queryNormalized)) {
-        score += 1;
-      }
-    }
-    
-    // Legacy date match (fallback if no dateHint but query looks like date)
-    if (!dateHint && chunk.dateRange) {
-      const dateRangeNorm = normalizeTurkish(chunk.dateRange.toLowerCase());
-      if (dateRangeNorm.includes(queryNormalized)) {
-        score += 4;
-      }
-    }
-    
-    if (score > 0) {
-      results.push({ ...chunk, score });
-    }
-  }
-  
-  return results.sort((a, b) => b.score - a.score).slice(0, 5);
-}
-
-/**
- * Normalize Turkish characters for comparison
- */
-function normalizeTurkish(text) {
-  return text
-    .toLowerCase()
-    .replace(/ş/g, "s")
-    .replace(/ı/g, "i")
-    .replace(/ğ/g, "g")
-    .replace(/ö/g, "o")
-    .replace(/ü/g, "u")
-    .replace(/ç/g, "c");
 }
 
 /**
@@ -1131,7 +1083,7 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
     const chunk = newChunks[i];
     console.log(`[${uid}] Processing new chunk ${i + 1}/${newChunks.length}`);
     
-    // Generate chunk summary and keywords with LLM
+    // Generate chunk summary with LLM
     const chunkMeta = await generateChunkIndex(chunk, newSpeakers);
     
     // Save raw chunk to Storage (use timestamp-based ID to avoid collision)
@@ -1146,8 +1098,6 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
       endDate: chunk.endDate,
       messageCount: chunk.messages.length,
       speakers: chunk.speakers,
-      keywords: chunkMeta.keywords,
-      topics: chunkMeta.topics,
       sentiment: chunkMeta.sentiment,
       summary: chunkMeta.summary,
       anchors: chunkMeta.anchors,
@@ -1214,6 +1164,37 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
   }
   
   await batch.commit();
+
+  console.log(`[${uid}] Indexing ${newChunkIndexes.length} new chunks for semantic search...`);
+  try {
+    await indexChunksToSupabase({
+      uid,
+      relationshipId,
+      chunkIndexes: newChunkIndexes,
+    });
+    await relationshipRef.set(
+      {
+        semanticIndex: {
+          ready: true,
+          indexedChunks: existingTotalChunks + newChunks.length,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  } catch (e) {
+    console.error(`[${uid}] Delta chunk indexing failed:`, e);
+    await relationshipRef.set(
+      {
+        semanticIndex: {
+          ready: false,
+          error: e?.message || String(e),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+      },
+      { merge: true }
+    );
+  }
   
   console.log(`[${uid}] Delta update complete`);
   

@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_endpoints.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// STREAMING CHAT SERVICE - Claude/ChatGPT Style
@@ -48,8 +49,7 @@ class StreamChunk {
 }
 
 class ChatServiceStreaming {
-  static const String _endpoint =
-      "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
+  static const String _endpoint = ApiEndpoints.syraChatV2;
 
   // ═══════════════════════════════════════════════════════════════
   // STREAMING MESSAGE SEND
@@ -96,6 +96,7 @@ class ChatServiceStreaming {
       final context =
           _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
+      print("CHAT_ENDPOINT: $uri");
 
       final requestBody = {
         "message": userMessage,

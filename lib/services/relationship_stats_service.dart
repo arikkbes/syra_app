@@ -8,11 +8,11 @@ library;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/api_endpoints.dart';
 
 class RelationshipStatsService {
   // Firebase Cloud Functions URL (from deployment)
-  static const String _baseUrl =
-      'https://getrelationshipstats-qbipkdgczq-uc.a.run.app';
+  static const String _baseUrl = ApiEndpoints.relationshipStats;
 
   /// Fetch relationship stats for the current user
   static Future<Map<String, dynamic>> getStats() async {

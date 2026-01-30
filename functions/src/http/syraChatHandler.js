@@ -16,7 +16,7 @@ import {
   getUserProfile,
   incrementMessageCount,
 } from "../firestore/userProfileRepository.js";
-import { hasHitBackendLimit, getRemainingMessages } from "../domain/limitEngine.js";
+import { hasHitBackendLimit, getRemainingMessages } from "../_legacy/limitEngine.js";
 
 export async function syraChatHandler(req, res) {
   // Basic CORS

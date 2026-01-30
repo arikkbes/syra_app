@@ -9,17 +9,37 @@
  */
 
 import { db as firestore } from "../config/firebaseAdmin.js";
-import { getChunkFromStorage, searchChunks } from "./relationshipPipeline.js";
+import { openai } from "../config/openaiClient.js";
 import {
   getActiveRelationshipContext,
   buildParticipantContextPrompt,
   mapSpeakerToRole,
+  isRelationshipEligible,
 } from "./relationshipContext.js";
+import { getSupabaseClient } from "./supabaseClient.js";
+import { getChunkFromStorage } from "./relationshipPipeline.js";
 
 const MAX_EVIDENCE_ITEMS = 4;
+const EMBEDDING_MODEL = "text-embedding-3-small";
+const MAX_TEXT_LENGTH = 2000;
 
-export async function getActiveRelationshipSnapshot(uid) {
-  const relationshipContext = await getActiveRelationshipContext(uid);
+function isDateOutsideRange(dateHint, dateRange) {
+  if (!dateHint?.start || !dateHint?.end) return false;
+  if (!dateRange?.start || !dateRange?.end) return false;
+  const hintStart = new Date(dateHint.start);
+  const hintEnd = new Date(dateHint.end);
+  const rangeStart = new Date(dateRange.start);
+  const rangeEnd = new Date(dateRange.end);
+  if (Number.isNaN(hintStart.getTime()) || Number.isNaN(hintEnd.getTime())) return false;
+  if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) return false;
+  return hintEnd < rangeStart || hintStart > rangeEnd;
+}
+
+export async function getActiveRelationshipSnapshot(uid, options = {}) {
+  const { forceIncludeInactive = false } = options;
+  const relationshipContext = await getActiveRelationshipContext(uid, {
+    forceIncludeInactive,
+  });
   if (!relationshipContext) {
     return null;
   }
@@ -37,7 +57,7 @@ export async function getActiveRelationshipSnapshot(uid) {
   }
 
   const relationship = relationshipDoc.data();
-  if (relationship.isActive === false) {
+  if (!isRelationshipEligible(relationship, forceIncludeInactive)) {
     return null;
   }
 
@@ -49,8 +69,8 @@ export async function getActiveRelationshipSnapshot(uid) {
   };
 }
 
-export async function getRelationshipBrief(uid) {
-  const snapshot = await getActiveRelationshipSnapshot(uid);
+export async function getRelationshipBrief(uid, options = {}) {
+  const snapshot = await getActiveRelationshipSnapshot(uid, options);
   if (!snapshot) return null;
 
   const { relationshipId, relationship, relationshipContext } = snapshot;
@@ -96,158 +116,262 @@ export function formatRelationshipBrief(brief) {
   ].join("\n");
 }
 
-export async function buildEvidencePack(uid, userMessage) {
-  const snapshot = await getActiveRelationshipSnapshot(uid);
+export async function buildEvidencePack(uid, userMessage, options = {}) {
+  const snapshot = await getActiveRelationshipSnapshot(uid, options);
   if (!snapshot) {
     return { error: "no_active_relationship" };
   }
 
-  const { relationshipId, relationshipContext } = snapshot;
-  const { query, dateHint } = buildSearchQuery(userMessage);
-  const searchQuery = query || userMessage.slice(0, 100);
+  const { relationshipId, relationshipContext, relationship } = snapshot;
+  const { query, dateHint, dateOnly } = buildSearchQuery(userMessage);
 
-  const relevantChunks = await searchChunks(
-    uid,
-    relationshipId,
-    searchQuery,
-    dateHint
-  );
+  if (dateHint && isDateOutsideRange(dateHint, relationship?.dateRange)) {
+    return { error: "date_out_of_range", dateRange: relationship?.dateRange };
+  }
 
-  if (!relevantChunks.length) {
-    return { items: [], query: searchQuery, dateHint };
+  if (!query) {
+    return { items: [], query: "", dateHint, dateOnly, needsTopicHint: dateOnly };
+  }
+
+  let chunkIds = [];
+  try {
+    chunkIds = await semanticSearchChunkIds(uid, relationshipId, query, dateHint);
+  } catch (e) {
+    console.error(`[${uid}] Semantic chunk search failed:`, e);
+    return { items: [], query, dateHint, dateOnly };
+  }
+
+  if (!chunkIds.length) {
+    return { items: [], query, dateHint, dateOnly };
   }
 
   const items = [];
   const seen = new Set();
+  const targetCount =
+    chunkIds.length >= 2
+      ? Math.min(MAX_EVIDENCE_ITEMS, chunkIds.length)
+      : chunkIds.length;
 
-  for (const chunk of relevantChunks) {
-    if (items.length >= MAX_EVIDENCE_ITEMS) break;
+  for (const chunkId of chunkIds) {
+    if (items.length >= targetCount) break;
 
-    const rawContent = await getChunkFromStorage(chunk.storagePath);
-    if (!rawContent) continue;
+    const chunkIndex = await fetchChunkIndex(uid, relationshipId, chunkId);
+    if (!chunkIndex?.storagePath) continue;
 
-    const messages = parseChunkMessages(rawContent);
-    const matches = findMatchingMessageIndexes(messages, searchQuery);
+    const rawChunk = await getChunkFromStorage(chunkIndex.storagePath);
+    const messages = parseChunkMessages(rawChunk);
+    if (!messages.length) continue;
 
-    for (const index of matches) {
-      if (items.length >= MAX_EVIDENCE_ITEMS) break;
+    const messageIndex = findBestMessageIndex(messages, query);
+    const matchedMessage = messages[messageIndex];
+    if (!matchedMessage) continue;
 
-      const message = messages[index];
-      const matchedLine = extractMatchedLine(message.content, searchQuery);
-      const key = `${message.timestamp}|${message.sender}|${matchedLine}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+    const key = `${matchedMessage.timestamp}|${matchedMessage.sender}|${messageIndex}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
 
-      const contextBefore = [];
-      const contextAfter = [];
+    const contextBefore = messages
+      .slice(Math.max(0, messageIndex - 2), messageIndex)
+      .map(formatMessageLine);
+    const contextAfter = messages
+      .slice(messageIndex + 1, messageIndex + 3)
+      .map(formatMessageLine);
 
-      for (let i = Math.max(0, index - 2); i < index; i++) {
-        contextBefore.push(formatMessageLine(messages[i]));
-      }
-      for (let i = index + 1; i <= Math.min(messages.length - 1, index + 2); i++) {
-        contextAfter.push(formatMessageLine(messages[i]));
-      }
+    const matchedLine = extractMatchedLine(matchedMessage.content);
 
-      items.push({
-        timestamp: message.timestamp,
-        sender: message.sender,
-        matchedLine,
-        contextBefore,
-        contextAfter,
-        role: mapSpeakerToRole(message.sender, relationshipContext),
-      });
-    }
+    items.push({
+      timestamp: matchedMessage.timestamp,
+      sender: matchedMessage.sender,
+      matchedLine,
+      contextBefore,
+      contextAfter,
+      role: mapSpeakerToRole(matchedMessage.sender, relationshipContext),
+    });
   }
 
-  return { items, query: searchQuery, dateHint };
+  return { items, query, dateHint, dateOnly };
 }
 
-export async function buildContextWindow(uid, userMessage) {
-  const snapshot = await getActiveRelationshipSnapshot(uid);
+export async function buildContextWindow(uid, userMessage, options = {}) {
+  const snapshot = await getActiveRelationshipSnapshot(uid, options);
   if (!snapshot) {
     return { error: "no_active_relationship" };
   }
 
-  const { relationshipId } = snapshot;
-  const { query, dateHint } = buildSearchQuery(userMessage);
-  const searchQuery = query || userMessage.slice(0, 100);
+  const { relationshipId, relationship } = snapshot;
+  const { query, dateHint, dateOnly } = buildSearchQuery(userMessage);
 
-  const relevantChunks = await searchChunks(
-    uid,
-    relationshipId,
-    searchQuery,
-    dateHint
-  );
-
-  if (!relevantChunks.length) {
-    return { items: [], query: searchQuery, dateHint };
+  if (dateHint && isDateOutsideRange(dateHint, relationship?.dateRange)) {
+    return { error: "date_out_of_range", dateRange: relationship?.dateRange };
   }
 
-  for (const chunk of relevantChunks) {
-    const rawContent = await getChunkFromStorage(chunk.storagePath);
-    if (!rawContent) continue;
-
-    const messages = parseChunkMessages(rawContent);
-    const matches = findMatchingMessageIndexes(messages, searchQuery);
-    if (!matches.length) continue;
-
-    const index = matches[0];
-    const window = sliceWindow(messages, index, 20, 20, 60);
-    const lines = window.map(formatMessageLine);
-
-    return {
-      items: lines,
-      query: searchQuery,
-      dateHint,
-      dateRange: chunk.dateRange,
-    };
+  if (!query) {
+    return { items: [], query: "", dateHint, dateOnly, needsTopicHint: dateOnly };
   }
 
-  return { items: [], query: searchQuery, dateHint };
-}
-
-function sliceWindow(messages, index, beforeCount, afterCount, maxCount) {
-  const total = messages.length;
-  let start = Math.max(0, index - beforeCount);
-  let end = Math.min(total - 1, index + afterCount);
-
-  let windowSize = end - start + 1;
-  if (windowSize < 20) {
-    const missing = 20 - windowSize;
-    const expandBefore = Math.min(start, Math.ceil(missing / 2));
-    const expandAfter = Math.min(total - 1 - end, missing - expandBefore);
-    start -= expandBefore;
-    end += expandAfter;
-    windowSize = end - start + 1;
+  let chunkIds = [];
+  try {
+    chunkIds = await semanticSearchChunkIds(uid, relationshipId, query, dateHint);
+  } catch (e) {
+    console.error(`[${uid}] Semantic chunk search failed:`, e);
+    return { items: [], query, dateHint, dateOnly };
   }
 
-  if (windowSize > maxCount) {
-    end = Math.min(total - 1, start + maxCount - 1);
+  if (!chunkIds.length) {
+    return { items: [], query, dateHint, dateOnly };
   }
 
-  return messages.slice(start, end + 1);
-}
-
-function buildSearchQuery(message) {
-  const parsedDate = parseMessageDate(message);
-  if (parsedDate) {
-    return {
-      query: parsedDate.displayText,
-      dateHint: {
-        startISO: parsedDate.startISO,
-        endISO: parsedDate.endISO,
-      },
-    };
+  const chunkIndex = await fetchChunkIndex(uid, relationshipId, chunkIds[0]);
+  if (!chunkIndex?.storagePath) {
+    return { items: [], query, dateHint, dateOnly };
   }
 
+  const rawChunk = await getChunkFromStorage(chunkIndex.storagePath);
+  const messages = parseChunkMessages(rawChunk);
+  if (!messages.length) {
+    return { items: [], query, dateHint, dateOnly };
+  }
+
+  const messageIndex = findBestMessageIndex(messages, query);
+  const startIndex = Math.max(0, messageIndex - 20);
+  const endIndex = Math.min(messages.length - 1, messageIndex + 20);
+  const lines = messages.slice(startIndex, endIndex + 1).map(formatMessageLine);
   return {
-    query: extractSearchTerms(message),
-    dateHint: null,
+    items: lines,
+    query,
+    dateHint,
+    dateOnly,
   };
 }
 
-function parseChunkMessages(rawContent) {
-  const lines = rawContent.split("\n");
+function buildSearchQuery(message) {
+  const safeMessage = message || "";
+  const parsedDate = parseMessageDate(safeMessage);
+  if (parsedDate) {
+    const cleanedMessage = stripCommandWords(
+      normalizeText(safeMessage.replaceAll(parsedDate.matchedText, " "))
+    );
+    const query = normalizeQueryText(cleanedMessage);
+    return {
+      query,
+      dateHint: {
+        start: parsedDate.startISO,
+        end: parsedDate.endISO,
+      },
+      dateOnly: !query,
+    };
+  }
+
+  const normalized = normalizeQueryText(
+    stripCommandWords(normalizeText(safeMessage))
+  );
+  return {
+    query: normalized,
+    dateHint: null,
+    dateOnly: false,
+  };
+}
+
+function extractMatchedLine(content) {
+  const lines = (content || "").split("\n");
+  return lines[0]?.trim() || "";
+}
+
+function formatMessageLine(message) {
+  const content = message.content?.split("\n")[0] || "";
+  return `[${message.timestamp}] ${message.sender}: ${content}`;
+}
+
+function normalizeText(text) {
+  return (text || "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeQueryText(text) {
+  const cleaned = normalizeText(text || "").replace(/^[:\-–—]+/, "").trim();
+  return cleaned.length >= 3 ? cleaned : "";
+}
+
+function stripCommandWords(text) {
+  let cleaned = text || "";
+  const patterns = [
+    /\b\d+\s*kanıt\b/gi,
+    /\bkanıt\s*ver\b/gi,
+    /\bkanıtla\b/gi,
+    /\bkanıt\b/gi,
+    /\balinti\b/gi,
+    /\balıntı\b/gi,
+    /\btimestamp\b/gi,
+    /\bmesaj(?:lar|ları|ı|i)?\s*(göster|goster|getir)?\b/gi,
+    /\bgöster\b/gi,
+    /\bgoster\b/gi,
+    /\bgetir\b/gi,
+    /\bproof\b/gi,
+    /\bquote\b/gi,
+  ];
+
+  patterns.forEach((pattern) => {
+    cleaned = cleaned.replace(pattern, " ");
+  });
+
+  return normalizeText(cleaned);
+}
+
+async function createEmbeddings(inputs) {
+  if (!openai) {
+    throw new Error("OpenAI client not configured");
+  }
+
+  const response = await openai.embeddings.create({
+    model: EMBEDDING_MODEL,
+    input: inputs,
+  });
+
+  return response.data.map((item) => item.embedding);
+}
+
+async function semanticSearchChunkIds(uid, relationshipId, userMessage, dateHint) {
+  const cleanedQuery = normalizeText(userMessage);
+  if (!cleanedQuery) return [];
+
+  const [embedding] = await createEmbeddings([
+    cleanedQuery.slice(0, MAX_TEXT_LENGTH),
+  ]);
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("match_chunks_v2", {
+    match_count: 5,
+    match_relationship_id: relationshipId,
+    match_uid: uid,
+    query_embedding: embedding,
+    filter_start: dateHint?.start || null,
+    filter_end: dateHint?.end || null,
+  });
+
+  if (error) {
+    throw new Error(`Semantic chunk search failed: ${error.message}`);
+  }
+
+  return (data || [])
+    .map((row) => row.message_id)
+    .filter(Boolean);
+}
+
+async function fetchChunkIndex(uid, relationshipId, chunkId) {
+  const chunkRef = firestore
+    .collection("relationships")
+    .doc(uid)
+    .collection("relations")
+    .doc(relationshipId)
+    .collection("chunks")
+    .doc(chunkId);
+
+  const doc = await chunkRef.get();
+  return doc.exists ? doc.data() : null;
+}
+
+function parseChunkMessages(text) {
+  if (!text) return [];
+  const lines = text.split("\n");
   const messages = [];
   const pattern = /^\[(.+?)\]\s+([^:]+):\s*(.*)$/;
   let current = null;
@@ -256,14 +380,13 @@ function parseChunkMessages(rawContent) {
     const match = line.match(pattern);
     if (match) {
       if (current) messages.push(current);
-      const [, timestamp, sender, content] = match;
       current = {
-        timestamp: timestamp.trim(),
-        sender: sender.trim(),
-        content: content.trim(),
+        timestamp: match[1],
+        sender: match[2].trim(),
+        content: match[3] || "",
       };
-    } else if (current && line.trim()) {
-      current.content += `\n${line.trim()}`;
+    } else if (current) {
+      current.content += `\n${line}`;
     }
   }
 
@@ -271,50 +394,49 @@ function parseChunkMessages(rawContent) {
   return messages;
 }
 
-function findMatchingMessageIndexes(messages, query) {
-  const normalizedQuery = normalizeTurkish(query || "");
-  const tokens = normalizedQuery.split(/\s+/).filter((t) => t.length > 2);
-  const matches = [];
+function findBestMessageIndex(messages, query) {
+  if (!messages.length) return 0;
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return Math.floor(messages.length / 2);
+
+  const words = Array.from(
+    new Set(
+      normalizedQuery
+        .toLowerCase()
+        .split(/\s+/)
+        .filter((word) => word.length >= 3)
+    )
+  );
+
+  if (!words.length) return Math.floor(messages.length / 2);
+
+  let bestIndex = 0;
+  let bestScore = -1;
 
   messages.forEach((message, index) => {
-    const normalizedText = normalizeTurkish(message.content || "");
-    const hit =
-      (normalizedQuery && normalizedText.includes(normalizedQuery)) ||
-      tokens.some((t) => normalizedText.includes(t));
-
-    if (hit) {
-      matches.push(index);
+    const content = normalizeText(message.content).toLowerCase();
+    let score = 0;
+    words.forEach((word) => {
+      if (content.includes(word)) score += 1;
+    });
+    if (content.includes(normalizedQuery.toLowerCase())) {
+      score += 2;
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = index;
     }
   });
 
-  return matches;
-}
-
-function extractMatchedLine(content, query) {
-  const normalizedQuery = normalizeTurkish(query || "");
-  const tokens = normalizedQuery.split(/\s+/).filter((t) => t.length > 2);
-  const lines = content.split("\n");
-
-  for (const line of lines) {
-    const normalizedLine = normalizeTurkish(line);
-    if (
-      (normalizedQuery && normalizedLine.includes(normalizedQuery)) ||
-      tokens.some((t) => normalizedLine.includes(t))
-    ) {
-      return line.trim();
-    }
+  if (bestScore <= 0) {
+    return Math.floor(messages.length / 2);
   }
 
-  return lines[0]?.trim() || content.trim();
+  return bestIndex;
 }
 
-function formatMessageLine(message) {
-  const content = message.content?.split("\n")[0] || "";
-  return `[${message.timestamp}] ${message.sender}: ${content}`;
-}
-
-function normalizeTurkish(text) {
-  return text
+function normalizeMonthName(text) {
+  return (text || "")
     .toLowerCase()
     .replace(/ş/g, "s")
     .replace(/ı/g, "i")
@@ -325,7 +447,7 @@ function normalizeTurkish(text) {
 }
 
 function parseMessageDate(message) {
-  const msgLower = message.toLowerCase();
+  const msgLower = (message || "").toLowerCase();
 
   const monthMap = {
     ocak: 0,
@@ -352,8 +474,9 @@ function parseMessageDate(message) {
     /(\d{1,2})\s*(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)\s*(\d{4})?/i;
   const m1 = msgLower.match(p1);
   if (m1) {
+    const matchOriginal = message.match(p1);
     const day = parseInt(m1[1], 10);
-    const monthName = normalizeTurkish(m1[2]);
+    const monthName = normalizeMonthName(m1[2]);
     const month = monthMap[monthName];
     const year = m1[3] ? parseInt(m1[3], 10) : new Date().getFullYear();
 
@@ -361,6 +484,7 @@ function parseMessageDate(message) {
     const endISO = new Date(year, month, day, 23, 59, 59).toISOString();
 
     return {
+      matchedText: matchOriginal ? matchOriginal[0] : m1[0],
       displayText: `${day} ${m1[2]} ${year}`,
       startISO,
       endISO,
@@ -372,7 +496,8 @@ function parseMessageDate(message) {
     /(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)\s*(\d{4})/i;
   const m2 = msgLower.match(p2);
   if (m2) {
-    const monthName = normalizeTurkish(m2[1]);
+    const matchOriginal = message.match(p2);
+    const monthName = normalizeMonthName(m2[1]);
     const month = monthMap[monthName];
     const year = parseInt(m2[2], 10);
 
@@ -381,6 +506,7 @@ function parseMessageDate(message) {
     const endISO = new Date(year, month, lastDay, 23, 59, 59).toISOString();
 
     return {
+      matchedText: matchOriginal ? matchOriginal[0] : m2[0],
       displayText: `${m2[1]} ${year}`,
       startISO,
       endISO,
@@ -401,6 +527,7 @@ function parseMessageDate(message) {
     const endISO = new Date(year, month, day, 23, 59, 59).toISOString();
 
     return {
+      matchedText: m3[0],
       displayText: `${day}.${month + 1}.${year}`,
       startISO,
       endISO,
@@ -430,6 +557,7 @@ function parseMessageDate(message) {
     ).toISOString();
 
     return {
+      matchedText: m4[0],
       displayText: `${day}.${month}.${year}`,
       startISO,
       endISO,
@@ -438,6 +566,7 @@ function parseMessageDate(message) {
   }
 
   if (/geçen\s*(hafta|ay)/i.test(msgLower)) {
+    const matchOriginal = message.match(/geçen\s*(hafta|ay)/i);
     const now = new Date();
     const isWeek = /hafta/.test(msgLower);
     const daysAgo = isWeek ? 7 : 30;
@@ -448,6 +577,7 @@ function parseMessageDate(message) {
     const startISO = start.toISOString();
 
     return {
+      matchedText: matchOriginal ? matchOriginal[0] : (isWeek ? "geçen hafta" : "geçen ay"),
       displayText: isWeek ? "geçen hafta" : "geçen ay",
       startISO,
       endISO,
@@ -456,6 +586,7 @@ function parseMessageDate(message) {
   }
 
   if (/(\d+)\s*(ay|hafta|gün)\s*önce/i.test(msgLower)) {
+    const matchOriginal = message.match(/(\d+)\s*(ay|hafta|gün)\s*önce/i);
     const match = msgLower.match(/(\d+)\s*(ay|hafta|gün)\s*önce/i);
     const num = parseInt(match[1], 10);
     const unit = match[2];
@@ -469,6 +600,7 @@ function parseMessageDate(message) {
     start.setDate(start.getDate() - daysAgo);
 
     return {
+      matchedText: matchOriginal ? matchOriginal[0] : match[0],
       displayText: `${num} ${unit} önce`,
       startISO: start.toISOString(),
       endISO: now.toISOString(),
@@ -477,7 +609,9 @@ function parseMessageDate(message) {
   }
 
   if (/o\s*(gün|gece|akşam|zaman)/i.test(msgLower)) {
+    const matchOriginal = message.match(/o\s*(gün|gece|akşam|zaman)/i);
     return {
+      matchedText: matchOriginal ? matchOriginal[0] : "o gün",
       displayText: "o gün (belirsiz)",
       startISO: null,
       endISO: null,
@@ -488,78 +622,3 @@ function parseMessageDate(message) {
   return null;
 }
 
-function extractSearchTerms(message) {
-  const stopWords = [
-    "ne",
-    "neden",
-    "nasıl",
-    "kim",
-    "ne zaman",
-    "nerede",
-    "bir",
-    "bu",
-    "şu",
-    "o",
-    "ve",
-    "veya",
-    "ile",
-    "için",
-    "mı",
-    "mi",
-    "mu",
-    "mü",
-    "mısın",
-    "misin",
-    "musun",
-    "müsün",
-    "miyim",
-    "mıyım",
-    "müyüm",
-    "miyim",
-    "var",
-    "yok",
-    "değil",
-    "evet",
-    "hayır",
-    "ben",
-    "sen",
-    "biz",
-    "siz",
-    "onlar",
-    "bana",
-    "sana",
-    "bize",
-    "size",
-    "dedi",
-    "demişti",
-    "söyledi",
-    "yazdı",
-    "ya",
-    "kanka",
-    "abi",
-    "abla",
-  ];
-
-  const allTokens = message
-    .toLowerCase()
-    .replace(/[^\wğüşıöçĞÜŞİÖÇ\s\-_0-9]/g, " ")
-    .split(/\s+/)
-    .filter((w) => w.length > 2);
-
-  const specialTokens = allTokens.filter((token) => {
-    if (/^[a-z]{4,}$/i.test(token)) return true;
-    if (/\d/.test(token)) return true;
-    if (/[-_]/.test(token)) return true;
-    return false;
-  });
-
-  const meaningfulTerms = allTokens.filter((w) => !stopWords.includes(w));
-  const combined = [...new Set([...specialTokens, ...meaningfulTerms.slice(0, 8)])];
-  const finalQuery = combined.join(" ").trim();
-
-  if (!finalQuery) {
-    return message.toLowerCase().replace(/[^\wğüşıöçĞÜŞİÖÇ\s]/g, " ").trim();
-  }
-
-  return finalQuery;
-}

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/relationship_analysis_result.dart';
+import '../services/api_endpoints.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// RELATIONSHIP ANALYSIS SERVICE V2
@@ -13,8 +14,7 @@ import '../models/relationship_analysis_result.dart';
 
 class RelationshipAnalysisService {
   // Cloud Function URL
-  static const String _functionUrl =
-      'https://us-central1-syra-ai-b562f.cloudfunctions.net/analyzeRelationshipChat';
+  static const String _functionUrl = ApiEndpoints.relationshipAnalysis;
 
   /// Upload a WhatsApp chat file and get analysis result
   /// Returns RelationshipAnalysisResult with relationshipId for future reference

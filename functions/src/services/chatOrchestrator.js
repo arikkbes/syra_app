@@ -7,22 +7,25 @@
  */
 
 import { openai } from "../config/openaiClient.js";
-import { detectIntentType, getChatConfig } from "../domain/intentEngine.js";
-import { buildUltimatePersona, normalizeTone, isRelationshipQuery } from "../domain/personaEngine.js";
-import { extractDeepTraits } from "../domain/traitEngine.js";
-import { predictOutcome } from "../domain/outcomePredictionEngine.js";
-import { detectUserPatterns } from "../domain/patternEngine.js";
-import { detectGenderSmart } from "../domain/genderEngine.js";
+import { detectIntentType, getChatConfig } from "../_legacy/intentEngine.js";
+import { buildUltimatePersona, normalizeTone, isRelationshipQuery } from "../_legacy/personaEngine.js";
+import { extractDeepTraits } from "../_legacy/traitEngine.js";
+import { predictOutcome } from "../_legacy/outcomePredictionEngine.js";
+import { detectUserPatterns } from "../_legacy/patternEngine.js";
+import { detectGenderSmart } from "../_legacy/genderEngine.js";
 import { 
   analyzeTurkishCulturalContext,
   extractContextFromMessage,
   generateRedFlagSummary
-} from "../domain/turkishCultureEngine.js"; // MODULE 3
+} from "../_legacy/turkishCultureEngine.js"; // MODULE 3
 import { 
   MODEL_FALLBACK,
+  MODEL_GPT4O,
+  MODEL_GPT4O_MINI,
   MAX_RETRY_ATTEMPTS,
   RETRY_BASE_DELAY_MS,
-  RETRY_MAX_JITTER_MS
+  RETRY_MAX_JITTER_MS,
+  GENERIC_FILLER_PHRASES
 } from "../utils/constants.js";
 
 import {
@@ -112,14 +115,27 @@ function buildAppHelpReply() {
   ].join(" ");
 }
 
-function decideRoute(message) {
+function buildTodayAnchorText() {
+  const formatter = new Intl.DateTimeFormat("tr-TR", {
+    timeZone: "Europe/Istanbul",
+    dateStyle: "full",
+    timeStyle: "short",
+  });
+  return `Bugünün tarihi: ${formatter.format(new Date())} (Europe/Istanbul).`;
+}
+
+function isAppHelpMessage(message) {
+  const msg = (message || "").toLowerCase();
+  return (
+    /(nereden|nasıl|nereye).{0,20}(yükle|yüklen|upload|ekle)/.test(msg) ||
+    /ilişki(yi)?\s+yükle/.test(msg)
+  );
+}
+
+function decideRouteFallback(message) {
   const msg = (message || "").toLowerCase();
 
-  const isAppHelp =
-    /(nereden|nasıl|nereye).{0,20}(yükle|yüklen|upload|ekle)/.test(msg) ||
-    /ilişki(yi)?\s+yükle/.test(msg);
-
-  if (isAppHelp) {
+  if (isAppHelpMessage(msg)) {
     return { intent: "APP_HELP", retrievalPolicy: "OFF" };
   }
 
@@ -135,6 +151,8 @@ function decideRoute(message) {
     "proof",
     "saat kaçta",
     "hangi mesaj",
+    "zipten bak",
+    "zip'ten bak",
   ];
 
   if (evidenceKeywords.some((k) => msg.includes(k))) {
@@ -142,13 +160,19 @@ function decideRoute(message) {
   }
 
   const contextFetchKeywords = [
-    "son kavgamız",
-    "son konuşmamız",
-    "son tartışma",
+    "mesajları getir",
+    "mesajlari getir",
+    "mesajları göster",
+    "mesajlari goster",
+    "whatsapp'ta",
+    "whatsappta",
+    "whatsapp",
+    "sohbetten getir",
+    "sohbetten göster",
+    "o gün ne konuştuk",
+    "o gün ne konustuk",
     "o gün ne dedik",
-    "son mesajlarımız",
-    "son mesajda ne dedi",
-    "son kez ne dedi",
+    "o gün ne konusmustuk",
   ];
 
   if (contextFetchKeywords.some((k) => msg.includes(k))) {
@@ -165,6 +189,8 @@ function decideRoute(message) {
     "toplam mesaj",
     "konuşmacılar",
     "katılımcılar",
+    "istatistik",
+    "kim daha çok",
   ];
 
   if (relBriefKeywords.some((k) => msg.includes(k))) {
@@ -172,6 +198,8 @@ function decideRoute(message) {
   }
 
   const deepAnalysisKeywords = [
+    "derin analiz",
+    "deep analysis",
     "zipten analiz",
     "zip'ten analiz",
     "whatsapp döküm",
@@ -180,6 +208,8 @@ function decideRoute(message) {
     "konuşmalardan analiz",
     "sohbetten analiz",
     "chatten analiz",
+    "derin analiz yap",
+    "derin analizi aç",
   ];
 
   if (deepAnalysisKeywords.some((k) => msg.includes(k))) {
@@ -189,9 +219,22 @@ function decideRoute(message) {
   return { intent: "NORMAL_COACHING", retrievalPolicy: "OFF" };
 }
 
-function formatEvidenceReply(evidence) {
+function decideRouteHybrid(message) {
+  return decideRouteFallback(message);
+}
+
+function formatEvidenceReply(evidence, hintAlreadyRequested = false) {
   if (!evidence.items || evidence.items.length === 0) {
-    return "Kayıtlarda bu kelime/tarih için kanıt bulamadım. Daha net bir anahtar kelime veya tarih aralığı verir misin?";
+    if (!evidence.query && evidence.dateHint && !hintAlreadyRequested) {
+      return "Tarih aralığı tamam. Şimdi tek bir anahtar kelime örneği ver: popeyes, kavga, borç, özür.";
+    }
+    if (!evidence.query && evidence.dateHint && hintAlreadyRequested) {
+      return "İpucu olmadan ZIP'te arama yapamam. Bir anahtar kelime ya da tarih aralığı verirsen bakarım.";
+    }
+    if (hintAlreadyRequested) {
+      return "İpucu olmadan ZIP'te arama yapamam. Bir anahtar kelime ya da tarih aralığı verirsen bakarım.";
+    }
+    return "Kayıtlarda bu kelime/tarih için 0 sonuç buldum. Tek bir anahtar kelime veya tarih aralığı verir misin?";
   }
 
   const lines = [];
@@ -221,15 +264,126 @@ function formatEvidenceReply(evidence) {
   return lines.join("\n");
 }
 
-function formatContextWindowReply(windowResult) {
+function formatContextWindowReply(windowResult, hintAlreadyRequested = false) {
   if (!windowResult.items || windowResult.items.length === 0) {
-    return "İlgili konuşma penceresi bulamadım. Daha net bir anahtar kelime veya tarih aralığı verir misin?";
+    if (!windowResult.query && windowResult.dateHint && !hintAlreadyRequested) {
+      return "Tarih aralığı tamam. Şimdi tek bir anahtar kelime örneği ver: popeyes, kavga, borç, özür.";
+    }
+    if (!windowResult.query && windowResult.dateHint && hintAlreadyRequested) {
+      return "İpucu olmadan ZIP'te arama yapamam. Bir anahtar kelime ya da tarih aralığı verirsen bakarım.";
+    }
+    if (hintAlreadyRequested) {
+      return "İpucu olmadan ZIP'te arama yapamam. Bir anahtar kelime ya da tarih aralığı verirsen bakarım.";
+    }
+    return "İlgili konuşma penceresi için 0 sonuç buldum. Tek bir anahtar kelime veya tarih aralığı verir misin?";
   }
 
   return [
     "İlgili konuşma penceresi (20–60 mesaj):",
     windowResult.items.join("\n"),
   ].join("\n");
+}
+
+function findLastAssistantMeta(historySnapshot) {
+  const messages = Array.isArray(historySnapshot?.messages)
+    ? historySnapshot.messages
+    : [];
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    if (msg?.role === "assistant" && msg?.meta) {
+      return msg.meta;
+    }
+  }
+  return null;
+}
+
+function getPendingToolOffer(historySnapshot) {
+  const messages = Array.isArray(historySnapshot?.messages)
+    ? historySnapshot.messages
+    : [];
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    const toolOffer = msg?.role === "assistant" ? msg?.meta?.pendingToolOffer : null;
+    if (toolOffer?.type && Number.isFinite(toolOffer.remainingTurns)) {
+      if (toolOffer.remainingTurns <= 0) {
+        return null;
+      }
+      return {
+        type: toolOffer.type,
+        remainingTurns: toolOffer.remainingTurns,
+        seedMessage: toolOffer.seedMessage || null,
+      };
+    }
+  }
+  return null;
+}
+
+function hasPreviousToolOffer(historySnapshot, type) {
+  const messages = Array.isArray(historySnapshot?.messages)
+    ? historySnapshot.messages
+    : [];
+  return messages.some(
+    (msg) => msg?.role === "assistant" && msg?.meta?.pendingToolOffer?.type === type
+  );
+}
+
+function isAffirmativeResponse(message) {
+  const msg = (message || "").toLowerCase();
+  return /\b(ev(et)?|olur|tamam|ok|okey|lütfen|isterim|istiyorum|yapalım|bak|bakabilirsin)\b/.test(
+    msg
+  );
+}
+
+function isNegativeResponse(message) {
+  const msg = (message || "").toLowerCase();
+  return /\b(hayır|hayir|istemiyorum|olmasın|gerek yok|şimdi değil|simdi degil)\b/.test(
+    msg
+  );
+}
+
+function isAmbiguousDateQuestion(message) {
+  const msg = (message || "").toLowerCase();
+  const hasDate =
+    /\b\d{1,2}\s*(ocak|şubat|subat|mart|nisan|mayıs|mayis|haziran|temmuz|ağustos|agustos|eylül|eylul|ekim|kasım|kasim|aralık|aralik)(\s*\d{4})?/.test(
+      msg
+    ) ||
+    /\b\d{1,2}[\.\/]\d{1,2}[\.\/]\d{2,4}\b/.test(msg) ||
+    /\b\d{4}-\d{1,2}-\d{1,2}\b/.test(msg);
+  if (!hasDate) return false;
+  const hasAmbiguousCue =
+    msg.includes("ne oldu") ||
+    msg.includes("ne olmuş") ||
+    msg.includes("o gün") ||
+    msg.includes("o gun");
+  if (!hasAmbiguousCue) return false;
+  const hasChatCue =
+    msg.includes("whatsapp") ||
+    msg.includes("sohbet") ||
+    msg.includes("mesaj");
+  const hasWorldCue =
+    msg.includes("dünya") ||
+    msg.includes("tarih") ||
+    msg.includes("haber") ||
+    msg.includes("saldırı") ||
+    msg.includes("olay");
+  return !hasChatCue && !hasWorldCue;
+}
+
+function resolveDateDisambiguationChoice(message) {
+  const msg = (message || "").toLowerCase();
+  if (/(whatsapp|sohbet|zip)/.test(msg)) return "whatsapp";
+  if (/(dünya|dunya|genel|haber|olay)/.test(msg)) return "world";
+  return "unknown";
+}
+
+function shouldOfferRelationshipRetrieval(message) {
+  const msg = (message || "").toLowerCase();
+  return isRelationshipQuery(msg);
+}
+
+function shouldOfferDeepAnalysis(message) {
+  const msg = (message || "").toLowerCase();
+  return /\b(analiz|incele|yorumla)\b/.test(msg);
 }
 
 /**
@@ -404,11 +558,180 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     lastSummaryAt: rawHistory?.lastSummaryAt ?? null,
   };
 
-  // Router-first intent detection (Phase 1)
-  const route = decideRoute(safeMessage);
+  const routingSnapshot = await getActiveRelationshipSnapshot(uid);
+  let hasActiveRelationship = !!routingSnapshot;
+  const lastAssistantMeta = findLastAssistantMeta(historySnapshot);
+  const hintAlreadyRequested = !!lastAssistantMeta?.hintRequested;
+  const pendingOffer = getPendingToolOffer(historySnapshot);
+  const explicitRoute = decideRouteHybrid(safeMessage);
+  const hasExplicitToolIntent = explicitRoute.intent !== "NORMAL_COACHING";
+  const pendingAccepted = pendingOffer && isAffirmativeResponse(safeMessage);
+  const pendingDeclined = pendingOffer && isNegativeResponse(safeMessage);
+
+  let route = hasExplicitToolIntent
+    ? explicitRoute
+    : { intent: "NORMAL_COACHING", retrievalPolicy: "OFF" };
+
+  if (!hasExplicitToolIntent && pendingAccepted) {
+    if (pendingOffer.type === "relationship_retrieval") {
+      route = { intent: "CONTEXT_FETCH", retrievalPolicy: "WINDOW" };
+    }
+    if (pendingOffer.type === "deep_analysis") {
+      route = { intent: "DEEP_ANALYSIS", retrievalPolicy: "DEEP" };
+    }
+  }
+
   console.log(
-    `[${uid}] Route: ${route.intent} (retrieval=${route.retrievalPolicy})`
+    `[${uid}] route=${route.intent} policy=${route.retrievalPolicy} pending=${pendingOffer?.type || "none"} hasActiveRelationship=${hasActiveRelationship}`
   );
+
+  if (
+    !hasExplicitToolIntent &&
+    pendingOffer?.type === "date_disambiguation"
+  ) {
+    const choice = resolveDateDisambiguationChoice(safeMessage);
+    if (choice === "world") {
+      const reply =
+        "Uygulama içinde canlı haber taraması yapamıyorum. Hangi olayı soruyorsun? Kısaca anlatırsan genel bilgi verebilirim.";
+      await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+        (e) => console.error(`[${uid}] History save error →`, e)
+      );
+      return {
+        reply,
+        extractedTraits: getDefaultTraits(),
+        outcomePrediction: undefined,
+        patterns: undefined,
+        meta: {
+          intent: "WORLD_EVENT_CLARIFY",
+          retrievalPolicy: "OFF",
+          model: "none",
+          premium: isPremium,
+          messageCount: userProfile.messageCount,
+          processingTime: Date.now() - startTime,
+          hadError: false,
+          errorType: null,
+        },
+      };
+    }
+    if (choice === "whatsapp") {
+      route = { intent: "CONTEXT_FETCH", retrievalPolicy: "WINDOW" };
+    }
+  }
+
+  if (
+    !hasExplicitToolIntent &&
+    !pendingAccepted &&
+    !pendingDeclined &&
+    hasActiveRelationship &&
+    isAmbiguousDateQuestion(safeMessage)
+  ) {
+    const reply =
+      "Bunu WhatsApp sohbetinden mi soruyorsun, yoksa genel/dünya olayı mı?";
+    const assistantMeta = {
+      pendingToolOffer: {
+        type: "date_disambiguation",
+        remainingTurns: 2,
+        seedMessage: safeMessage,
+      },
+    };
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot, assistantMeta).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: "DATE_DISAMBIGUATION",
+        retrievalPolicy: "OFF",
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  if (
+    !hasExplicitToolIntent &&
+    !pendingAccepted &&
+    !pendingDeclined &&
+    hasActiveRelationship &&
+    shouldOfferDeepAnalysis(safeMessage) &&
+    isRelationshipQuery(safeMessage) &&
+    !hasPreviousToolOffer(historySnapshot, "deep_analysis")
+  ) {
+    const reply = "İstersen derin analiz açayım mı?";
+    const assistantMeta = {
+      pendingToolOffer: {
+        type: "deep_analysis",
+        remainingTurns: 2,
+        seedMessage: safeMessage,
+      },
+    };
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot, assistantMeta).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: "DEEP_ANALYSIS_OFFER",
+        retrievalPolicy: "OFF",
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  if (
+    !hasExplicitToolIntent &&
+    !pendingAccepted &&
+    !pendingDeclined &&
+    hasActiveRelationship &&
+    shouldOfferRelationshipRetrieval(safeMessage) &&
+    !hasPreviousToolOffer(historySnapshot, "relationship_retrieval")
+  ) {
+    const reply = "İstersen konuşmalardan bakayım mı?";
+    const assistantMeta = {
+      pendingToolOffer: {
+        type: "relationship_retrieval",
+        remainingTurns: 2,
+        seedMessage: safeMessage,
+      },
+    };
+    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot, assistantMeta).catch(
+      (e) => console.error(`[${uid}] History save error →`, e)
+    );
+    return {
+      reply,
+      extractedTraits: getDefaultTraits(),
+      outcomePrediction: undefined,
+      patterns: undefined,
+      meta: {
+        intent: "RELATIONSHIP_TOOL_OFFER",
+        retrievalPolicy: "OFF",
+        model: "none",
+        premium: isPremium,
+        messageCount: userProfile.messageCount,
+        processingTime: Date.now() - startTime,
+        hadError: false,
+        errorType: null,
+      },
+    };
+  }
+
+  const effectiveMessage =
+    pendingAccepted && pendingOffer?.seedMessage ? pendingOffer.seedMessage : safeMessage;
 
   if (route.intent === "APP_HELP") {
     const reply = buildAppHelpReply();
@@ -459,12 +782,26 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   }
 
   if (route.intent === "EVIDENCE_REQUEST") {
-    const evidence = await buildEvidencePack(uid, safeMessage);
+    const evidence = await buildEvidencePack(uid, effectiveMessage);
     const reply =
       evidence.error === "no_active_relationship"
-        ? buildAppHelpReply()
-        : formatEvidenceReply(evidence);
-    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+        ? "Şu an aktif bir sohbet yok. İstersen sohbeti yükleyip açalım."
+        : evidence.error === "date_out_of_range"
+        ? `Bu ZIP'in tarih aralığı ${evidence.dateRange?.start || "?"}–${evidence.dateRange?.end || "?"}. Sorduğun tarih bu aralıkta yok.`
+        : formatEvidenceReply(evidence, hintAlreadyRequested);
+    const hintRequestedNow =
+      evidence.error !== "no_active_relationship" &&
+      (!evidence.items || evidence.items.length === 0) &&
+      !hintAlreadyRequested;
+    const assistantMeta = hintRequestedNow ? { hintRequested: true } : null;
+    await saveConversationHistory(
+      uid,
+      sessionId,
+      safeMessage,
+      reply,
+      historySnapshot,
+      assistantMeta
+    ).catch(
       (e) => console.error(`[${uid}] History save error →`, e)
     );
     return {
@@ -486,12 +823,26 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   }
 
   if (route.intent === "CONTEXT_FETCH") {
-    const windowResult = await buildContextWindow(uid, safeMessage);
+    const windowResult = await buildContextWindow(uid, effectiveMessage);
     const reply =
       windowResult.error === "no_active_relationship"
-        ? buildAppHelpReply()
-        : formatContextWindowReply(windowResult);
-    await saveConversationHistory(uid, sessionId, safeMessage, reply, historySnapshot).catch(
+        ? "Şu an aktif bir sohbet yok. İstersen sohbeti yükleyip açalım."
+        : windowResult.error === "date_out_of_range"
+        ? `Bu ZIP'in tarih aralığı ${windowResult.dateRange?.start || "?"}–${windowResult.dateRange?.end || "?"}. Sorduğun tarih bu aralıkta yok.`
+        : formatContextWindowReply(windowResult, hintAlreadyRequested);
+    const hintRequestedNow =
+      windowResult.error !== "no_active_relationship" &&
+      (!windowResult.items || windowResult.items.length === 0) &&
+      !hintAlreadyRequested;
+    const assistantMeta = hintRequestedNow ? { hintRequested: true } : null;
+    await saveConversationHistory(
+      uid,
+      sessionId,
+      safeMessage,
+      reply,
+      historySnapshot,
+      assistantMeta
+    ).catch(
       (e) => console.error(`[${uid}] History save error →`, e)
     );
     return {
@@ -513,7 +864,7 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   }
 
   // Local intent detection for style/config decisions
-  const localIntent = detectIntentType(safeMessage, history);
+  const localIntent = detectIntentType(effectiveMessage, history);
   const configIntent =
     route.intent === "DEEP_ANALYSIS" ? "deep_analysis" : localIntent;
 
@@ -547,14 +898,14 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
 
   if (shouldDeepAnalyze) {
     console.log(`[${uid}] 🔬 Deep analysis requested`);
-    const extractedContext = extractContextFromMessage(safeMessage);
+    const extractedContext = extractContextFromMessage(effectiveMessage);
     turkishCultureAnalysis = analyzeTurkishCulturalContext(extractedContext);
 
     console.log(`[${uid}] 🚩 Deep analysis flags: ${turkishCultureAnalysis.length}`);
   }
 
   // Gender detection
-  let detectedGender = await detectGenderSmart(safeMessage, userProfile);
+  let detectedGender = await detectGenderSmart(effectiveMessage, userProfile);
 
   if (detectedGender !== userProfile.gender && detectedGender !== "belirsiz") {
     await updateUserGender(uid, detectedGender);
@@ -572,7 +923,7 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
 
   if (shouldUseHeavyEngines) {
     extractedTraits = await extractDeepTraits(
-      safeMessage,
+      effectiveMessage,
       replyTo,
       history
     );
@@ -590,7 +941,7 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
     }
 
     outcomePrediction = await predictOutcome(
-      safeMessage,
+      effectiveMessage,
       history,
       isPremium
     );
@@ -630,8 +981,7 @@ export async function processChat(uid, sessionId, message, replyTo, isPremium, i
   // ═══════════════════════════════════════════════════════════════
   // STEP 1 & 2: Detect if query is relationship-related
   // ═══════════════════════════════════════════════════════════════
-  const isRelQuery = isRelationshipQuery(safeMessage);
-  let hasActiveRelationship = false;
+  const isRelQuery = isRelationshipQuery(effectiveMessage);
 
   // Reply context
   const replyContext = replyTo
@@ -657,7 +1007,13 @@ Cevabını buna göre kurgula.
   // System messages - persona will be added after relationship context check
   const systemMessages = [
     { role: "system", content: replyContext },
+    {
+      role: "system",
+      content:
+        "Gerçek dünya olayları/haberler: canlı arama yaptığını iddia etme. Emin değilsen belirsizliği belirt; gerekirse hangi olayı sorduklarını netleştir.",
+    },
   ];
+  systemMessages.push({ role: "system", content: buildTodayAnchorText() });
 
   if (enrichedContext) {
     systemMessages.push({ role: "system", content: enrichedContext });
@@ -671,14 +1027,6 @@ Cevabını buna göre kurgula.
     systemMessages.push({
       role: "system",
       content: "⚠️ ACİL: Daha net ve hızlı çözüm odaklı cevap ver.",
-    });
-  }
-
-  if (extractedTraits.needsSupport) {
-    systemMessages.push({
-      role: "system",
-      content:
-        "💙 Kullanıcı duygusal destek istiyor. Yumuşak ve empatik ol.",
     });
   }
 
@@ -713,92 +1061,6 @@ Eğer konuşma penceresi verildiyse, sadece onu referans al.
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // MODULE 3.1: Intent-Based Question Policy
-  // ═══════════════════════════════════════════════════════════════
-  if (localIntent === "greeting") {
-    // MODULE 3.1.1 HOTFIX 1: Natural greeting with ONE greeting question
-    systemMessages.push({
-      role: "system",
-      content: `
-💬 GREETING MODE (MODULE 3.1.1 HOTFIX)
-
-User sent a simple greeting (selam, naber, etc.).
-Your response:
-"İyiyim kanka. Sende naber?"
-
-RULES:
-✅ ONE natural greeting question: "Sende naber?" or "Sen nasılsın?"
-❌ NO generic topic questions: "Ne hakkında konuşalım?"
-❌ NO extended conversation prompts
-
-Keep it SHORT and NATURAL.
-      `.trim()
-    });
-  } else if (localIntent === "message_drafting") {
-    systemMessages.push({
-      role: "system",
-      content: `
-🎯 MESSAGE DRAFTING MODE (MODULE 3.1.1 HOTFIX)
-
-User wants help writing a message.
-
-STEP 1: Ask ONE short clarification question only if critical info is missing:
-"Kime yazıyorsun ve amaç ne? (barış/ilgi artır/sınır)"
-
-STEP 2: Immediately provide 2-3 draft options anyway (don't wait):
-- Soft: [yumuşak versiyon]
-- Cool: [rahat versiyon]
-- Spicy: [flört/cesur versiyon]
-
-Max 1 question. Always provide drafts even before user answers.
-
-FORBIDDEN:
-❌ "Ne hakkında konuşmak istersin?"
-❌ "Başka bir şey var mı?"
-      `.trim()
-    });
-  } else if (localIntent === "context_missing") {
-    systemMessages.push({
-      role: "system",
-      content: `
-🔍 CONTEXT MISSING MODE (MODULE 3.1)
-
-User wants help but request is vague. Your response:
-1. Make reasonable assumption
-2. Provide solution based on assumption
-3. If truly critical info missing, ask 1 specific question
-
-ALLOWED QUESTION (max 1):
-✅ "Hangi ilişkiden bahsediyorsun?"
-✅ "Kime/neyle ilgili bu?"
-
-THEN provide direct advice. Don't wait for answer.
-      `.trim()
-    });
-  } else if (localIntent === "normal") {
-    // Small talk / normal conversation
-    systemMessages.push({
-      role: "system",
-      content: `
-💬 NORMAL CONVERSATION MODE (MODULE 3.1)
-
-This is small talk or casual conversation.
-Keep response SHORT (1-2 sentences).
-Max 1 short follow-up question only if needed.
-
-Examples:
-User: "Naber"
-✅ "İyi kanka."
-❌ "İyiyim! Sen nasılsın? Ne yapıyorsun?"
-
-User: "İyiyim"
-✅ "Güzel. Bir sorun olursa söyle."
-❌ "İyi! Neyle ilgileniyorsun?"
-      `.trim()
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════
   // A/B explanation helper (non-routing)
   // ═══════════════════════════════════════════════════════════════
   const abKeywords = [
@@ -806,7 +1068,7 @@ User: "İyiyim"
     "a kimdir", "b kimdir", "a ile b"
   ];
   
-  const messageLower = message.toLowerCase();
+  const messageLower = effectiveMessage.toLowerCase();
   const isAbQuestion = abKeywords.some(keyword => messageLower.includes(keyword));
   
   if (isAbQuestion) {
@@ -814,7 +1076,7 @@ User: "İyiyim"
       role: "system",
       content: `
 🔒 A/B EXPLANATION OVERRIDE:
-User is asking what A/B means. Give a brief, friendly explanation (1-2 sentences):
+User is asking what A/B means. Give a brief, friendly explanation:
 
 "A ve B, WhatsApp sohbetinde ilk yazan ve ikinci yazan kişiyi temsil eder. 'Ben A'yım' veya 'Ben B'yim' diyerek seçim yapabilirsin, ya da panelden kendin belirleyebilirsin."
 
@@ -822,22 +1084,6 @@ Keep it simple and actionable.
       `.trim(),
     });
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  // RESPONSE STYLE ENFORCEMENT: ChatGPT-quality concise responses
-  // ═══════════════════════════════════════════════════════════════
-  systemMessages.push({
-    role: "system",
-    content: `
-⚡ STYLE REMINDER (CRITICAL):
-• Keep responses SHORT: 1-2 sentences default
-• NO filler phrases: "Buradayım", "Seni dinliyorum", "Yardımcı olabilirim", etc.
-• MAX 1 question per response
-• NO repeated greetings (only greet once per new chat)
-• Direct action framing: "Tamam. Şunu yap: …"
-• Only expand if user asks or situation requires detail
-    `.trim(),
-  });
 
   const recentHistory = history.slice(-10);
 
@@ -852,7 +1098,7 @@ Keep it simple and actionable.
   }
 
   if (route.intent === "DEEP_ANALYSIS") {
-    const windowResult = await buildContextWindow(uid, safeMessage);
+    const windowResult = await buildContextWindow(uid, effectiveMessage);
     if (windowResult.items && windowResult.items.length > 0) {
       systemMessages.push({
         role: "system",
@@ -869,10 +1115,11 @@ Keep it simple and actionable.
   // ═══════════════════════════════════════════════════════════════
   // RELATIONSHIP CONTEXT (metadata only unless DEEP_ANALYSIS)
   // ═══════════════════════════════════════════════════════════════
-  let relationshipSnapshot = null;
+  let relationshipSnapshot = routingSnapshot;
   try {
     if (route.intent === "DEEP_ANALYSIS" || isRelQuery) {
-      relationshipSnapshot = await getActiveRelationshipSnapshot(uid);
+      relationshipSnapshot =
+        relationshipSnapshot || (await getActiveRelationshipSnapshot(uid));
     }
 
     if (relationshipSnapshot) {
@@ -884,7 +1131,7 @@ Keep it simple and actionable.
         speakers.length >= 2
       ) {
         const detectedSpeaker = detectSelfParticipantFromMessage(
-          safeMessage,
+          effectiveMessage,
           speakers
         );
         if (detectedSpeaker) {
@@ -961,7 +1208,7 @@ Keep it simple and actionable.
     userMessageContent = [
       {
         type: "text",
-        text: safeMessage || "Bu resimle ilgili ne düşünüyorsun?",
+        text: effectiveMessage || "Bu resimle ilgili ne düşünüyorsun?",
       },
       {
         type: "image_url",
@@ -974,7 +1221,7 @@ Keep it simple and actionable.
     console.log(`[${uid}] 📸 Image attached to message → Vision mode enabled`);
   } else {
     // Normal text message
-    userMessageContent = safeMessage;
+    userMessageContent = effectiveMessage;
   }
 
   const contextMessages = [
@@ -1023,13 +1270,12 @@ Keep it simple and actionable.
         {
           role: "system",
           content: `
-⚠️ CRITICAL QUALITY INSTRUCTION:
-Previous response was too generic/vague. This time:
-• Be CONCRETE and SPECIFIC
-• Give 1-3 ACTIONABLE steps
-• Ask MAX 1 clarifying question if truly needed
-• NO filler phrases ("Buradayım", "Yardımcı olabilirim", etc.)
-• Get straight to the point
+⚠️ QUALITY RETRY:
+Previous response was too vague. This time:
+• Be concrete and specific
+• Avoid filler loops ("Buradayım", "Yardımcı olabilirim", etc.)
+• You may ask up to 2 clarifying questions if needed
+• Get to the point when appropriate
           `.trim()
         },
         contextMessages[contextMessages.length - 1] // Last user message
@@ -1063,9 +1309,30 @@ Previous response was too generic/vague. This time:
    * lastSummaryAt, summary, messages… hiçbir alan artık undefined kalamaz.
    */
 
-  await saveConversationHistory(uid, sessionId, safeMessage, replyText, historySnapshot).catch(
-    (e) => console.error(`[${uid}] History save error →`, e)
-  );
+  const carryPendingOffer =
+    pendingOffer &&
+    !hasExplicitToolIntent &&
+    !pendingAccepted &&
+    !pendingDeclined &&
+    pendingOffer.remainingTurns > 1;
+  const assistantMeta = carryPendingOffer
+    ? {
+        pendingToolOffer: {
+          type: pendingOffer.type,
+          remainingTurns: pendingOffer.remainingTurns - 1,
+          seedMessage: pendingOffer.seedMessage,
+        },
+      }
+    : null;
+
+  await saveConversationHistory(
+    uid,
+    sessionId,
+    safeMessage,
+    replyText,
+    historySnapshot,
+    assistantMeta
+  ).catch((e) => console.error(`[${uid}] History save error →`, e));
 
   const processingTime = Date.now() - startTime;
 
@@ -1169,21 +1436,10 @@ function checkIfGenericResponse(text) {
     return true; // Too short
   }
   
-  // Forbidden filler phrases that indicate generic response
-  const fillerPhrases = [
-    "buradayım",
-    "seni dinliyorum",
-    "yardımcı olabilirim",
-    "başka bir şey var mı",
-    "ne düşünüyorsun",
-    "umarım beğenirsin",
-    "ihtiyacın olan her şey",
-  ];
-  
   const lowerText = text.toLowerCase();
   
   // Count how many filler phrases are present
-  const fillerCount = fillerPhrases.filter(phrase => lowerText.includes(phrase)).length;
+  const fillerCount = GENERIC_FILLER_PHRASES.filter(phrase => lowerText.includes(phrase)).length;
   
   // If response is short AND has filler phrases, it's generic
   if (text.length < 100 && fillerCount >= 2) {
