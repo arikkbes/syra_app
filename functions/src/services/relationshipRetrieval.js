@@ -19,7 +19,7 @@ import {
 import { getSupabaseClient } from "./supabaseClient.js";
 import { getChunkFromStorage } from "./relationshipPipeline.js";
 
-const MAX_EVIDENCE_ITEMS = 4;
+const MAX_EVIDENCE_ITEMS = 12;
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_TEXT_LENGTH = 2000;
 
@@ -124,25 +124,35 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
 
   const { relationshipId, relationshipContext, relationship } = snapshot;
   const { query, dateHint, dateOnly } = buildSearchQuery(userMessage);
+  const explicitKeyword = extractExplicitKeywordFromQuery(userMessage);
+  const keywordMode = !!explicitKeyword;
+  const effectiveQuery = keywordMode ? explicitKeyword : query;
+  const matchCount = keywordMode ? 30 : 12;
 
   if (dateHint && isDateOutsideRange(dateHint, relationship?.dateRange)) {
     return { error: "date_out_of_range", dateRange: relationship?.dateRange };
   }
 
-  if (!query) {
+  if (!effectiveQuery) {
     return { items: [], query: "", dateHint, dateOnly, needsTopicHint: dateOnly };
   }
 
   let chunkIds = [];
   try {
-    chunkIds = await semanticSearchChunkIds(uid, relationshipId, query, dateHint);
+    chunkIds = await semanticSearchChunkIds(
+      uid,
+      relationshipId,
+      effectiveQuery,
+      dateHint,
+      matchCount
+    );
   } catch (e) {
     console.error(`[${uid}] Semantic chunk search failed:`, e);
-    return { items: [], query, dateHint, dateOnly };
+    return { items: [], query: effectiveQuery, dateHint, dateOnly };
   }
 
   if (!chunkIds.length) {
-    return { items: [], query, dateHint, dateOnly };
+    return { items: [], query: effectiveQuery, dateHint, dateOnly };
   }
 
   const items = [];
@@ -162,7 +172,7 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
     const messages = parseChunkMessages(rawChunk);
     if (!messages.length) continue;
 
-    const messageIndex = findBestMessageIndex(messages, query);
+    const messageIndex = findBestMessageIndex(messages, effectiveQuery);
     const matchedMessage = messages[messageIndex];
     if (!matchedMessage) continue;
 
@@ -178,6 +188,13 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
       .map(formatMessageLine);
 
     const matchedLine = extractMatchedLine(matchedMessage.content);
+    if (
+      keywordMode &&
+      !containsNormalizedKeyword(matchedLine, explicitKeyword) &&
+      !containsNormalizedKeyword(matchedMessage.content, explicitKeyword)
+    ) {
+      continue;
+    }
 
     items.push({
       timestamp: matchedMessage.timestamp,
@@ -189,7 +206,7 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
     });
   }
 
-  return { items, query, dateHint, dateOnly };
+  return { items, query: effectiveQuery, dateHint, dateOnly };
 }
 
 export async function buildContextWindow(uid, userMessage, options = {}) {
@@ -272,6 +289,42 @@ function buildSearchQuery(message) {
   };
 }
 
+function extractExplicitKeywordFromQuery(message) {
+  const normalized = normalizeTurkishText(message);
+  if (!normalized) return null;
+
+  const patterns = [
+    /\b([a-z0-9]+)\s+kelimesi\s+gecen\b/,
+    /\b([a-z0-9]+)\s+gecen\s+mesaj(?:lari|ları|lar|lari)?\b/,
+    /\b([a-z0-9]+)\s+gecen\b/,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    if (match && match[1]) return match[1];
+  }
+
+  return null;
+}
+
+function normalizeTurkishText(text) {
+  return (text || "")
+    .toLowerCase()
+    .replace(/ş/g, "s")
+    .replace(/ı/g, "i")
+    .replace(/ğ/g, "g")
+    .replace(/ö/g, "o")
+    .replace(/ü/g, "u")
+    .replace(/ç/g, "c");
+}
+
+function containsNormalizedKeyword(text, keyword) {
+  if (!text || !keyword) return false;
+  const normalizedText = normalizeTurkishText(text);
+  const normalizedKeyword = normalizeTurkishText(keyword);
+  return normalizedText.includes(normalizedKeyword);
+}
+
 function extractMatchedLine(content) {
   const lines = (content || "").split("\n");
   return lines[0]?.trim() || "";
@@ -329,7 +382,13 @@ async function createEmbeddings(inputs) {
   return response.data.map((item) => item.embedding);
 }
 
-async function semanticSearchChunkIds(uid, relationshipId, userMessage, dateHint) {
+async function semanticSearchChunkIds(
+  uid,
+  relationshipId,
+  userMessage,
+  dateHint,
+  matchCount = 12
+) {
   const cleanedQuery = normalizeText(userMessage);
   if (!cleanedQuery) return [];
 
@@ -339,7 +398,7 @@ async function semanticSearchChunkIds(uid, relationshipId, userMessage, dateHint
 
   const supabase = getSupabaseClient();
   const { data, error } = await supabase.rpc("match_chunks_v2", {
-    match_count: 5,
+    match_count: matchCount,
     match_relationship_id: relationshipId,
     match_uid: uid,
     query_embedding: embedding,

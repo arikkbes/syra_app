@@ -28,19 +28,23 @@ class StreamChunk {
   final String text;
   final bool isDone;
   final String? error;
+  final bool isBlocked;
+  final String? guard;
 
   const StreamChunk({
     required this.text,
     this.isDone = false,
     this.error,
+    this.isBlocked = false,
+    this.guard,
   });
 
   factory StreamChunk.text(String text) {
     return StreamChunk(text: text, isDone: false);
   }
 
-  factory StreamChunk.done() {
-    return StreamChunk(text: '', isDone: true);
+  factory StreamChunk.done({bool isBlocked = false, String? guard}) {
+    return StreamChunk(text: '', isDone: true, isBlocked: isBlocked, guard: guard);
   }
 
   factory StreamChunk.error(String error) {
@@ -106,6 +110,13 @@ class ChatServiceStreaming {
         "sessionId": sessionId, // MODULE 1: Include session ID
       };
 
+      if (replyingTo != null && replyingTo["text"] != null) {
+        requestBody["replyTo"] = {
+          "role": replyingTo["sender"] == "user" ? "user" : "assistant",
+          "content": replyingTo["text"],
+        };
+      }
+
       if (imageUrl != null && imageUrl.isNotEmpty) {
         requestBody["imageUrl"] = imageUrl;
       }
@@ -139,11 +150,21 @@ class ChatServiceStreaming {
       debugPrint(
           "📦 [StreamingService] Full response: ${responseBody.substring(0, responseBody.length > 200 ? 200 : responseBody.length)}...");
 
+      bool blockedResponse = false;
+      String? blockedGuard;
       try {
         final json = jsonDecode(responseBody) as Map<String, dynamic>;
 
         if (json['success'] == true && json['message'] != null) {
           final fullMessage = json['message'] as String;
+          final meta = json['meta'];
+          final String? guard = meta is Map<String, dynamic>
+              ? meta['guard'] as String?
+              : meta is Map
+                  ? meta['guard'] as String?
+                  : null;
+          blockedGuard = guard;
+          blockedResponse = _isBlockedResponse(json, guard);
 
           // Simulate streaming by yielding word-by-word
           final words = fullMessage.split(' ');
@@ -168,7 +189,7 @@ class ChatServiceStreaming {
       }
 
       // Mark as done
-      yield StreamChunk.done();
+      yield StreamChunk.done(isBlocked: blockedResponse, guard: blockedGuard);
     } catch (e, stackTrace) {
       debugPrint("❌ [StreamingService] Error: $e\n$stackTrace");
       yield StreamChunk.error(
@@ -315,5 +336,25 @@ class ChatServiceStreaming {
       default:
         return "Bir hata oluştu. Tekrar dene.";
     }
+  }
+
+  static bool _isBlockedResponse(Map<String, dynamic> json, String? guard) {
+    if (guard == "credit_block" || guard == "deep_block") return true;
+    final meta = json['meta'];
+    if (meta is Map) {
+      final metaGuard = meta['guard'];
+      if (metaGuard == "credit_block" || metaGuard == "deep_block") {
+        return true;
+      }
+      final metaBlocked = meta['blocked'];
+      if (metaBlocked == true) return true;
+      final metaModel = meta['model'];
+      if (metaModel == "blocked") return true;
+    }
+    final blocked = json['blocked'];
+    if (blocked == true) return true;
+    final model = json['model'];
+    if (model == "blocked") return true;
+    return false;
   }
 }

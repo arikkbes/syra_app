@@ -9,8 +9,99 @@ import {
   buildEvidencePack,
   getActiveRelationshipSnapshot,
 } from "./relationshipRetrieval.js";
+import { openai } from "../config/openaiClient.js";
 
-const MAX_FOUND_MESSAGES = 4;
+const MAX_FOUND_MESSAGES = 8;
+
+export function categorizeFollowUpIntent(message) {
+  const msg = (message || "").toLowerCase().trim();
+  if (!msg) return { type: "new_question", confidence: 1.0 };
+
+  const definitePatterns = [
+    "bi kaç alıntı",
+    "bi kac alinti",
+    "bi kaç tane",
+    "bi kac tane",
+    "birkaç alıntı",
+    "birkac alinti",
+    "daha göster",
+    "daha goster",
+    "devam et",
+    "devam",
+    "kalanı göster",
+    "kalani goster",
+    "kalanı",
+    "kalani",
+    "diğerleri",
+    "digerleri",
+    "başka alıntı",
+    "baska alinti",
+    "başka örnek",
+    "baska ornek",
+    /başka\s+\w+\s+(geçen|gecen)/i,
+  ];
+
+  const hasDefinitePattern = definitePatterns.some((pattern) => {
+    if (typeof pattern === "string") {
+      return msg.includes(pattern);
+    }
+    return pattern.test(msg);
+  });
+
+  if (hasDefinitePattern) {
+    return { type: "definite_followup", confidence: 1.0 };
+  }
+
+  const ambiguousKeywords = ["başka", "baska", "daha"];
+  const words = msg.split(/\s+/);
+  const hasAmbiguous = ambiguousKeywords.some((kw) => words.includes(kw));
+  if (hasAmbiguous) {
+    return { type: "ambiguous", confidence: 0.5 };
+  }
+
+  return { type: "new_question", confidence: 1.0 };
+}
+
+function extractLastSearchQueryFromHistory(history) {
+  if (!Array.isArray(history)) return "";
+
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (!entry || entry.role !== "user") continue;
+    const content = typeof entry.content === "string" ? entry.content.trim() : "";
+    if (!content) continue;
+    if (categorizeFollowUpIntent(content).type !== "new_question") continue;
+    if (shouldSearchMessages(content)) return content;
+  }
+
+  return "";
+}
+
+function lastAssistantHasEvidenceList(history) {
+  if (!Array.isArray(history)) return false;
+  for (let i = history.length - 1; i >= 0; i -= 1) {
+    const entry = history[i];
+    if (!entry || entry.role !== "assistant") continue;
+    const content = String(entry.content || "");
+    if (!content.includes("İşte bulduklarım:")) return false;
+    return content.split("\n").some((line) => line.trim().startsWith("- ["));
+  }
+  return false;
+}
+
+function containsKeywordHint(message, lastQuery) {
+  const msg = normalizeText(message || "").toLowerCase();
+  if (!msg) return false;
+  const tokens = normalizeText(lastQuery || "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length >= 3);
+  return tokens.some((token) => msg.includes(token));
+}
+
+function normalizeText(text) {
+  return (text || "").replace(/\s+/g, " ").trim();
+}
 
 export async function buildSmartSystemPrompt(
   uid,
@@ -26,6 +117,10 @@ export async function buildSmartSystemPrompt(
       requested: false,
       found: 0,
       needsTopicHint: false,
+      followUp: false,
+      lastQueryUsed: "",
+      intentType: "new_question",
+      items: [],
     },
     deepAnalysis: {
       requested: false,
@@ -154,14 +249,34 @@ Kullanıcının yüklü bir ilişkisi yok.
   // ═══════════════════════════════════════════════════════════
   // MESSAGE SEARCH (SUPABASE) - IF NEEDED
   // ═══════════════════════════════════════════════════════════
+  const lastQuery = extractLastSearchQueryFromHistory(conversationHistory);
+  const intent = categorizeFollowUpIntent(userMessage, conversationHistory);
+  let followUp = false;
+  if (intent.type === "definite_followup" && lastQuery) {
+    followUp = true;
+  } else if (intent.type === "ambiguous" && lastQuery) {
+    followUp = await classifyAmbiguousFollowUp(userMessage, conversationHistory);
+  }
   const shouldSearch =
-    meta.relationship.hasRelationship && shouldSearchMessages(userMessage);
+    meta.relationship.hasRelationship &&
+    (shouldSearchMessages(userMessage) || followUp);
+  meta.messageSearch.followUp = followUp;
+  meta.messageSearch.lastQueryUsed = followUp ? lastQuery : "";
+  meta.messageSearch.intentType = intent.type;
   if (shouldSearch) {
     meta.messageSearch.requested = true;
-    const evidence = await searchMessages(uid, userMessage);
+    let searchQuery = userMessage;
+    if (followUp) {
+      console.log(
+        `Follow-up detected, reusing previous search query: ${lastQuery}`
+      );
+      searchQuery = lastQuery;
+    }
+    const evidence = await searchMessages(uid, searchQuery);
     const items = (evidence?.items || []).slice(0, MAX_FOUND_MESSAGES);
     meta.messageSearch.found = items.length;
     meta.messageSearch.needsTopicHint = !!evidence?.needsTopicHint;
+    meta.messageSearch.items = formatFoundMessages(items);
 
     if (items.length > 0) {
       const foundLines = formatFoundMessages(items);
@@ -418,6 +533,47 @@ export async function searchMessages(uid, userMessage) {
     items: evidence?.items || [],
     needsTopicHint: !!evidence?.needsTopicHint,
   };
+}
+
+export async function classifyAmbiguousFollowUp(
+  userMessage,
+  conversationHistory
+) {
+  const lastAssistant = Array.isArray(conversationHistory)
+    ? conversationHistory
+        .slice()
+        .reverse()
+        .find((entry) => entry?.role === "assistant")
+    : null;
+
+  if (!lastAssistant) {
+    return false;
+  }
+
+  const lastContent = String(lastAssistant.content || "").substring(0, 300);
+  const prompt = `Previous assistant message: "${lastContent}"
+
+User's new message: "${userMessage}"
+
+Is the user asking for MORE of the same search results (follow-up), or asking a NEW question?
+Answer only one word: "followup" or "new"`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 5,
+      temperature: 0,
+    });
+
+    const answer = String(
+      response?.choices?.[0]?.message?.content || ""
+    ).toLowerCase();
+    return answer.includes("followup");
+  } catch (err) {
+    console.error("Mini-LLM classifier error:", err);
+    return false;
+  }
 }
 
 function maskSensitiveText(text) {

@@ -15,7 +15,9 @@ import '../../theme/syra_theme.dart';
 import '../../theme/syra_glass.dart';
 import '../../utils/syra_prefs.dart';
 import '../../services/purchase_service.dart';
+import '../../services/firestore_user.dart';
 import '../../models/chat_session.dart';
+import '../../models/user_plan.dart';
 import '../premium_screen.dart';
 
 /// SYRA Settings Modal Sheet - iOS Style with grouped sections
@@ -32,7 +34,8 @@ class SyraSettingsModalSheet extends StatefulWidget {
 }
 
 class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
-  bool _isPremium = false;
+  UserPlan _userPlan = UserPlan.free;
+  bool get _isPremium => _userPlan.isPaid;
   String? _userEmail;
   String _selectedAccentColor = 'gold';
 
@@ -65,12 +68,13 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
 
   Future<void> _loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
-    final isPremium = SyraPrefs.getBool('isPremium', defaultValue: false);
     final accentColor = SyraPrefs.getString('accentColor', defaultValue: 'gold');
+    // Resolve plan from Firestore (replaces stale SyraPrefs isPremium cache)
+    final plan = await FirestoreUser.getPlan();
 
     if (mounted) {
       setState(() {
-        _isPremium = isPremium;
+        _userPlan = plan;
         _userEmail = user?.email;
         _selectedAccentColor = accentColor;
       });
@@ -126,7 +130,8 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
           ),
         );
         if (result) {
-          setState(() => _isPremium = true);
+          final plan = await FirestoreUser.getPlan();
+          setState(() => _userPlan = plan);
         }
       }
     } catch (e) {
@@ -270,7 +275,7 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                   _SettingsRow(
                     icon: Icons.workspace_premium_outlined,
                     label: 'Abonelik',
-                    trailing: _isPremium ? 'SYRA Plus' : 'Ücretsiz',
+                    trailing: _isPremium ? _userPlan.label : 'Ücretsiz',
                     showChevron: false,
                     onTap: () {},
                   ),
