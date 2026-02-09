@@ -1,10 +1,11 @@
+import '../models/user_plan.dart';
 import '../services/firestore_user.dart';
 
 class PromptBuilder {
   static Future<String> buildPrompt(String userMessage) async {
     final settings = await FirestoreUser.getSettings();
     final traits = await FirestoreUser.getAllTraits();
-    final isPremium = await FirestoreUser.isPremium();
+    final plan = await FirestoreUser.getPlan();
 
     final botCharacter = settings["botCharacter"] ?? "default";
     final replyLength = settings["replyLength"] ?? "default";
@@ -22,7 +23,7 @@ $memoryBlock
 ✨ **MOD AYARLARI**
 • Bot karakteri: $botCharacter
 • Yanıt uzunluğu: $replyLength
-• Premium: $isPremium
+• Plan: ${plan.label}
 
 ──────────────────────────────────
 ✨ **KULLANICI MESAJI**

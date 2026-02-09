@@ -2,9 +2,9 @@
 class ApiEndpoints {
   ApiEndpoints._();
 
-  // Legacy chat endpoint (deprecated)
-  // static const String flortIQChat =
-  //     "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
+  // Legacy chat endpoint (kept for reference/backward compatibility)
+  static const String flortIQChat =
+      "https://us-central1-syra-ai-b562f.cloudfunctions.net/flortIQChat";
 
   // New chat endpoint (V2)
   static const String syraChatV2 =

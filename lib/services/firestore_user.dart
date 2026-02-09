@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_plan.dart';
 
 class FirestoreUser {
   static final _firestore = FirebaseFirestore.instance;
@@ -15,14 +16,43 @@ class FirestoreUser {
     return snap.data();
   }
 
-  static Future<bool> isPremium() async {
+  // ─────────────────────────────────────────────────────────────
+  // Plan-based API (Sprint 4)
+  // ─────────────────────────────────────────────────────────────
+
+  /// Resolve the user's plan applying precedence policy:
+  /// 1. plan field valid → use it
+  /// 2. isPremium true → core (legacy fallback)
+  /// 3. else → free
+  static Future<UserPlan> getPlan() async {
     final data = await getUserData();
-    return data?["isPremium"] == true;
+    return UserPlan.parsePlan(
+      data?["plan"],
+      legacyIsPremium: data?["isPremium"] == true,
+    );
+  }
+
+  /// Set the user's plan in Firestore.
+  static Future<void> setPlan(UserPlan plan) async {
+    await _userRef().update({
+      "plan": plan.firestoreValue,
+    });
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // Legacy API (deprecated — use getPlan() instead)
+  // ─────────────────────────────────────────────────────────────
+
+  @Deprecated('Use getPlan() instead')
+  static Future<bool> isPremium() async {
+    final plan = await getPlan();
+    return plan.isPaid;
   }
 
   static Future<void> upgradeToPremium() async {
     await _userRef().update({
       "isPremium": true,
+      "plan": "core",
       "dailyMessageLimit": 99999,
     });
   }
@@ -33,6 +63,7 @@ class FirestoreUser {
       "email": user.email ?? '',
       "createdAt": FieldValue.serverTimestamp(),
 
+      "plan": "free",
       "isPremium": false,
       "dailyMessageLimit": 10,
       "dailyMessageCount": 0,
@@ -67,9 +98,14 @@ class FirestoreUser {
 
   static Future<Map<String, dynamic>> getMessageStatus() async {
     final data = await getUserData();
+    final plan = UserPlan.parsePlan(
+      data?["plan"],
+      legacyIsPremium: data?["isPremium"] == true,
+    );
 
     return {
-      "isPremium": data?["isPremium"] ?? false,
+      "plan": plan,
+      "isPremium": plan.isPaid, // derived from plan for backward compat
       "limit": data?["dailyMessageLimit"] ?? 10,
       "count": data?["dailyMessageCount"] ?? 0,
       "lastMessageDate":

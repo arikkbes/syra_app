@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../models/user_plan.dart';
 import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
 import '../theme/syra_theme.dart';
@@ -23,7 +24,8 @@ class PremiumManagementScreen extends StatefulWidget {
 class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
   bool _loading = true;
   bool _actionLoading = false;
-  bool _isPremium = false;
+  UserPlan _userPlan = UserPlan.free;
+  bool get _isPremium => _userPlan.isPaid;
   int _dailyLimit = 10;
   int _usedToday = 0;
 
@@ -40,7 +42,12 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
       final status = await FirestoreUser.getMessageStatus();
 
       setState(() {
-        _isPremium = status['isPremium'] ?? false;
+        _userPlan = status['plan'] is UserPlan
+            ? status['plan'] as UserPlan
+            : UserPlan.parsePlan(
+                null,
+                legacyIsPremium: status['isPremium'] == true,
+              );
 
         final dynamic rawLimit = status['limit'];
         final dynamic rawCount = status['count'];
@@ -290,7 +297,7 @@ class _PremiumManagementScreenState extends State<PremiumManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _isPremium ? 'Premium Aktif ✨' : 'Free Plan',
+                _isPremium ? '${_userPlan.label} Aktif ✨' : 'Free Plan',
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.w700,

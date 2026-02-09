@@ -20,6 +20,7 @@ import '../services/relationship_memory_service.dart';
 import '../models/chat_session.dart';
 import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
+import '../models/user_plan.dart';
 
 import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
@@ -68,7 +69,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _inputFocusNode = FocusNode();
 
-  bool _isPremium = false;
+  UserPlan _userPlan = UserPlan.free;
+  bool get _isPremium => _userPlan.isPaid;
   int _dailyLimit = 10;
   int _messageCount = 0;
 
@@ -180,7 +182,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       if (!mounted) return;
       setState(() {
-        _isPremium = status['isPremium'] as bool;
+        _userPlan = status['plan'] as UserPlan? ?? UserPlan.free;
         _dailyLimit = status['limit'] as int;
         _messageCount = status['count'] as int;
       });
@@ -188,6 +190,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       debugPrint("initUser error: $e");
       if (!mounted) return;
       setState(() {
+        _userPlan = UserPlan.free;
         _dailyLimit = 10;
         _messageCount = 0;
       });
@@ -1946,7 +1949,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
         if (mounted) {
           setState(() {
-            _isPremium = status['isPremium'] as bool;
+            _userPlan = status['plan'] as UserPlan? ?? UserPlan.free;
             _dailyLimit = status['limit'] as int;
             _messageCount = status['count'] as int;
           });
@@ -1975,12 +1978,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
     // ═══════════════════════════════════════════════════════════════
     // ═══════════════════════════════════════════════════════════════
-    if (!_isPremium &&
-        !forcePremiumForTesting &&
-        _messageCount >= _dailyLimit) {
-      _showLimitReachedDialog();
-      return;
-    }
+    // Client-side daily limit gate removed; backend handles blocking.
 
     final msgId = UniqueKey().toString();
     final now = DateTime.now();
@@ -2185,6 +2183,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               _isLoading = false;
             });
 
+            if (chunk.isBlocked && mounted) {
+              BlurToast.show(context, finalText);
+            }
+
             // Save bot message to session (use lockedSessionId!)
             if (lockedSessionId != null) {
               final saveResult = await ChatSessionService.addMessageToSession(
@@ -2290,6 +2292,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     }
   }
 
+  /// Manual test checklist:
+  /// 1) Free user can send multiple messages; only backend blocks.
+  /// 2) isPremium false no longer causes local block.
   /// Show dialog when daily limit is reached
   void _showLimitReachedDialog() {
     showDialog(

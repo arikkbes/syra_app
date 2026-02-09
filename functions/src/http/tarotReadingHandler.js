@@ -12,6 +12,7 @@ import {
   incrementMessageCount,
 } from "../firestore/userProfileRepository.js";
 import { hasHitBackendLimit } from "../_legacy/limitEngine.js";
+import { resolveUserPlan } from "../services/planResolver.js";
 
 export async function tarotReadingHandler(req, res) {
   // Basic CORS
@@ -85,12 +86,13 @@ export async function tarotReadingHandler(req, res) {
       });
     }
 
-    // User profile
+    // User profile + plan resolution
     const userProfile = await getUserProfile(uid);
-    const isPremium = userProfile.isPremium === true;
+    const plan = await resolveUserPlan(uid);
+    const isPremiumEquivalent = plan !== "free";
 
     // Daily backend limit (tarot also counts as message)
-    if (hasHitBackendLimit(userProfile, isPremium)) {
+    if (hasHitBackendLimit(userProfile, isPremiumEquivalent)) {
       console.log(`[TAROT][${uid}] Daily backend limit hit`);
       return res.status(429).json({
         success: false,
@@ -101,7 +103,7 @@ export async function tarotReadingHandler(req, res) {
 
     // Generate tarot reading
     console.log(`[TAROT][${uid}] Generating reading for cards: ${validCards.join(', ')}`);
-    const result = await generateTarotReading(uid, validCards, userProfile, isPremium);
+    const result = await generateTarotReading(uid, validCards, userProfile, isPremiumEquivalent);
 
     // Increment message count (tarot reading counts as usage)
     incrementMessageCount(uid, userProfile).catch((e) => {
@@ -118,7 +120,7 @@ export async function tarotReadingHandler(req, res) {
       cards: result.cards, // Now includes card metadata (id, code, name)
       meta: {
         processingTime,
-        isPremium,
+        plan,
         cardCount: validCards.length,
       },
     });

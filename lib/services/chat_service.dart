@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/user_plan.dart';
 import '../services/firestore_user.dart';
 import '../services/api_endpoints.dart';
 
@@ -74,17 +75,21 @@ class ChatService {
   // USER STATUS & LIMITS
   // ═══════════════════════════════════════════════════════════════
 
-  /// Get current user's premium status and message limits
+  /// Get current user's plan, premium status and message limits
   ///
   /// Returns a map with:
-  /// - isPremium: bool
+  /// - plan: UserPlan
+  /// - isPremium: bool (derived from plan, for backward compat)
   /// - limit: int (daily message limit)
   /// - count: int (current message count)
   static Future<Map<String, dynamic>> getUserStatus() async {
     try {
       final status = await FirestoreUser.getMessageStatus();
 
-      final bool isPremium = status["isPremium"] == true;
+      final UserPlan plan = status["plan"] is UserPlan
+          ? status["plan"] as UserPlan
+          : UserPlan.free;
+      final bool isPremium = plan.isPaid;
       int limit =
           status["limit"] is num ? (status["limit"] as num).toInt() : 10;
       int count = status["count"] is num ? (status["count"] as num).toInt() : 0;
@@ -94,6 +99,7 @@ class ChatService {
       count = count.clamp(0, limit);
 
       return {
+        'plan': plan,
         'isPremium': isPremium,
         'limit': limit,
         'count': count,
@@ -102,6 +108,7 @@ class ChatService {
       debugPrint("❌ [ChatService] getUserStatus error: $e");
       // Return safe defaults on error
       return {
+        'plan': UserPlan.free,
         'isPremium': false,
         'limit': 10,
         'count': 0,
@@ -201,6 +208,13 @@ class ChatService {
         "mode": mode,
         "sessionId": sessionId, // MODULE 1: Include session ID
       };
+
+      if (replyingTo != null && replyingTo["text"] != null) {
+        requestBody["replyTo"] = {
+          "role": replyingTo["sender"] == "user" ? "user" : "assistant",
+          "content": replyingTo["text"],
+        };
+      }
 
       if (imageUrl != null && imageUrl.isNotEmpty) {
         requestBody["imageUrl"] = imageUrl;

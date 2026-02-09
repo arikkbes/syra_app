@@ -17,6 +17,7 @@ import {
   incrementMessageCount,
 } from "../firestore/userProfileRepository.js";
 import { hasHitBackendLimit, getRemainingMessages } from "../_legacy/limitEngine.js";
+import { resolveUserPlan } from "../services/planResolver.js";
 
 export async function syraChatHandler(req, res) {
   // Basic CORS
@@ -114,12 +115,13 @@ export async function syraChatHandler(req, res) {
       console.log(`[${uid}] Tarot follow-up question detected`);
     }
 
-    // User profile
+    // User profile + plan resolution
     const userProfile = await getUserProfile(uid);
-    const isPremium = userProfile.isPremium === true;
+    const plan = await resolveUserPlan(uid);
+    const isPremiumEquivalent = plan !== "free";
 
     // STEP 5: Daily backend limit with remaining count in response
-    if (hasHitBackendLimit(userProfile, isPremium)) {
+    if (hasHitBackendLimit(userProfile, isPremiumEquivalent)) {
       console.log(`[${uid}] Daily backend limit hit`);
       return res.status(429).json({
         success: false,
@@ -127,7 +129,7 @@ export async function syraChatHandler(req, res) {
         code: "DAILY_LIMIT_REACHED",
         meta: {
           remaining: 0,
-          isPremium: false,
+          plan,
         },
       });
     }
@@ -150,7 +152,7 @@ export async function syraChatHandler(req, res) {
       sessionId, // MODULE 1: Pass sessionId
       message, 
       replyTo, 
-      isPremium, 
+      isPremiumEquivalent, 
       imageUrl, 
       validMode,
       hasTarotContext ? tarotContext : null
@@ -171,6 +173,7 @@ export async function syraChatHandler(req, res) {
         outcomePrediction: result.outcomePrediction || null,
         patterns: result.patterns || null,
         totalProcessingTime: Date.now() - startTime,
+        plan,
       },
     };
 
