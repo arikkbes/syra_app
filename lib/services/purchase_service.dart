@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
-import 'firestore_user.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// REVENUECAT PURCHASE SERVICE v3.0 - LAZY INITIALIZATION
@@ -98,7 +97,7 @@ class PurchaseService {
       final customerInfo = await Purchases.getCustomerInfo();
       final hasEntitlement =
           customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
-              false;
+          false;
       debugPrint("💎 [PurchaseService] Premium status: $hasEntitlement");
       return hasEntitlement;
     } catch (e) {
@@ -147,8 +146,9 @@ class PurchaseService {
       final products = await getProducts();
       if (products.isEmpty) return null;
 
-      final specificProduct =
-          products.where((p) => p.identifier == productId).firstOrNull;
+      final specificProduct = products
+          .where((p) => p.identifier == productId)
+          .firstOrNull;
       if (specificProduct != null) {
         return specificProduct;
       }
@@ -187,27 +187,26 @@ class PurchaseService {
 
       final package = offerings.current!.availablePackages.first;
 
-      debugPrint("🛒 [PurchaseService] Purchasing: ${package.storeProduct.identifier}");
+      debugPrint(
+        "🛒 [PurchaseService] Purchasing: ${package.storeProduct.identifier}",
+      );
 
       final customerInfo = await Purchases.purchasePackage(package);
 
       final hasEntitlement =
           customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
-              false;
+          false;
 
       if (hasEntitlement) {
         debugPrint("✅ [PurchaseService] Purchase successful!");
-
-        try {
-          await FirestoreUser.upgradeToPremium();
-          debugPrint("✅ [PurchaseService] Firestore premium upgrade complete");
-        } catch (e) {
-          debugPrint("⚠️ [PurchaseService] Firestore upgrade error: $e");
-        }
+        // TODO(server-sync): Plan/isPremium is now server-managed.
+        // Do not write user plan directly from client.
 
         return true;
       } else {
-        debugPrint("⚠️ [PurchaseService] Purchase completed but entitlement not active");
+        debugPrint(
+          "⚠️ [PurchaseService] Purchase completed but entitlement not active",
+        );
         return false;
       }
     } on PurchasesErrorCode catch (e) {
@@ -241,17 +240,12 @@ class PurchaseService {
 
       final hasEntitlement =
           customerInfo.entitlements.all[entitlementIdentifier]?.isActive ??
-              false;
+          false;
 
       if (hasEntitlement) {
         debugPrint("✅ [PurchaseService] Purchases restored successfully");
-
-        try {
-          await FirestoreUser.upgradeToPremium();
-          debugPrint("✅ [PurchaseService] Firestore updated after restore");
-        } catch (e) {
-          debugPrint("⚠️ [PurchaseService] Firestore update error: $e");
-        }
+        // TODO(server-sync): Plan/isPremium is now server-managed.
+        // Do not write user plan directly from client.
 
         return true;
       } else {
@@ -295,6 +289,25 @@ class PurchaseService {
       debugPrint("✅ [PurchaseService] User logged out from RevenueCat");
     } catch (e) {
       debugPrint("⚠️ [PurchaseService] Logout error: $e");
+    }
+  }
+
+  /// Open store subscription management page.
+  static Future<bool> openSubscriptionManagement() async {
+    if (!await ensureInitialized()) {
+      debugPrint("⚠️ [PurchaseService] Cannot open management - init failed");
+      return false;
+    }
+
+    try {
+      final dynamic purchasesDynamic = Purchases;
+      await purchasesDynamic.showManageSubscriptions();
+      return true;
+    } catch (e) {
+      debugPrint(
+        "⚠️ [PurchaseService] showManageSubscriptions not available: $e",
+      );
+      return false;
     }
   }
 

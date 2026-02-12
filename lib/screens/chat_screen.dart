@@ -31,11 +31,9 @@ import '../widgets/syra_top_haze_with_holes.dart';
 import '../widgets/syra_bottom_haze.dart';
 import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 import '../widgets/attachment_options_sheet.dart'; // NEW: Modern attachment picker
+import '../utils/subscription_flow.dart';
 
-import 'premium_screen.dart';
-import 'settings/settings_modal_sheet.dart';
 import 'chat_sessions_sheet.dart';
-import 'premium_management_screen.dart';
 import 'tarot_mode_screen.dart';
 
 // RelationshipRadarBody - unified analysis + scoreboard screen
@@ -260,7 +258,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         await _loadChatSessions();
       } else {
         debugPrint(
-            "❌ Failed to create initial session: ${result.debugMessage}");
+          "❌ Failed to create initial session: ${result.debugMessage}",
+        );
       }
     }
   }
@@ -294,8 +293,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // Use jumpTo for instant scroll without animation during streaming
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_scrollController.hasClients) {
-              _scrollController
-                  .jumpTo(_scrollController.position.maxScrollExtent);
+              _scrollController.jumpTo(
+                _scrollController.position.maxScrollExtent,
+              );
             }
           });
         }
@@ -365,10 +365,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       ),
     ]);
 
-    await showSyraContextMenu(
-      context: ctx,
-      actions: actions,
-    );
+    await showSyraContextMenu(context: ctx, actions: actions);
   }
 
   /// Handle copy message action (silent - no toast)
@@ -382,7 +379,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle feedback change (like/dislike)
   Future<void> _handleFeedbackChanged(
-      Map<String, dynamic> msg, String? newFeedback) async {
+    Map<String, dynamic> msg,
+    String? newFeedback,
+  ) async {
     final messageId = msg['id'] as String?;
     if (messageId == null || _currentSessionId == null) return;
 
@@ -413,20 +412,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         msg['feedback'] = null;
       });
       BlurToast.show(
-          context, result.errorMessage ?? 'Geri bildirim kaydedilemedi');
+        context,
+        result.errorMessage ?? 'Geri bildirim kaydedilemedi',
+      );
     }
   }
 
-  /// Navigate to premium screen based on premium status
+  /// Open centralized upgrade flow in settings sheet
   void _navigateToPremium() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => _isPremium
-            ? const PremiumManagementScreen()
-            : const PremiumScreen(),
-      ),
-    );
+    openPaywallSheet(context, initialTab: SubscriptionTab.core);
   }
 
   /// Start a new chat
@@ -453,9 +447,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
     }
 
-    final result = await ChatSessionService.createSession(
-      title: 'Yeni Sohbet',
-    );
+    final result = await ChatSessionService.createSession(title: 'Yeni Sohbet');
 
     if (result.success && result.sessionId != null && mounted) {
       setState(() {
@@ -526,8 +518,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide:
-                    BorderSide(color: SyraTokens.accent.withOpacity(0.6)),
+                borderSide: BorderSide(
+                  color: SyraTokens.accent.withOpacity(0.6),
+                ),
               ),
             ),
             onSubmitted: (v) {
@@ -594,7 +587,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       BlurToast.show(context, 'Sohbet adı güncellendi');
     } else {
       BlurToast.show(
-          context, result.errorMessage ?? 'Sohbet adı değiştirilemedi');
+        context,
+        result.errorMessage ?? 'Sohbet adı değiştirilemedi',
+      );
     }
   }
 
@@ -673,7 +668,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Cancel any in-flight streaming response
       if (_activeRequestId != null) {
         debugPrint(
-            "⚠️ [ChatScreen] Cancelling in-flight request due to session deletion");
+          "⚠️ [ChatScreen] Cancelling in-flight request due to session deletion",
+        );
         setState(() {
           _activeRequestId =
               null; // This will cause streaming chunks to be ignored
@@ -795,8 +791,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           .doc(user.uid)
           .collection('chat_sessions')
           .doc(session.id)
-          .update(
-              {'isArchived': true, 'archivedAt': FieldValue.serverTimestamp()});
+          .update({
+            'isArchived': true,
+            'archivedAt': FieldValue.serverTimestamp(),
+          });
 
       // Remove from local list
       setState(() {
@@ -829,9 +827,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   void _startTarotMode() {
     Navigator.push(
       context,
-      CupertinoPageRoute(
-        builder: (context) => const TarotModeScreen(),
-      ),
+      CupertinoPageRoute(builder: (context) => const TarotModeScreen()),
     );
   }
 
@@ -849,8 +845,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _isRelationshipPanelOpen = true;
 
     // Load relationship memory - include inactive ones for panel UI
-    final memory =
-        await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
+    final memory = await RelationshipMemoryService.getMemory(
+      forceIncludeInactive: true,
+    );
 
     if (!mounted) {
       _isRelationshipPanelOpen = false;
@@ -893,10 +890,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         setState(() {
           _isUploadingInBackground = false;
         });
-        BlurToast.show(
-          context,
-          "❌ Dosya seçimi başarısız: ${e.toString()}",
-        );
+        BlurToast.show(context, "❌ Dosya seçimi başarısız: ${e.toString()}");
       }
     }
   }
@@ -920,8 +914,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     try {
       // Determine if this is an update or new upload
       String? existingRelationshipId;
-      final currentMemory =
-          await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
+      final currentMemory = await RelationshipMemoryService.getMemory(
+        forceIncludeInactive: true,
+      );
       if (currentMemory != null && !forceUpdate) {
         existingRelationshipId = currentMemory.id;
       }
@@ -951,7 +946,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         setState(() {
           _isUploadingInBackground = false;
           _showMismatchCard = true;
-          _mismatchReason = analysisResult.mismatchReason ??
+          _mismatchReason =
+              analysisResult.mismatchReason ??
               'Farklı bir ilişki tespit edildi';
           _mismatchExistingRelationshipId = existingRelationshipId;
           _panelRefreshTrigger++; // Increment for didUpdateWidget
@@ -1213,10 +1209,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // ✅ Update sheet to hide loading
         _sheetSetState?.call(() {});
 
-        BlurToast.show(
-          context,
-          "❌ Güncelleme başarısız: ${e.toString()}",
-        );
+        BlurToast.show(context, "❌ Güncelleme başarısız: ${e.toString()}");
       }
     }
   }
@@ -1474,10 +1467,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             color: SyraTokens.background.withOpacity(0.8),
             border: Border(
-              bottom: BorderSide(
-                color: SyraTokens.divider,
-                width: 0.5,
-              ),
+              bottom: BorderSide(color: SyraTokens.divider, width: 0.5),
             ),
           ),
           child: Row(
@@ -1896,12 +1886,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       context: context,
       selectedMode: _selectedMode,
       onModeSelected: (mode) {
+        if (mode == 'dost_aci' && _userPlan == UserPlan.free) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                "Dost Acı Söyler modu CORE/PLUS'ta açık kanka. İstersen normal modda devam edelim.",
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 4),
+              action: SnackBarAction(
+                label: "CORE'a geç",
+                onPressed: () {
+                  openPaywallSheet(context, initialTab: SubscriptionTab.core);
+                },
+              ),
+            ),
+          );
+          return;
+        }
+
         setState(() {
           _selectedMode = mode;
         });
       },
       anchorPosition: Offset(
-          centerX, 72), // Below Dynamic Island (56px header + 16px padding)
+        centerX,
+        72,
+      ), // Below Dynamic Island (56px header + 16px padding)
       onShow: () {
         setState(() {
           _isModeSelectorOpen = true;
@@ -2014,8 +2025,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
 
     // Scroll to bottom after user message (with animation)
-    Future.delayed(const Duration(milliseconds: 100),
-        () => _scrollToBottom(smooth: false));
+    Future.delayed(
+      const Duration(milliseconds: 100),
+      () => _scrollToBottom(smooth: false),
+    );
 
     // ═══════════════════════════════════════════════════════════════
     // PATCH C: Auto-detect selfParticipant from "ben X'yim" patterns
@@ -2034,9 +2047,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     // ═══════════════════════════════════════════════════════════════
     if (_currentSessionId == null) {
       // Create session with temporary title
-      final result = await ChatSessionService.createSession(
-        title: 'New chat',
-      );
+      final result = await ChatSessionService.createSession(title: 'New chat');
       if (result.success && result.sessionId != null) {
         setState(() {
           _currentSessionId = result.sessionId;
@@ -2048,8 +2059,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } else {
       // Session exists - update title if this is first message
-      final userMessageCount =
-          _messages.where((m) => m['sender'] == 'user').length;
+      final userMessageCount = _messages
+          .where((m) => m['sender'] == 'user')
+          .length;
       if (userMessageCount == 1) {
         await ChatSessionService.updateSession(
           sessionId: _currentSessionId!,
@@ -2224,7 +2236,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // MICRO FIX: Only add message if still in the same session
           if (_currentSessionId != lockedSessionId) {
             debugPrint(
-                "⚠️ Ignoring first chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)");
+              "⚠️ Ignoring first chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)",
+            );
             return;
           }
 
@@ -2256,7 +2269,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // MICRO FIX: Only append if still in the same session
           if (_currentSessionId != lockedSessionId) {
             debugPrint(
-                "⚠️ Ignoring subsequent chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)");
+              "⚠️ Ignoring subsequent chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)",
+            );
             return;
           }
 
@@ -2451,7 +2465,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                     _sidebarOpen = false;
                     _dragOffset = 0.0;
                   }),
-                  userName: FirebaseAuth.instance.currentUser?.displayName ??
+                  userName:
+                      FirebaseAuth.instance.currentUser?.displayName ??
                       'Kullanıcı',
                   userEmail: FirebaseAuth.instance.currentUser?.email,
                   sessions: _chatSessions,
@@ -2506,16 +2521,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   },
                   onSettingsTap: () {
                     // DO NOT close sidebar - sheet will appear over it
-                    // Show Claude-style modal settings sheet
-                    showModalBottomSheet(
-                      context: context,
-                      useRootNavigator: true,
-                      isScrollControlled: true,
-                      backgroundColor: Colors.transparent,
-                      barrierColor: Colors.black.withOpacity(0.40),
-                      builder: (_) =>
-                          SyraSettingsModalSheet(hostContext: context),
-                    );
+                    openSettingsSheet(context, focusUpgradeSection: false);
                   },
                 ),
 
@@ -2524,8 +2530,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                   builder: (context) {
                     final screenWidth = MediaQuery.of(context).size.width;
                     // Match sidebar width (72% clamped to 260-320)
-                    final maxDragOffset =
-                        (screenWidth * 0.72).clamp(260.0, 320.0);
+                    final maxDragOffset = (screenWidth * 0.72).clamp(
+                      260.0,
+                      320.0,
+                    );
 
                     // Calculate current offset based on state
                     final targetOffset = _sidebarOpen ? maxDragOffset : 0.0;
@@ -2545,8 +2553,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       },
                       onHorizontalDragUpdate: (details) {
                         setState(() {
-                          _dragOffset = (_dragOffset + details.delta.dx)
-                              .clamp(0.0, maxDragOffset);
+                          _dragOffset = (_dragOffset + details.delta.dx).clamp(
+                            0.0,
+                            maxDragOffset,
+                          );
                         });
                       },
                       onHorizontalDragEnd: (details) {
@@ -2573,8 +2583,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       child: AnimatedContainer(
                         duration:
                             _dragOffset == 0.0 || _dragOffset == maxDragOffset
-                                ? const Duration(milliseconds: 300)
-                                : Duration.zero,
+                            ? const Duration(milliseconds: 300)
+                            : Duration.zero,
                         curve: Curves.easeOutCubic,
                         transform: Matrix4.translationValues(
                           _sidebarOpen ? maxDragOffset : _dragOffset,
@@ -2609,11 +2619,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                             // Conditional body: Chat vs Radar mode
                             child: _bodyMode == ChatBodyMode.relationshipRadar
                                 ? _radarMemory != null
-                                    ? RelationshipRadarBody(
-                                        memory: _radarMemory!,
-                                        onMenuTap: _toggleSidebar,
-                                      )
-                                    : _buildRadarLoadingState()
+                                      ? RelationshipRadarBody(
+                                          memory: _radarMemory!,
+                                          onMenuTap: _toggleSidebar,
+                                        )
+                                      : _buildRadarLoadingState()
                                 : Stack(
                                     children: [
                                       // Layer 1: SyraBackground (visible texture for blur)
@@ -2638,10 +2648,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                             _inputFocusNode.requestFocus();
                                             _controller.selection =
                                                 TextSelection.fromPosition(
-                                              TextPosition(
-                                                  offset:
-                                                      _controller.text.length),
-                                            );
+                                                  TextPosition(
+                                                    offset:
+                                                        _controller.text.length,
+                                                  ),
+                                                );
                                           },
                                           messages: _messages,
                                           scrollController: _scrollController,
@@ -2654,8 +2665,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                             setState(() {
                                               _swipedMessageId = msg["id"];
                                               _swipeOffset =
-                                                  (_swipeOffset + delta)
-                                                      .clamp(0, 30);
+                                                  (_swipeOffset + delta).clamp(
+                                                    0,
+                                                    30,
+                                                  );
                                             });
                                           },
                                           onSwipeEnd: (msg, shouldReply) {
@@ -2679,10 +2692,9 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       // Settings: blur 0.9, scrim 0.55-0.18, feather 22px at top
                                       Builder(
                                         builder: (context) {
-                                          final bottomInset =
-                                              MediaQuery.of(context)
-                                                  .padding
-                                                  .bottom;
+                                          final bottomInset = MediaQuery.of(
+                                            context,
+                                          ).padding.bottom;
                                           final hazeHeight = bottomInset + 60.0;
 
                                           return Positioned(
@@ -2726,16 +2738,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                             onVoiceInputTap: _handleVoiceInput,
                                             onSendMessage: _sendMessage,
                                             onCancelReply: () => setState(
-                                                () => _replyingTo = null),
+                                              () => _replyingTo = null,
+                                            ),
                                             onClearImage: _clearPendingImage,
                                             onTextChanged: () =>
                                                 setState(() {}),
                                             onCameraTap: () =>
                                                 _pickImageForPreview(
-                                                    ImageSource.camera),
+                                                  ImageSource.camera,
+                                                ),
                                             onGalleryTap: () =>
                                                 _pickImageForPreview(
-                                                    ImageSource.gallery),
+                                                  ImageSource.gallery,
+                                                ),
                                             onModeTap: _handleModeSelection,
                                             onRelationshipTap:
                                                 _handleDocumentUpload,
@@ -2749,7 +2764,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                       // Layer 5.5: Scroll-to-bottom button (ChatGPT-style centered)
                                       if (_userScrolledUp)
                                         Positioned(
-                                          bottom: _inputBarHeight +
+                                          bottom:
+                                              _inputBarHeight +
                                               20, // 20px above input bar
                                           left: 0,
                                           right: 0,
@@ -2786,7 +2802,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                                               36.0, // 16 padding + 20 radius
                                           rightButtonCenterX:
                                               36.0, // same from right
-                                          buttonCenterY: topInset +
+                                          buttonCenterY:
+                                              topInset +
                                               28.0, // center of 56px bar
                                           holeRadius:
                                               20.0, // INCREASED: 20 button + 10 margin
@@ -2850,10 +2867,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       decoration: BoxDecoration(
         color: SyraTokens.background,
         border: Border(
-          bottom: BorderSide(
-            color: SyraTokens.divider,
-            width: 0.5,
-          ),
+          bottom: BorderSide(color: SyraTokens.divider, width: 0.5),
         ),
       ),
       child: Row(
@@ -2874,11 +2888,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
               ),
             ),
           ),
-          Expanded(
-            child: Center(
-              child: _buildModeTrigger(),
-            ),
-          ),
+          Expanded(child: Center(child: _buildModeTrigger())),
           _TapScale(
             onTap: _handleDocumentUpload,
             child: Container(
@@ -3204,10 +3214,12 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
   }
 
   Future<void> _loadLatestMemory() async {
-    final memory =
-        await RelationshipMemoryService.getMemory(forceIncludeInactive: true);
+    final memory = await RelationshipMemoryService.getMemory(
+      forceIncludeInactive: true,
+    );
     if (mounted && memory != null) {
-      final isNewMemory = _displayMemory == null ||
+      final isNewMemory =
+          _displayMemory == null ||
           _displayMemory!.id != memory.id ||
           _displayMemory!.shortSummary != memory.shortSummary;
 
@@ -3286,9 +3298,12 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
     if (value) {
       // Turning ON: Set activeRelationshipId and isActive=true
       await RelationshipMemoryService.setActiveRelationship(
-          _displayMemory!.id!);
-      success = await RelationshipMemoryService.updateIsActive(value,
-          relationshipId: _displayMemory!.id!);
+        _displayMemory!.id!,
+      );
+      success = await RelationshipMemoryService.updateIsActive(
+        value,
+        relationshipId: _displayMemory!.id!,
+      );
     } else {
       // Turning OFF: Clear activeRelationshipId and set isActive=false
       final user = FirebaseAuth.instance.currentUser;
@@ -3298,8 +3313,10 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
             .doc(user.uid)
             .update({'activeRelationshipId': null});
       }
-      success = await RelationshipMemoryService.updateIsActive(value,
-          relationshipId: _displayMemory!.id!);
+      success = await RelationshipMemoryService.updateIsActive(
+        value,
+        relationshipId: _displayMemory!.id!,
+      );
     }
 
     if (!mounted) return;
@@ -3311,8 +3328,9 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
       });
 
       // Update display memory
-      final updatedMemory =
-          await RelationshipMemoryService.getMemoryById(_displayMemory!.id!);
+      final updatedMemory = await RelationshipMemoryService.getMemoryById(
+        _displayMemory!.id!,
+      );
       if (mounted && updatedMemory != null) {
         setState(() {
           _displayMemory = updatedMemory;
@@ -3351,9 +3369,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-            ),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Sil'),
           ),
         ],
@@ -3465,9 +3481,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
             ],
 
             // Forget Button (if memory exists)
-            if (_displayMemory != null) ...[
-              _buildForgetButton(),
-            ],
+            if (_displayMemory != null) ...[_buildForgetButton()],
           ],
         ),
       ),
@@ -3583,11 +3597,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
         children: [
           Row(
             children: [
-              Icon(
-                Icons.warning_rounded,
-                color: Colors.orange[400],
-                size: 20,
-              ),
+              Icon(Icons.warning_rounded, color: Colors.orange[400], size: 20),
               const SizedBox(width: 8),
               const Expanded(
                 child: Text(
@@ -3817,8 +3827,9 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
                 child: AnimatedAlign(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
-                  alignment:
-                      _isActive ? Alignment.centerRight : Alignment.centerLeft,
+                  alignment: _isActive
+                      ? Alignment.centerRight
+                      : Alignment.centerLeft,
                   child: Container(
                     width: 22,
                     height: 22,
@@ -3899,16 +3910,19 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
                 return _TapScale(
                   onTap: () => _handleSelfParticipantSelection(speaker),
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: isSelected
                           ? SyraTokens.accent.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color:
-                            isSelected ? SyraTokens.accent : SyraTokens.border,
+                        color: isSelected
+                            ? SyraTokens.accent
+                            : SyraTokens.border,
                         width: 1.5,
                       ),
                     ),
@@ -3931,8 +3945,9 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
                                 ? SyraTokens.accent
                                 : SyraTokens.textPrimary,
                             fontSize: 14,
-                            fontWeight:
-                                isSelected ? FontWeight.w600 : FontWeight.w500,
+                            fontWeight: isSelected
+                                ? FontWeight.w600
+                                : FontWeight.w500,
                           ),
                         ),
                       ],
@@ -3994,10 +4009,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
               const SizedBox(height: 8),
               Text(
                 _displayMemory!.dateRangeFormatted,
-                style: TextStyle(
-                  color: SyraTokens.textMuted,
-                  fontSize: 12,
-                ),
+                style: TextStyle(color: SyraTokens.textMuted, fontSize: 12),
               ),
             ],
           ],
@@ -4039,10 +4051,7 @@ class _TapScale extends StatefulWidget {
   final Widget child;
   final VoidCallback? onTap;
 
-  const _TapScale({
-    required this.child,
-    this.onTap,
-  });
+  const _TapScale({required this.child, this.onTap});
 
   @override
   State<_TapScale> createState() => _TapScaleState();
