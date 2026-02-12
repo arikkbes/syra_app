@@ -10,6 +10,7 @@ import '../models/relationship_memory.dart';
 import '../theme/design_system.dart';
 import '../services/relationship_stats_service.dart';
 import '../services/relationship_memory_service.dart';
+import '../utils/subscription_flow.dart';
 import '../widgets/glass_background.dart';
 
 /// ═══════════════════════════════════════════════════════════════
@@ -43,6 +44,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   String? _statsSummary;
   String? _statsStartDate;
   String? _statsEndDate;
+  String _statsPlan = 'free';
+  String _statsAccess = 'full';
+  List<String> _lockedKeys = const [];
+  String? _statsAccessMessage;
 
   // Participant selection state
   String? _selectedParticipant;
@@ -74,7 +79,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         _selectedParticipant = widget.memory.selfParticipant;
       });
       debugPrint(
-          '⚠️ Saved participant invalid, using memory.selfParticipant: ${widget.memory.selfParticipant}');
+        '⚠️ Saved participant invalid, using memory.selfParticipant: ${widget.memory.selfParticipant}',
+      );
     }
   }
 
@@ -93,12 +99,26 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
       if (!mounted) return;
 
       if (result['success'] == true) {
+        final lockedKeys = (result['lockedKeys'] is List)
+            ? (result['lockedKeys'] as List).whereType<String>().toList()
+            : <String>[];
+
         setState(() {
           _stats = result['stats'] as Map<String, dynamic>?;
           _statsSummary = result['summary'] as String?;
           final range = result['dateRange'] as Map<String, dynamic>?;
           _statsStartDate = range?['startDate'] as String?;
           _statsEndDate = range?['endDate'] as String?;
+          _statsPlan = result['plan'] is String
+              ? result['plan'] as String
+              : 'free';
+          _statsAccess = result['access'] is String
+              ? result['access'] as String
+              : 'full';
+          _lockedKeys = lockedKeys;
+          _statsAccessMessage = result['message'] is String
+              ? result['message'] as String
+              : null;
           _isStatsLoading = false;
           _hasStatsError = false;
         });
@@ -107,6 +127,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           _isStatsLoading = false;
           _hasStatsError = false;
           _stats = null;
+          _statsAccess = 'full';
+          _statsPlan = 'free';
+          _lockedKeys = const [];
+          _statsAccessMessage = null;
         });
       }
     } catch (e) {
@@ -128,6 +152,9 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         _hasStatsError = true;
         _statsErrorMessage = msg;
         _stats = null;
+        _statsAccess = 'full';
+        _lockedKeys = const [];
+        _statsAccessMessage = null;
       });
 
       debugPrint('❌ RelationshipRadarBody stats error: $e');
@@ -238,10 +265,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           decoration: BoxDecoration(
             color: SyraTokens.background.withOpacity(0.8),
             border: Border(
-              bottom: BorderSide(
-                color: SyraTokens.divider,
-                width: 0.5,
-              ),
+              bottom: BorderSide(color: SyraTokens.divider, width: 0.5),
             ),
           ),
           child: Row(
@@ -472,9 +496,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
               decoration: BoxDecoration(
                 color: SyraTokens.surface,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: SyraTokens.border.withOpacity(0.5),
-                ),
+                border: Border.all(color: SyraTokens.border.withOpacity(0.5)),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -536,27 +558,37 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   }
 
   Widget _buildScoreboardContent() {
+    final isTeaser = _statsAccess == 'teaser' || _lockedKeys.isNotEmpty;
+    final teaserMessage =
+        (_statsAccessMessage != null && _statsAccessMessage!.trim().isNotEmpty)
+        ? _statsAccessMessage!
+        : 'Kim Daha Çok’un tamamı CORE/PLUS’ta açık kanka. Şimdilik küçük bir ön izleme bıraktım.';
+
     // Prepare stat cards data
     final statCards = [
       {
         'title': 'Kim daha çok mesaj atmış?',
         'stat': _stats?['whoSentMoreMessages'] ?? 'none',
         'icon': Icons.message_outlined,
+        'key': 'whoSentMoreMessages',
       },
       {
         'title': 'Kim daha çok "seni seviyorum" demiş?',
         'stat': _stats?['whoSaidILoveYouMore'] ?? 'none',
         'icon': Icons.favorite_border,
+        'key': 'whoSaidILoveYouMore',
       },
       {
         'title': 'Kim daha çok özür dilemiş?',
         'stat': _stats?['whoApologizedMore'] ?? 'none',
         'icon': Icons.emoji_emotions_outlined,
+        'key': 'whoApologizedMore',
       },
       {
         'title': 'Kim daha çok emoji kullanmış?',
         'stat': _stats?['whoUsedMoreEmojis'] ?? 'none',
         'icon': Icons.sentiment_satisfied_alt_outlined,
+        'key': 'whoUsedMoreEmojis',
       },
     ];
 
@@ -600,10 +632,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                   const SizedBox(height: 8),
                   Text(
                     '$_statsStartDate - $_statsEndDate',
-                    style: TextStyle(
-                      color: SyraTokens.textMuted,
-                      fontSize: 11,
-                    ),
+                    style: TextStyle(color: SyraTokens.textMuted, fontSize: 11),
                   ),
                 ],
               ],
@@ -636,12 +665,63 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                     title: card['title'] as String,
                     stat: card['stat'] as String,
                     icon: card['icon'] as IconData,
+                    isLocked:
+                        (card['stat'] as String) == 'locked' ||
+                        _lockedKeys.contains(card['key'] as String),
                   ),
                 ),
               );
             },
           ),
         ),
+        if (isTeaser) ...[
+          const SizedBox(height: 12),
+          _GlassCard(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.lock_outline_rounded,
+                      color: SyraTokens.textSecondary,
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        teaserMessage,
+                        style: const TextStyle(
+                          color: SyraTokens.textSecondary,
+                          fontSize: 12,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: TextButton.icon(
+                    onPressed: _openPremiumManagement,
+                    icon: const Icon(Icons.workspace_premium_rounded, size: 16),
+                    label: const Text("CORE'a gec"),
+                    style: TextButton.styleFrom(
+                      alignment: Alignment.centerLeft,
+                      foregroundColor: SyraTokens.accent,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -650,7 +730,57 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
     required String title,
     required String stat,
     required IconData icon,
+    required bool isLocked,
   }) {
+    if (isLocked) {
+      return _GlassCard(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: SyraTokens.textMuted.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(
+                Icons.lock_rounded,
+                color: SyraTokens.textMuted,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      color: SyraTokens.textMuted,
+                      fontSize: 12,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Kilitli',
+                    style: TextStyle(
+                      color: SyraTokens.textMuted,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final displayText = _getStatDisplayText(stat);
     final displayColor = _getStatDisplayColor(stat);
 
@@ -675,10 +805,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                 children: [
                   Text(
                     title,
-                    style: TextStyle(
-                      color: SyraTokens.textMuted,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: SyraTokens.textMuted, fontSize: 12),
                   ),
                   const SizedBox(height: 2),
                   Text(
@@ -773,6 +900,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
     }
   }
 
+  void _openPremiumManagement() {
+    openPaywallSheet(context, initialTab: SubscriptionTab.core);
+  }
+
   // ═══════════════════════════════════════════════════════════════
   // PARTICIPANT SELECTOR
   // ═══════════════════════════════════════════════════════════════
@@ -835,7 +966,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           Row(
             children: speakers.map((speaker) {
               final isSelected = _selectedParticipant == speaker;
-              final isPartner = hasPartner &&
+              final isPartner =
+                  hasPartner &&
                   _selectedParticipant != null &&
                   speaker != _selectedParticipant;
 
@@ -905,11 +1037,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                     color: SyraTokens.accent,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.check,
-                    color: Colors.white,
-                    size: 12,
-                  ),
+                  child: const Icon(Icons.check, color: Colors.white, size: 12),
                 ),
               ),
 
@@ -920,8 +1048,9 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
                 Text(
                   speaker,
                   style: TextStyle(
-                    color:
-                        isSelected ? SyraTokens.accent : SyraTokens.textPrimary,
+                    color: isSelected
+                        ? SyraTokens.accent
+                        : SyraTokens.textPrimary,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1004,9 +1133,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text('✓ "$speaker" olarak seçildin'),
-                ),
+                Expanded(child: Text('✓ "$speaker" olarak seçildin')),
               ],
             ),
             duration: const Duration(seconds: 2),
@@ -1057,9 +1184,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
             children: [
               const Icon(Icons.error_outline, color: Colors.white, size: 20),
               const SizedBox(width: 8),
-              Expanded(
-                child: Text('Hata: ${e.toString()}'),
-              ),
+              Expanded(child: Text('Hata: ${e.toString()}')),
             ],
           ),
           duration: const Duration(seconds: 3),
@@ -1300,8 +1425,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
               runSpacing: 6,
               children: profile.traits.map((trait) {
                 return Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 5,
+                  ),
                   decoration: BoxDecoration(
                     color: SyraTokens.accent.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(8),
@@ -1492,22 +1619,34 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           const SizedBox(height: 20),
           if (patterns.strengths.isNotEmpty) ...[
             _buildPatternSection(
-                '💚 Güçlü Yanlar', patterns.strengths, Colors.green),
+              '💚 Güçlü Yanlar',
+              patterns.strengths,
+              Colors.green,
+            ),
             const SizedBox(height: 16),
           ],
           if (patterns.recurringIssues.isNotEmpty) ...[
-            _buildPatternSection('⚠️ Tekrar Eden Sorunlar',
-                patterns.recurringIssues, Colors.orange),
+            _buildPatternSection(
+              '⚠️ Tekrar Eden Sorunlar',
+              patterns.recurringIssues,
+              Colors.orange,
+            ),
             const SizedBox(height: 16),
           ],
           if (patterns.redFlags.isNotEmpty) ...[
             _buildPatternSection(
-                '🚩 Kırmızı Bayraklar', patterns.redFlags, Colors.red),
+              '🚩 Kırmızı Bayraklar',
+              patterns.redFlags,
+              Colors.red,
+            ),
           ],
           if (patterns.greenFlags.isNotEmpty) ...[
             const SizedBox(height: 16),
             _buildPatternSection(
-                '✅ Yeşil Bayraklar', patterns.greenFlags, Colors.green),
+              '✅ Yeşil Bayraklar',
+              patterns.greenFlags,
+              Colors.green,
+            ),
           ],
         ],
       ),
@@ -1570,10 +1709,7 @@ class _GlassCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
 
-  const _GlassCard({
-    required this.child,
-    this.padding,
-  });
+  const _GlassCard({required this.child, this.padding});
 
   @override
   Widget build(BuildContext context) {

@@ -10,7 +10,7 @@ import 'screens/signup_screen.dart';
 import 'screens/chat_screen.dart';
 import 'screens/premium_screen.dart';
 import 'screens/premium_management_screen.dart';
-import 'screens/settings/settings_modal_sheet.dart';
+import 'utils/subscription_flow.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
@@ -61,9 +61,9 @@ class SyraApp extends StatelessWidget {
       builder: (context, child) {
         // Clamp text scaling to 1.0 for consistent typography
         return MediaQuery(
-          data: MediaQuery.of(context).copyWith(
-            textScaler: TextScaler.noScaling,
-          ),
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.noScaling),
           child: child!,
         );
       },
@@ -178,10 +178,7 @@ class _AuthGate extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               'Başlatılıyor...',
-              style: TextStyle(
-                color: SyraColors.textMuted,
-                fontSize: 12,
-              ),
+              style: TextStyle(color: SyraColors.textMuted, fontSize: 12),
             ),
           ],
         ),
@@ -278,14 +275,7 @@ class _SettingsRouteWrapperState extends State<_SettingsRouteWrapper> {
   }
 
   void _openSettingsSheet() {
-    showModalBottomSheet(
-      context: context,
-      useRootNavigator: true,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      barrierColor: Colors.black.withOpacity(0.40),
-      builder: (_) => SyraSettingsModalSheet(hostContext: context),
-    ).then((_) {
+    openSettingsSheet(context, focusUpgradeSection: false).then((_) {
       // When sheet is closed, pop this wrapper screen
       if (mounted) {
         Navigator.of(context).pop();

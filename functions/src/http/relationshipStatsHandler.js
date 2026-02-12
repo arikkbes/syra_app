@@ -6,6 +6,39 @@
  */
 
 import { auth, db as firestore } from "../config/firebaseAdmin.js";
+import { resolveUserPlan } from "../services/planResolver.js";
+
+const LOCKED_STAT_KEYS = [
+  "whoSaidILoveYouMore",
+  "whoApologizedMore",
+  "whoUsedMoreEmojis",
+];
+
+function buildAccessPayload(stats, safePlan) {
+  if (safePlan === "free") {
+    return {
+      plan: "free",
+      access: "teaser",
+      lockedKeys: [...LOCKED_STAT_KEYS],
+      message:
+        "Kim Daha Çok’un tamamı CORE/PLUS’ta açık kanka. Şimdilik küçük bir ön izleme bıraktım.",
+      stats: {
+        ...stats,
+        whoSaidILoveYouMore: "locked",
+        whoApologizedMore: "locked",
+        whoUsedMoreEmojis: "locked",
+      },
+    };
+  }
+
+  return {
+    plan: safePlan,
+    access: "full",
+    lockedKeys: [],
+    message: null,
+    stats,
+  };
+}
 
 /**
  * Map speaker name to user/partner/balanced/none
@@ -80,6 +113,9 @@ export async function relationshipStatsHandler(req, res) {
         message: "Geçersiz oturum.",
       });
     }
+
+    const safePlan = await resolveUserPlan(uid);
+    console.log(`[${uid}] Resolved plan for relationship stats: ${safePlan}`);
 
     // CRITICAL: Ensure firestore is available
     if (!firestore) {
@@ -168,10 +204,15 @@ export async function relationshipStatsHandler(req, res) {
             whoApologizedMore: "none",
             whoUsedMoreEmojis: "none",
           };
+          const accessPayload = buildAccessPayload(statsData, safePlan);
           
           return res.status(200).json({
             success: true,
-            stats: statsData,
+            plan: accessPayload.plan,
+            access: accessPayload.access,
+            lockedKeys: accessPayload.lockedKeys,
+            message: accessPayload.message,
+            stats: accessPayload.stats,
             summary: legacyMem?.shortSummary || null,
             dateRange: {
               startDate: legacyMem?.startDate || null,
@@ -233,12 +274,17 @@ export async function relationshipStatsHandler(req, res) {
       };
       const isActive = relationshipDoc.isActive !== false;
       const lastUploadAt = relationshipDoc.updatedAt || relationshipDoc.createdAt || null;
+      const accessPayload = buildAccessPayload(statsData, safePlan);
       
       console.log(`[${uid}] Returning V2 response (isActive: ${isActive})`);
       
       return res.status(200).json({
         success: true,
-        stats: statsData,
+        plan: accessPayload.plan,
+        access: accessPayload.access,
+        lockedKeys: accessPayload.lockedKeys,
+        message: accessPayload.message,
+        stats: accessPayload.stats,
         summary,
         dateRange,
         isActive,
