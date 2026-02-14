@@ -245,7 +245,7 @@ class PurchaseService {
       }
     } on PlatformException catch (e) {
       final code = PurchasesErrorHelper.getErrorCode(e);
-      final msg = PurchasesErrorHelper.getErrorMessage(e);
+      final msg = e.message ?? e.details?.toString() ?? e.toString();
       if (code == PurchasesErrorCode.purchaseCancelledError) {
         debugPrint("ℹ️ [Purchase] $code: $msg");
         return PurchaseResult.cancelled(msg);
