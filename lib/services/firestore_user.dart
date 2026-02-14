@@ -80,8 +80,6 @@ class FirestoreUser {
       "email": user.email ?? '',
       "createdAt": FieldValue.serverTimestamp(),
 
-      "plan": "free",
-      "isPremium": false,
       "dailyMessageLimit": 10,
       "dailyMessageCount": 0,
       "lastMessageDate": DateTime.now().toIso8601String(),
