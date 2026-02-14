@@ -1,88 +1,128 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     // ───────────── HELPERS ─────────────
     function isAuthenticated() {
       return request.auth != null;
     }
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+
+    // Client, server-only alanları (plan/isPremium) create sırasında HİÇ set etmesin
+    function clientDoesNotSetServerPlanFieldsOnCreate() {
+      return !("plan" in request.resource.data) && !("isPremium" in request.resource.data);
+    }
+
+    // Client, update sırasında plan/isPremium alanlarını ne değiştirebilsin ne silebilsin ne ekleyebilsin
+    function clientPreservesServerPlanFieldsOnUpdate() {
+      return
+        // plan: varsa aynı kalacak, yoksa eklenemez
+        (("plan" in resource.data)
+          ? request.resource.data.plan == resource.data.plan
+          : !("plan" in request.resource.data))
+        &&
+        // isPremium: varsa aynı kalacak, yoksa eklenemez
+        (("isPremium" in resource.data)
+          ? request.resource.data.isPremium == resource.data.isPremium
+          : !("isPremium" in request.resource.data));
+    }
+
     // ───────────── USERS + SUBCOLLECTIONS ─────────────
     match /users/{userId} {
-      allow read, create, update: if isOwner(userId);
+
+      // ✅ Owner can read their profile
+      allow read: if isOwner(userId);
+
+      // ✅ Create: owner + client MUST NOT set plan/isPremium
+      allow create: if isOwner(userId)
+        && clientDoesNotSetServerPlanFieldsOnCreate();
+
+      // ✅ Update: owner + plan/isPremium korunmalı (değişmez/silinmez/eklenmez)
+      allow update: if isOwner(userId)
+        && clientPreservesServerPlanFieldsOnUpdate();
+
+      // ❌ No deletes
       allow delete: if false;
+
       match /chat_sessions/{sessionId} {
         allow read, create, update, delete: if isOwner(userId);
         match /messages/{messageId} {
           allow read, create, update, delete: if isOwner(userId);
         }
       }
+
       match /conversations/{conversationId} {
         allow read, create, update, delete: if isOwner(userId);
         match /messages/{messageId} {
           allow read, create, update, delete: if isOwner(userId);
         }
       }
+
       match /profile_memory/{traitId} {
         allow read, create, update, delete: if isOwner(userId);
       }
+
       // ───────────── MODULE 1: ASYNC JOB TRACKING ─────────────
       match /relationship_jobs/{jobId} {
         allow read, delete: if isOwner(userId);  // Users can delete completed jobs
         allow create, update: if false; // Only backend can create/update
       }
     }
+
     // ───────────── RELATIONSHIPS V2 (NEW CHUNKED ARCHITECTURE) ─────────────
     match /relationships/{userId} {
       allow read: if isOwner(userId);
-      
+
       match /relations/{relationshipId} {
         allow read: if isOwner(userId);
-        // ═══════════════════════════════════════════════════════════════
-        // PATCH C FIX: Added 'relationshipType' to allowed update fields
-        // User can now update: isActive, isHidden, selfParticipant, 
-        // partnerParticipant, relationshipType
-        // ═══════════════════════════════════════════════════════════════
-        allow update: if isOwner(userId) && 
+
+        allow update: if isOwner(userId) &&
           request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly([
-              'isActive', 
-              'isHidden', 
-              'updatedAt', 
-              'selfParticipant', 
+              'isActive',
+              'isHidden',
+              'updatedAt',
+              'selfParticipant',
               'partnerParticipant',
-              'relationshipType',  // ← NEW: PATCH C support
-              'deletedAt',         // ← MODULE 1: Forget relationship support
-              'lastForgottenAt'    // ← MODULE 1: Forget relationship support
+              'relationshipType',
+              'deletedAt',
+              'lastForgottenAt'
             ]);
+
         allow delete: if isOwner(userId);
         allow create: if false;
+
         match /chunks/{chunkId} {
           allow read: if isOwner(userId);
           allow delete: if isOwner(userId);
-          allow create, update: if false;
+          allow create, update: if false; // Only backend can create/update
         }
       }
     }
+
     // ───────────── RELATIONSHIP ANALYSES (LEGACY) ─────────────
     match /relationship_analyses/{userId} {
       allow read: if isOwner(userId);
       allow write: if false;
-      
+
       match /analyses/{analysisId} {
         allow read: if isOwner(userId);
         allow write: if false;
       }
     }
+
     // ───────────── RELATIONSHIP MEMORY (LEGACY) ─────────────
     match /relationship_memory/{userId} {
       allow read: if isOwner(userId);
-      allow update: if isOwner(userId) && 
+      allow update: if isOwner(userId) &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isActive']);
       allow delete: if isOwner(userId);
       allow create: if false;
     }
+
     // ───────────── CATCH-ALL: DENY ─────────────
     match /{document=**} {
       allow read, write: if false;

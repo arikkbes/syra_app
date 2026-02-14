@@ -8,7 +8,15 @@ import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
 import '../theme/syra_theme.dart';
 
+// ═══════════════════════════════════════════════════════════════
+// SYRA Paywall Sheet — v2.0  (Obsidian + Champagne Gold)
+// Matches ChatGPT-Go-style information architecture with
+// SYRA brand identity. Purchase logic is UNTOUCHED.
+// ═══════════════════════════════════════════════════════════════
+
 enum SubscriptionTab { core, plus }
+
+// ─── Public openers (API unchanged) ───────────────────────────
 
 Future<void> openSettingsSheet(
   BuildContext context, {
@@ -27,9 +35,8 @@ Future<void> openSettingsSheet(
       openPaywallSheet: (ctx, {bool initialPlusTab = false}) {
         return openPaywallSheet(
           ctx,
-          initialTab: initialPlusTab
-              ? SubscriptionTab.plus
-              : SubscriptionTab.core,
+          initialTab:
+              initialPlusTab ? SubscriptionTab.plus : SubscriptionTab.core,
         );
       },
       openManageSubscriptionSheet: (ctx) => openManageSubscriptionSheet(ctx),
@@ -62,6 +69,8 @@ Future<void> openManageSubscriptionSheet(BuildContext context) {
   );
 }
 
+// ─── Shared helpers ───────────────────────────────────────────
+
 Future<UserPlan> _resolveCurrentPlan() async {
   final firestorePlan = await FirestoreUser.getPlan();
   final hasEntitlement = await PurchaseService.hasPremium();
@@ -69,9 +78,102 @@ Future<UserPlan> _resolveCurrentPlan() async {
   return firestorePlan;
 }
 
+// ─── Design constants (SYRA Obsidian + Champagne Gold) ────────
+
+class _PaywallStyle {
+  _PaywallStyle._();
+
+  // Colors
+  static const Color bg = Color(0xFF11131A);
+  static const Color cardBg = Color(0xFF1B202C);
+  static const Color segmentBg = Color(0xFF1B202C);
+  static const Color segmentActive = Color(0xFF262B38);
+  static const Color gold = Color(0xFFD6B35A);
+  static const Color goldLight = Color(0xFFEAD7A5);
+  static const Color goldMuted = Color(0x33D6B35A);
+  static const Color textPrimary = Color(0xFFE7E9EE);
+  static const Color textSecondary = Color(0xFF9AA3B2);
+  static const Color textMuted = Color(0xFF778090);
+  static const Color textDisabled = Color(0xFF4A5060);
+  static const Color hairline = Color(0x1AFFFFFF); // ~10% white
+  static const Color closeBg = Color(0xFF1F2330);
+
+  // Radii
+  static const double sheetRadius = 24.0;
+  static const double cardRadius = 20.0;
+  static const double segmentRadius = 16.0;
+  static const double segmentChipRadius = 12.0;
+  static const double buttonRadius = 16.0;
+
+  // Sizes
+  static const double buttonHeight = 56.0;
+  static const double grabberWidth = 36.0;
+  static const double grabberHeight = 4.0;
+  static const double closeSize = 32.0;
+
+  // Typography
+  static const TextStyle titleStyle = TextStyle(
+    color: textPrimary,
+    fontSize: 28,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.4,
+    height: 1.2,
+  );
+
+  static const TextStyle subtitleStyle = TextStyle(
+    color: textSecondary,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+  );
+
+  static const TextStyle segmentLabelStyle = TextStyle(
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    height: 1.3,
+  );
+
+  static const TextStyle featureLabelStyle = TextStyle(
+    color: textSecondary,
+    fontSize: 15,
+    fontWeight: FontWeight.w400,
+    height: 1.4,
+  );
+
+  static const TextStyle featureValueStyle = TextStyle(
+    color: textPrimary,
+    fontSize: 15,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+  );
+
+  static const TextStyle ctaLabelStyle = TextStyle(
+    color: Color(0xFF11131A),
+    fontSize: 17,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.1,
+  );
+
+  static const TextStyle restoreStyle = TextStyle(
+    color: textSecondary,
+    fontSize: 14,
+    fontWeight: FontWeight.w500,
+  );
+
+  static const TextStyle footerStyle = TextStyle(
+    color: textMuted,
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.45,
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PAYWALL SHEET
+// ═══════════════════════════════════════════════════════════════
+
 class _SyraPaywallSheet extends StatefulWidget {
   final SubscriptionTab initialTab;
-
   const _SyraPaywallSheet({required this.initialTab});
 
   @override
@@ -85,6 +187,8 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
   bool _loading = true;
   bool _purchaseLoading = false;
   bool _restoreLoading = false;
+
+  // ─── Lifecycle ──────────────────────────────────────────────
 
   @override
   void initState() {
@@ -111,6 +215,8 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
     }
   }
 
+  // ─── Purchase actions (UNTOUCHED LOGIC) ─────────────────────
+
   Future<void> _buyCore() async {
     if (_purchaseLoading) return;
     setState(() => _purchaseLoading = true);
@@ -124,7 +230,7 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Satin alma tamamlanmadi.')),
+          const SnackBar(content: Text('Satın alma tamamlanamadı.')),
         );
       }
     } finally {
@@ -143,8 +249,8 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
         SnackBar(
           content: Text(
             ok
-                ? 'Satin almalar geri yuklendi.'
-                : 'Geri yuklenecek aktif satin alma bulunamadi.',
+                ? 'Satın almalar geri yüklendi.'
+                : 'Geri yüklenecek aktif satın alma bulunamadı.',
           ),
         ),
       );
@@ -153,91 +259,130 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
     }
   }
 
-  String get _corePriceLabel => _coreProduct?.priceString ?? 'Fiyati gorecek';
+  String get _corePriceLabel =>
+      _coreProduct?.priceString ?? '₺249,99';
+
+  // ─── Build ──────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return SafeArea(
       top: false,
       child: DraggableScrollableSheet(
-        initialChildSize: 0.86,
+        initialChildSize: 0.88,
         minChildSize: 0.6,
-        maxChildSize: 0.94,
+        maxChildSize: 0.95,
         builder: (context, controller) {
           return Container(
-            decoration: BoxDecoration(
-              color: SyraColors.background,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+            decoration: const BoxDecoration(
+              color: _PaywallStyle.bg,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(_PaywallStyle.sheetRadius),
               ),
-              border: Border.all(color: SyraColors.glassBorder),
             ),
-            child: ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: Column(
               children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: SyraColors.textMuted.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                const Text(
-                  'SYRA planina katil',
-                  style: TextStyle(
-                    color: SyraColors.textPrimary,
-                    fontSize: 25,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  _plan.isPaid
-                      ? 'Zaten uyesin. Planini buradan yonetebilirsin.'
-                      : 'Core ile sinirsiz sohbet ve gelismis analiz ozelliklerini ac.',
-                  style: TextStyle(
-                    color: SyraColors.textSecondary.withOpacity(0.95),
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                _buildSegment(),
-                const SizedBox(height: 16),
-                if (_loading)
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: CircularProgressIndicator(),
-                    ),
-                  )
-                else ...[
-                  _buildComparisonTable(),
-                  const SizedBox(height: 16),
-                  _buildPrimaryAction(),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _restoreLoading ? null : _restore,
-                    child: Text(
-                      _restoreLoading
-                          ? 'Geri yukleniyor...'
-                          : 'Satin almalari geri yukle',
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  'Abonelikler App Store / Google Play uzerinden otomatik yenilenir ve istedigin zaman yonetilebilir.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: SyraColors.textMuted.withOpacity(0.8),
-                    fontSize: 12,
-                    height: 1.4,
+                // ── Grabber + Close ──
+                _buildHeader(),
+
+                // ── Scrollable content ──
+                Expanded(
+                  child: ListView(
+                    controller: controller,
+                    padding: EdgeInsets.fromLTRB(24, 0, 24, bottomPad + 16),
+                    children: [
+                      const SizedBox(height: 8),
+
+                      // Title
+                      const Text(
+                        'SYRA planına katıl',
+                        textAlign: TextAlign.center,
+                        style: _PaywallStyle.titleStyle,
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Subtitle
+                      Text(
+                        _plan.isPaid
+                            ? 'Planını buradan yönetebilirsin.'
+                            : 'Sohbetini ve analizlerini bir üst seviyeye taşı.',
+                        textAlign: TextAlign.center,
+                        style: _PaywallStyle.subtitleStyle,
+                      ),
+                      const SizedBox(height: 24),
+
+                      // ── Segmented control ──
+                      _SyraPlanSegmentedControl(
+                        selected: _selectedTab,
+                        onChanged: (tab) =>
+                            setState(() => _selectedTab = tab),
+                        plusDisabled: true,
+                      ),
+                      const SizedBox(height: 16),
+
+                      // ── Feature card ──
+                      if (_loading)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 32),
+                          child: Center(
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: _PaywallStyle.gold,
+                              ),
+                            ),
+                          ),
+                        )
+                      else ...[
+                        _SyraFeatureComparisonCard(
+                          selectedTab: _selectedTab,
+                        ),
+                        const SizedBox(height: 24),
+
+                        // ── Primary CTA ──
+                        _SyraPrimaryCTAButton(
+                          plan: _plan,
+                          selectedTab: _selectedTab,
+                          priceLabel: _corePriceLabel,
+                          purchaseLoading: _purchaseLoading,
+                          onBuyCore: _buyCore,
+                          onManage: () async {
+                            Navigator.of(context).pop();
+                            await openManageSubscriptionSheet(context);
+                          },
+                        ),
+                        const SizedBox(height: 14),
+
+                        // ── Restore purchases ──
+                        Center(
+                          child: GestureDetector(
+                            onTap: _restoreLoading ? null : _restore,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                _restoreLoading
+                                    ? 'Geri yükleniyor…'
+                                    : 'Satın alımı geri yükle',
+                                style: _PaywallStyle.restoreStyle,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // ── Footer ──
+                        const Text(
+                          'Aylık olarak yenilenir. İstediğin zaman iptal edebilirsin.',
+                          textAlign: TextAlign.center,
+                          style: _PaywallStyle.footerStyle,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
               ],
@@ -248,138 +393,333 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
     );
   }
 
-  Widget _buildSegment() {
+  // ── Header: grabber bar + close button ──
+
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Centered grabber
+          Container(
+            width: _PaywallStyle.grabberWidth,
+            height: _PaywallStyle.grabberHeight,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.18),
+              borderRadius: BorderRadius.circular(100),
+            ),
+          ),
+          // Close button (top-right)
+          Positioned(
+            right: 0,
+            child: GestureDetector(
+              onTap: () {
+                HapticFeedback.lightImpact();
+                Navigator.of(context).pop();
+              },
+              child: Container(
+                width: _PaywallStyle.closeSize,
+                height: _PaywallStyle.closeSize,
+                decoration: const BoxDecoration(
+                  color: _PaywallStyle.closeBg,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: _PaywallStyle.textSecondary,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SEGMENTED CONTROL
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraPlanSegmentedControl extends StatelessWidget {
+  final SubscriptionTab selected;
+  final ValueChanged<SubscriptionTab> onChanged;
+  final bool plusDisabled;
+
+  const _SyraPlanSegmentedControl({
+    required this.selected,
+    required this.onChanged,
+    this.plusDisabled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
+      height: 48,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: SyraColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(12),
+        color: _PaywallStyle.segmentBg,
+        borderRadius: BorderRadius.circular(_PaywallStyle.segmentRadius),
       ),
       child: Row(
         children: [
-          Expanded(child: _segmentChip(SubscriptionTab.core, 'Core')),
-          Expanded(child: _segmentChip(SubscriptionTab.plus, 'Plus')),
+          _chip(SubscriptionTab.core, 'Core'),
+          const SizedBox(width: 4),
+          _chip(SubscriptionTab.plus, 'Plus'),
         ],
       ),
     );
   }
 
-  Widget _segmentChip(SubscriptionTab tab, String label) {
-    final selected = _selectedTab == tab;
-    return GestureDetector(
-      onTap: () => setState(() => _selectedTab = tab),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? SyraColors.surface : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: selected
-                  ? SyraColors.textPrimary
-                  : SyraColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
+  Widget _chip(SubscriptionTab tab, String label) {
+    final isSelected = selected == tab;
+    final isDisabled = tab == SubscriptionTab.plus && plusDisabled;
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: isDisabled ? null : () => onChanged(tab),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(
+            color: isSelected
+                ? _PaywallStyle.segmentActive
+                : Colors.transparent,
+            borderRadius:
+                BorderRadius.circular(_PaywallStyle.segmentChipRadius),
+            border: isSelected
+                ? Border.all(color: _PaywallStyle.hairline, width: 1)
+                : null,
+          ),
+          alignment: Alignment.center,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: _PaywallStyle.segmentLabelStyle.copyWith(
+                  color: isDisabled
+                      ? _PaywallStyle.textDisabled
+                      : isSelected
+                          ? _PaywallStyle.textPrimary
+                          : _PaywallStyle.textSecondary,
+                ),
+              ),
+              if (isDisabled) ...[
+                const SizedBox(width: 6),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _PaywallStyle.textDisabled.withOpacity(0.25),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Text(
+                    'Yakında',
+                    style: TextStyle(
+                      color: _PaywallStyle.textDisabled,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildComparisonTable() {
-    final coreSelected = _selectedTab == SubscriptionTab.core;
-    final rows = <Map<String, String>>[
-      {'name': 'Gunluk mesaj limiti', 'core': 'Sinirsiz', 'plus': 'Sinirsiz'},
-      {'name': 'Kim Daha Cok tam erisim', 'core': 'Var', 'plus': 'Var'},
-      {'name': 'Oncelikli yeni ozellikler', 'core': '-', 'plus': 'Var'},
-      {'name': 'Model kalitesi', 'core': 'Gelismis', 'plus': 'En yuksek'},
-    ];
+// ═══════════════════════════════════════════════════════════════
+//  FEATURE COMPARISON CARD
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraFeatureComparisonCard extends StatelessWidget {
+  final SubscriptionTab selectedTab;
+
+  const _SyraFeatureComparisonCard({required this.selectedTab});
+
+  static const _features = [
+    _FeatureRow('Sohbet', 'Sınırsız', 'Sınırsız'),
+    _FeatureRow('Ayna modu', '✓', '✓'),
+    _FeatureRow('Dost Acı Söyler', '—', '✓'),
+    _FeatureRow('Model seviyesi', 'Gelişmiş', 'En yüksek'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlus = selectedTab == SubscriptionTab.plus;
 
     return Container(
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: SyraColors.surfaceElevated,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: SyraColors.glassBorder),
+        color: _PaywallStyle.cardBg,
+        borderRadius: BorderRadius.circular(_PaywallStyle.cardRadius),
+        border: Border.all(color: _PaywallStyle.hairline, width: 1),
       ),
       child: Column(
-        children: rows
-            .map(
-              (row) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        row['name']!,
-                        style: const TextStyle(
-                          color: SyraColors.textSecondary,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      coreSelected ? row['core']! : row['plus']!,
-                      style: const TextStyle(
-                        color: SyraColors.textPrimary,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
+        children: [
+          for (int i = 0; i < _features.length; i++) ...[
+            _buildRow(_features[i], isPlus),
+            if (i < _features.length - 1)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: _PaywallStyle.hairline,
+                indent: 16,
+                endIndent: 16,
               ),
-            )
-            .toList(),
+          ],
+        ],
       ),
     );
   }
 
-  Widget _buildPrimaryAction() {
-    if (_plan.isPaid) {
-      return SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          onPressed: () async {
-            Navigator.of(context).pop();
-            await openManageSubscriptionSheet(context);
-          },
-          child: const Text('Aboneligi yonet'),
-        ),
-      );
-    }
+  Widget _buildRow(_FeatureRow feature, bool showPlus) {
+    final value = showPlus ? feature.plusValue : feature.coreValue;
+    final isCheckOnly = value == '✓';
+    final isPositive = value == 'Sınırsız';
+    final isDash = value == '—';
 
-    if (_selectedTab == SubscriptionTab.plus) {
-      return SizedBox(
-        height: 52,
-        child: ElevatedButton(
-          onPressed: null,
-          child: const Text('SYRA Plus yakinda'),
-        ),
-      );
-    }
-
-    return SizedBox(
-      height: 52,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: SyraColors.textPrimary,
-          foregroundColor: SyraColors.background,
-        ),
-        onPressed: _purchaseLoading ? null : _buyCore,
-        child: Text(
-          _purchaseLoading
-              ? 'Isleniyor...'
-              : 'SYRA Core - $_corePriceLabel / ay',
-        ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              feature.label,
+              style: _PaywallStyle.featureLabelStyle,
+            ),
+          ),
+          const SizedBox(width: 12),
+          if (isDash)
+            Text(
+              '—',
+              style: _PaywallStyle.featureValueStyle.copyWith(
+                color: _PaywallStyle.textDisabled,
+              ),
+            )
+          else if (isCheckOnly)
+            const Icon(
+              Icons.check_rounded,
+              size: 20,
+              color: _PaywallStyle.gold,
+            )
+          else if (isPositive)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.check_rounded,
+                  size: 18,
+                  color: _PaywallStyle.gold,
+                ),
+                const SizedBox(width: 4),
+                Text(value, style: _PaywallStyle.featureValueStyle),
+              ],
+            )
+          else
+            Text(value, style: _PaywallStyle.featureValueStyle),
+        ],
       ),
     );
   }
 }
+
+class _FeatureRow {
+  final String label;
+  final String coreValue;
+  final String plusValue;
+  const _FeatureRow(this.label, this.coreValue, this.plusValue);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PRIMARY CTA BUTTON
+// ═══════════════════════════════════════════════════════════════
+
+class _SyraPrimaryCTAButton extends StatelessWidget {
+  final UserPlan plan;
+  final SubscriptionTab selectedTab;
+  final String priceLabel;
+  final bool purchaseLoading;
+  final VoidCallback onBuyCore;
+  final VoidCallback onManage;
+
+  const _SyraPrimaryCTAButton({
+    required this.plan,
+    required this.selectedTab,
+    required this.priceLabel,
+    required this.purchaseLoading,
+    required this.onBuyCore,
+    required this.onManage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // Determine label + action
+    String label;
+    VoidCallback? onTap;
+    bool isDisabled = false;
+
+    if (plan.isPaid) {
+      label = 'Aboneliği yönet';
+      onTap = onManage;
+    } else if (selectedTab == SubscriptionTab.plus) {
+      label = 'Plus yakında';
+      onTap = null;
+      isDisabled = true;
+    } else if (purchaseLoading) {
+      label = 'İşleniyor…';
+      onTap = null;
+    } else {
+      label = '$priceLabel / ay ile başla';
+      onTap = onBuyCore;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: _PaywallStyle.buttonHeight,
+        decoration: BoxDecoration(
+          color: isDisabled
+              ? _PaywallStyle.textDisabled.withOpacity(0.2)
+              : _PaywallStyle.gold,
+          borderRadius: BorderRadius.circular(_PaywallStyle.buttonRadius),
+        ),
+        alignment: Alignment.center,
+        child: purchaseLoading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
+                  color: Color(0xFF11131A),
+                ),
+              )
+            : Text(
+                label,
+                style: _PaywallStyle.ctaLabelStyle.copyWith(
+                  color: isDisabled
+                      ? _PaywallStyle.textDisabled
+                      : const Color(0xFF11131A),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  MANAGE SUBSCRIPTION SHEET (polish pass, logic UNTOUCHED)
+// ═══════════════════════════════════════════════════════════════
 
 class _SyraManageSubscriptionSheet extends StatefulWidget {
   const _SyraManageSubscriptionSheet();
@@ -428,7 +768,7 @@ class _SyraManageSubscriptionSheetState
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Abonelikler magazadan yonetilir. App Store/Google Play > Abonelikler.',
+            'Abonelikler mağazadan yönetilir. App Store / Google Play → Abonelikler.',
           ),
         ),
       );
@@ -446,8 +786,8 @@ class _SyraManageSubscriptionSheetState
         SnackBar(
           content: Text(
             ok
-                ? 'Satin almalar geri yuklendi.'
-                : 'Aktif satin alma bulunamadi.',
+                ? 'Satın almalar geri yüklendi.'
+                : 'Aktif satın alma bulunamadı.',
           ),
         ),
       );
@@ -458,121 +798,203 @@ class _SyraManageSubscriptionSheetState
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
+
     return SafeArea(
       top: false,
       child: DraggableScrollableSheet(
-        initialChildSize: 0.6,
-        minChildSize: 0.45,
-        maxChildSize: 0.85,
+        initialChildSize: 0.55,
+        minChildSize: 0.4,
+        maxChildSize: 0.8,
         builder: (context, controller) {
           return Container(
-            decoration: BoxDecoration(
-              color: SyraColors.background,
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(24),
+            decoration: const BoxDecoration(
+              color: _PaywallStyle.bg,
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(_PaywallStyle.sheetRadius),
               ),
-              border: Border.all(color: SyraColors.glassBorder),
             ),
-            child: ListView(
-              controller: controller,
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+            child: Column(
               children: [
-                Center(
-                  child: Container(
-                    width: 36,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: SyraColors.textMuted.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Aboneligi duzenle',
-                  style: TextStyle(
-                    color: SyraColors.textPrimary,
-                    fontSize: 24,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                if (_loading)
-                  const Center(child: CircularProgressIndicator())
-                else ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: SyraColors.surfaceElevated,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: SyraColors.glassBorder),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 42,
-                          height: 42,
-                          decoration: BoxDecoration(
-                            color: SyraColors.surface,
-                            borderRadius: BorderRadius.circular(11),
-                          ),
-                          child: const Icon(Icons.auto_awesome_rounded),
+                // ── Grabber + Close ──
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      Container(
+                        width: _PaywallStyle.grabberWidth,
+                        height: _PaywallStyle.grabberHeight,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius: BorderRadius.circular(100),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      Positioned(
+                        right: 0,
+                        child: GestureDetector(
+                          onTap: () {
+                            HapticFeedback.lightImpact();
+                            Navigator.of(context).pop();
+                          },
+                          child: Container(
+                            width: _PaywallStyle.closeSize,
+                            height: _PaywallStyle.closeSize,
+                            decoration: const BoxDecoration(
+                              color: _PaywallStyle.closeBg,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                              color: _PaywallStyle.textSecondary,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                Expanded(
+                  child: ListView(
+                    controller: controller,
+                    padding:
+                        EdgeInsets.fromLTRB(24, 16, 24, bottomPad + 16),
+                    children: [
+                      const Text(
+                        'Aboneliği düzenle',
+                        style: TextStyle(
+                          color: _PaywallStyle.textPrimary,
+                          fontSize: 24,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      if (_loading)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.5,
+                                color: _PaywallStyle.gold,
+                              ),
+                            ),
+                          ),
+                        )
+                      else ...[
+                        // Plan info card
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: _PaywallStyle.cardBg,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: _PaywallStyle.hairline,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
                             children: [
-                              Text(
-                                _plan == UserPlan.plus
-                                    ? 'SYRA Plus'
-                                    : (_plan == UserPlan.core
-                                          ? 'SYRA Core'
-                                          : 'Ucretsiz Plan'),
-                                style: const TextStyle(
-                                  color: SyraColors.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w600,
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: _PaywallStyle.goldMuted,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(
+                                  Icons.auto_awesome_rounded,
+                                  size: 22,
+                                  color: _PaywallStyle.gold,
                                 ),
                               ),
-                              const SizedBox(height: 2),
-                              Text(
-                                _product?.priceString != null
-                                    ? '${_product!.priceString} / ay'
-                                    : 'Magaza uzerinden yonetilir',
-                                style: const TextStyle(
-                                  color: SyraColors.textSecondary,
-                                  fontSize: 13,
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      _plan == UserPlan.plus
+                                          ? 'SYRA Plus'
+                                          : (_plan == UserPlan.core
+                                              ? 'SYRA Core'
+                                              : 'Ücretsiz Plan'),
+                                      style: const TextStyle(
+                                        color: _PaywallStyle.textPrimary,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      _product?.priceString != null
+                                          ? '${_product!.priceString} / ay'
+                                          : 'Mağaza üzerinden yönetilir',
+                                      style: const TextStyle(
+                                        color: _PaywallStyle.textSecondary,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
                           ),
                         ),
+                        const SizedBox(height: 16),
+
+                        // Cancel / manage button
+                        GestureDetector(
+                          onTap: _openManage,
+                          child: Container(
+                            height: 52,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2A1518),
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: const Color(0x33FF4D6D),
+                                width: 1,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: const Text(
+                              'Aboneliği iptal et / yönet',
+                              style: TextStyle(
+                                color: Color(0xFFFF7A8A),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Restore
+                        Center(
+                          child: GestureDetector(
+                            onTap: _restoreLoading ? null : _restore,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                _restoreLoading
+                                    ? 'Geri yükleniyor…'
+                                    : 'Satın alımı geri yükle',
+                                style: _PaywallStyle.restoreStyle,
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 14),
-                  SizedBox(
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF5A1F1F),
-                        foregroundColor: Colors.redAccent.shade100,
-                      ),
-                      onPressed: _openManage,
-                      child: const Text('Aboneligi iptal et / yonet'),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: _restoreLoading ? null : _restore,
-                    child: Text(
-                      _restoreLoading
-                          ? 'Geri yukleniyor...'
-                          : 'Satin almalari geri yukle',
-                    ),
-                  ),
-                ],
+                ),
               ],
             ),
           );

@@ -89,8 +89,6 @@ class _SignUpScreenState extends State<SignUpScreen>
         "uid": uid,
         "email": email,
         "createdAt": DateTime.now().toIso8601String(),
-        "plan": "free",
-        "isPremium": false,
         "dailyMessageLimit": 10,
         "dailyMessageCount": 0,
         "lastMessageDate": DateTime.now().toIso8601String(),
