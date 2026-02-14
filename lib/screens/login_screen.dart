@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/auth_providers.dart';
+import '../services/purchase_service.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -69,10 +70,14 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _loading = true);
 
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: email,
         password: pass,
       );
+      final uid = cred.user?.uid;
+      if (uid != null) {
+        await PurchaseService.identifyUser(uid);
+      }
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/chat');
@@ -102,7 +107,11 @@ class _LoginScreenState extends State<LoginScreen>
     setState(() => _loading = true);
 
     try {
-      await FirebaseAuth.instance.signInAnonymously();
+      final cred = await FirebaseAuth.instance.signInAnonymously();
+      final uid = cred.user?.uid;
+      if (uid != null) {
+        await PurchaseService.identifyUser(uid);
+      }
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/chat');
       }
@@ -421,7 +430,11 @@ class _LoginScreenState extends State<LoginScreen>
             label: "Google",
             onTap: () async {
               try {
-                await SocialAuth.signInWithGoogle();
+                final cred = await SocialAuth.signInWithGoogle();
+                final uid = cred.user?.uid;
+                if (uid != null) {
+                  await PurchaseService.identifyUser(uid);
+                }
                 if (mounted) {
                   Navigator.pushReplacementNamed(context, '/chat');
                 }
@@ -438,7 +451,11 @@ class _LoginScreenState extends State<LoginScreen>
             label: "Apple",
             onTap: () async {
               try {
-                await SocialAuth.signInWithApple();
+                final cred = await SocialAuth.signInWithApple();
+                final uid = cred.user?.uid;
+                if (uid != null) {
+                  await PurchaseService.identifyUser(uid);
+                }
                 if (mounted) {
                   Navigator.pushReplacementNamed(context, '/chat');
                 }

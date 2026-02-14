@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 import '../models/user_plan.dart';
@@ -187,6 +188,7 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
   bool _loading = true;
   bool _purchaseLoading = false;
   bool _restoreLoading = false;
+  final bool _purchasesSupported = PurchaseService.isPlatformSupported();
 
   // ─── Lifecycle ──────────────────────────────────────────────
 
@@ -199,6 +201,10 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
 
   Future<void> _load() async {
     try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        await PurchaseService.identifyUser(uid);
+      }
       final results = await Future.wait<dynamic>([
         _resolveCurrentPlan(),
         PurchaseService.getPremiumProduct(),
@@ -219,20 +225,38 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
 
   Future<void> _buyCore() async {
     if (_purchaseLoading) return;
+    if (!_purchasesSupported) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Satın alma bu platformda desteklenmiyor.')),
+      );
+      return;
+    }
     setState(() => _purchaseLoading = true);
     try {
-      final ok = await PurchaseService.buyPremium();
+      final result = await PurchaseService.buyPremium();
       if (!mounted) return;
-      if (ok) {
+      if (result.isSuccess) {
         await _load();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('SYRA Core aktif edildi.')),
         );
+        Navigator.of(context).pop();
+      } else if (result.isCancelled) {
+        Navigator.of(context).pop();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Satın alma tamamlanamadı.')),
+          SnackBar(
+            content: Text(
+              'Satın alma başarısız: ${result.message ?? "Bilinmeyen hata"}',
+            ),
+          ),
         );
       }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Satın alma başarısız: $e')),
+      );
     } finally {
       if (mounted) setState(() => _purchaseLoading = false);
     }
@@ -349,6 +373,7 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
                           selectedTab: _selectedTab,
                           priceLabel: _corePriceLabel,
                           purchaseLoading: _purchaseLoading,
+                          purchasesSupported: _purchasesSupported,
                           onBuyCore: _buyCore,
                           onManage: () async {
                             Navigator.of(context).pop();
@@ -360,7 +385,9 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
                         // ── Restore purchases ──
                         Center(
                           child: GestureDetector(
-                            onTap: _restoreLoading ? null : _restore,
+                            onTap: (_restoreLoading || !_purchasesSupported)
+                                ? null
+                                : _restore,
                             child: Padding(
                               padding:
                                   const EdgeInsets.symmetric(vertical: 8),
@@ -649,6 +676,7 @@ class _SyraPrimaryCTAButton extends StatelessWidget {
   final SubscriptionTab selectedTab;
   final String priceLabel;
   final bool purchaseLoading;
+  final bool purchasesSupported;
   final VoidCallback onBuyCore;
   final VoidCallback onManage;
 
@@ -657,6 +685,7 @@ class _SyraPrimaryCTAButton extends StatelessWidget {
     required this.selectedTab,
     required this.priceLabel,
     required this.purchaseLoading,
+    required this.purchasesSupported,
     required this.onBuyCore,
     required this.onManage,
   });
@@ -668,7 +697,11 @@ class _SyraPrimaryCTAButton extends StatelessWidget {
     VoidCallback? onTap;
     bool isDisabled = false;
 
-    if (plan.isPaid) {
+    if (!purchasesSupported) {
+      label = 'Bu platformda desteklenmiyor';
+      onTap = null;
+      isDisabled = true;
+    } else if (plan.isPaid) {
       label = 'Aboneliği yönet';
       onTap = onManage;
     } else if (selectedTab == SubscriptionTab.plus) {
