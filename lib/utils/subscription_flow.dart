@@ -271,9 +271,9 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
     return SafeArea(
       top: false,
       child: DraggableScrollableSheet(
-        initialChildSize: 0.88,
-        minChildSize: 0.6,
-        maxChildSize: 0.95,
+        initialChildSize: 0.75,
+        minChildSize: 0.55,
+        maxChildSize: 0.92,
         builder: (context, controller) {
           return Container(
             decoration: const BoxDecoration(
@@ -549,8 +549,8 @@ class _SyraFeatureComparisonCard extends StatelessWidget {
 
   static const _features = [
     _FeatureRow('Sohbet', 'Sınırsız', 'Sınırsız'),
-    _FeatureRow('Ayna modu', '✓', '✓'),
-    _FeatureRow('Dost Acı Söyler', '—', '✓'),
+    _FeatureRow('Ayna', '✓', '✓'),
+    _FeatureRow('Dost Acı Söyler', '✓', '✓'),
     _FeatureRow('Model seviyesi', 'Gelişmiş', 'En yüksek'),
   ];
 
@@ -679,7 +679,7 @@ class _SyraPrimaryCTAButton extends StatelessWidget {
       label = 'İşleniyor…';
       onTap = null;
     } else {
-      label = '$priceLabel / ay ile başla';
+      label = 'Core\'a geç · $priceLabel/ay';
       onTap = onBuyCore;
     }
 
