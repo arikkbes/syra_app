@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/purchase_service.dart';
 import '../theme/syra_theme.dart';
 import '../widgets/glass_background.dart';
 
@@ -96,6 +97,7 @@ class _SignUpScreenState extends State<SignUpScreen>
         "profile_memory": [],
         "traits": [],
       });
+      await PurchaseService.identifyUser(uid);
 
       if (mounted) Navigator.pushReplacementNamed(context, "/chat");
     } on FirebaseAuthException catch (e) {
