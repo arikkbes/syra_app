@@ -184,7 +184,7 @@ class _SyraPaywallSheet extends StatefulWidget {
 class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
   late SubscriptionTab _selectedTab;
   UserPlan _plan = UserPlan.free;
-  StoreProduct? _coreProduct;
+  List<StoreProduct> _products = const [];
   bool _loading = true;
   bool _purchaseLoading = false;
   bool _restoreLoading = false;
@@ -207,12 +207,12 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
       }
       final results = await Future.wait<dynamic>([
         _resolveCurrentPlan(),
-        PurchaseService.getPremiumProduct(),
+        PurchaseService.getProducts(),
       ]);
       if (!mounted) return;
       setState(() {
         _plan = results[0] as UserPlan;
-        _coreProduct = results[1] as StoreProduct?;
+        _products = results[1] as List<StoreProduct>;
         _loading = false;
       });
     } catch (_) {
@@ -283,8 +283,25 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
     }
   }
 
-  String get _corePriceLabel =>
-      _coreProduct?.priceString ?? '₺249,99';
+  StoreProduct? _resolveProductForTab(SubscriptionTab tab) {
+    if (_products.isEmpty) return null;
+    final needle = tab == SubscriptionTab.core ? 'core' : 'plus';
+    final byIdentifier = _products
+        .where((p) => p.identifier.toLowerCase().contains(needle))
+        .firstOrNull;
+    if (byIdentifier != null) return byIdentifier;
+
+    // Fallback: first product for Core, second (if any) for Plus.
+    if (tab == SubscriptionTab.core) return _products.first;
+    if (_products.length > 1) return _products[1];
+    return null;
+  }
+
+  String _priceLabelForTab(SubscriptionTab tab) {
+    final product = _resolveProductForTab(tab);
+    if (product != null) return product.priceString;
+    return _loading ? 'Loading…' : '—';
+  }
 
   // ─── Build ──────────────────────────────────────────────────
 
@@ -342,6 +359,8 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
                         selected: _selectedTab,
                         onChanged: (tab) =>
                             setState(() => _selectedTab = tab),
+                        corePriceLabel: _priceLabelForTab(SubscriptionTab.core),
+                        plusPriceLabel: _priceLabelForTab(SubscriptionTab.plus),
                         plusDisabled: true,
                       ),
                       const SizedBox(height: 16),
@@ -371,7 +390,7 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
                         _SyraPrimaryCTAButton(
                           plan: _plan,
                           selectedTab: _selectedTab,
-                          priceLabel: _corePriceLabel,
+                          priceLabel: _priceLabelForTab(SubscriptionTab.core),
                           purchaseLoading: _purchaseLoading,
                           purchasesSupported: _purchasesSupported,
                           onBuyCore: _buyCore,
@@ -473,11 +492,15 @@ class _SyraPaywallSheetState extends State<_SyraPaywallSheet> {
 class _SyraPlanSegmentedControl extends StatelessWidget {
   final SubscriptionTab selected;
   final ValueChanged<SubscriptionTab> onChanged;
+  final String corePriceLabel;
+  final String plusPriceLabel;
   final bool plusDisabled;
 
   const _SyraPlanSegmentedControl({
     required this.selected,
     required this.onChanged,
+    required this.corePriceLabel,
+    required this.plusPriceLabel,
     this.plusDisabled = false,
   });
 
@@ -492,15 +515,15 @@ class _SyraPlanSegmentedControl extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _chip(SubscriptionTab.core, 'Core'),
+          _chip(SubscriptionTab.core, 'Core', corePriceLabel),
           const SizedBox(width: 4),
-          _chip(SubscriptionTab.plus, 'Plus'),
+          _chip(SubscriptionTab.plus, 'Plus', plusPriceLabel),
         ],
       ),
     );
   }
 
-  Widget _chip(SubscriptionTab tab, String label) {
+  Widget _chip(SubscriptionTab tab, String label, String priceLabel) {
     final isSelected = selected == tab;
     final isDisabled = tab == SubscriptionTab.plus && plusDisabled;
 
@@ -523,16 +546,20 @@ class _SyraPlanSegmentedControl extends StatelessWidget {
           alignment: Alignment.center,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
+            mainAxisSize: MainAxisSize.max,
             children: [
-              Text(
-                label,
-                style: _PaywallStyle.segmentLabelStyle.copyWith(
-                  color: isDisabled
-                      ? _PaywallStyle.textDisabled
-                      : isSelected
-                          ? _PaywallStyle.textPrimary
-                          : _PaywallStyle.textSecondary,
+              Flexible(
+                child: Text(
+                  '$label · $priceLabel',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: _PaywallStyle.segmentLabelStyle.copyWith(
+                    color: isDisabled
+                        ? _PaywallStyle.textDisabled
+                        : isSelected
+                            ? _PaywallStyle.textPrimary
+                            : _PaywallStyle.textSecondary,
+                  ),
                 ),
               ),
               if (isDisabled) ...[
@@ -767,7 +794,7 @@ class _SyraManageSubscriptionSheetState
   bool _loading = true;
   bool _restoreLoading = false;
   UserPlan _plan = UserPlan.free;
-  StoreProduct? _product;
+  List<StoreProduct> _products = const [];
 
   @override
   void initState() {
@@ -779,18 +806,28 @@ class _SyraManageSubscriptionSheetState
     try {
       final results = await Future.wait<dynamic>([
         _resolveCurrentPlan(),
-        PurchaseService.getPremiumProduct(),
+        PurchaseService.getProducts(),
       ]);
       if (!mounted) return;
       setState(() {
         _plan = results[0] as UserPlan;
-        _product = results[1] as StoreProduct?;
+        _products = results[1] as List<StoreProduct>;
         _loading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  StoreProduct? _productForCurrentPlan() {
+    if (_products.isEmpty) return null;
+    final planNeedle = _plan == UserPlan.plus ? 'plus' : 'core';
+    final byIdentifier = _products
+        .where((p) => p.identifier.toLowerCase().contains(planNeedle))
+        .firstOrNull;
+    if (byIdentifier != null) return byIdentifier;
+    return _products.first;
   }
 
   Future<void> _openManage() async {
@@ -966,9 +1003,11 @@ class _SyraManageSubscriptionSheetState
                                     ),
                                     const SizedBox(height: 2),
                                     Text(
-                                      _product?.priceString != null
-                                          ? '${_product!.priceString} / ay'
-                                          : 'Mağaza üzerinden yönetilir',
+                                      _productForCurrentPlan() != null
+                                          ? '${_productForCurrentPlan()!.priceString} / ay'
+                                          : (_loading
+                                                ? 'Loading…'
+                                                : '—'),
                                       style: const TextStyle(
                                         color: _PaywallStyle.textSecondary,
                                         fontSize: 14,

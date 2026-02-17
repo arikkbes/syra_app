@@ -25,6 +25,7 @@ class PurchaseService {
   static bool _isPurchasing = false;
   static bool _isInitializing = false;
   static String? _lastLoggedInUid;
+  static String? _pendingUid;
 
   static const String unsupportedPlatformMessage =
       "Satın alma bu platformda desteklenmiyor.";
@@ -33,6 +34,10 @@ class PurchaseService {
     if (kIsWeb) return false;
     return defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.android;
+  }
+
+  static void setPendingUserId(String? uid) {
+    _pendingUid = uid;
   }
 
   /// ═══════════════════════════════════════════════════════════════
@@ -83,6 +88,18 @@ class PurchaseService {
       }
 
       await Purchases.configure(configuration);
+
+      if (_pendingUid != null) {
+        try {
+          debugPrint(
+            "🔐 [PurchaseService] Logging in RevenueCat user: $_pendingUid",
+          );
+          await Purchases.logIn(_pendingUid!);
+          _lastLoggedInUid = _pendingUid;
+        } catch (e) {
+          debugPrint("⚠️ [PurchaseService] RevenueCat logIn failed: $e");
+        }
+      }
 
       if (kDebugMode) {
         await Purchases.setLogLevel(LogLevel.debug);
@@ -335,6 +352,7 @@ class PurchaseService {
     try {
       await Purchases.logOut();
       _lastLoggedInUid = null;
+      _pendingUid = null;
       debugPrint("✅ [PurchaseService] User logged out from RevenueCat");
     } catch (e) {
       debugPrint("⚠️ [PurchaseService] Logout error: $e");
@@ -370,6 +388,7 @@ class PurchaseService {
     _isInitialized = false;
     _isInitializing = false;
     _lastLoggedInUid = null;
+    _pendingUid = null;
     debugPrint("✅ [PurchaseService] Disposed");
   }
 }

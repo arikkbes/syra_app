@@ -11,6 +11,7 @@ import 'screens/chat_screen.dart';
 import 'screens/premium_screen.dart';
 import 'screens/premium_management_screen.dart';
 import 'utils/subscription_flow.dart';
+import 'services/purchase_service.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
@@ -105,10 +106,12 @@ class _AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData && snapshot.data != null) {
+          PurchaseService.setPendingUserId(snapshot.data!.uid);
           debugPrint('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
           return const ChatScreen();
         }
 
+        PurchaseService.setPendingUserId(null);
         debugPrint('ℹ️ [SYRA] No user, showing login');
         return const LoginScreen();
       },
