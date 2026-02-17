@@ -392,6 +392,18 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                     showChevron: false,
                     onTap: () async {
                       HapticFeedback.mediumImpact();
+                      debugPrint(
+                        '[Settings] Attempting RevenueCat logout before Firebase sign-out.',
+                      );
+                      try {
+                        await PurchaseService.logout();
+                        debugPrint('[Settings] RevenueCat logout successful.');
+                      } catch (e, st) {
+                        debugPrint(
+                          '[Settings] RevenueCat logout failed, continuing sign-out: $e',
+                        );
+                        debugPrint('$st');
+                      }
                       await FirebaseAuth.instance.signOut();
                       if (mounted) {
                         Navigator.of(context).pop();
