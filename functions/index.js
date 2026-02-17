@@ -19,8 +19,9 @@ import { createRevenuecatWebhookHandler } from "./src/http/revenuecatWebhook.js"
 const SUPABASE_URL_SECRET = defineSecret("SUPABASE_URL_SECRET");
 const SUPABASE_SERVICE_ROLE_KEY_SECRET = defineSecret("SUPABASE_SERVICE_ROLE_KEY_SECRET");
 const OPENAI_API_KEY_SECRET = defineSecret("OPENAI_API_KEY_SECRET");
+// Required by revenuecatWebhook handler (read via process.env.REVENUECAT_WEBHOOK_SECRET)
 const REVENUECAT_WEBHOOK_SECRET = defineSecret("REVENUECAT_WEBHOOK_SECRET");
-const revenuecatWebhookHandler = createRevenuecatWebhookHandler(REVENUECAT_WEBHOOK_SECRET);
+const revenuecatWebhookHandler = createRevenuecatWebhookHandler();
 
 /**
  * Main SYRA chat endpoint
