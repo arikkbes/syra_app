@@ -6,6 +6,7 @@ const FieldValue = admin.firestore.FieldValue;
 
 const EVENTS_COLLECTION = "_webhooks_revenuecat_events";
 const CORE_ENTITLEMENT_KEY = "core";
+const PLUS_ENTITLEMENT_KEY = "plus";
 
 const ACTIVE_ACCESS_EVENT_TYPES = new Set([
   "INITIAL_PURCHASE",
@@ -99,9 +100,20 @@ function hasCoreEntitlement(entitlementIds) {
   return entitlementIds.some((value) => String(value).toLowerCase() === CORE_ENTITLEMENT_KEY);
 }
 
+function hasPlusEntitlement(entitlementIds) {
+  return entitlementIds.some((value) => String(value).toLowerCase() === PLUS_ENTITLEMENT_KEY);
+}
+
+// plus > core > free sırasıyla plan belirle
+function determinePlan(entitlementIds) {
+  if (hasPlusEntitlement(entitlementIds)) return "plus";
+  if (hasCoreEntitlement(entitlementIds)) return "core";
+  return "free";
+}
+
 function shouldActivatePremium(eventType, entitlementIds) {
   if (!ACTIVE_ACCESS_EVENT_TYPES.has(eventType)) return false;
-  return hasCoreEntitlement(entitlementIds);
+  return hasCoreEntitlement(entitlementIds) || hasPlusEntitlement(entitlementIds);
 }
 
 function shouldDeactivatePremium(eventType) {
@@ -217,7 +229,7 @@ export function createRevenuecatWebhookHandler() {
         await userRef.set(
           {
             isPremium: true,
-            plan: CORE_ENTITLEMENT_KEY,
+            plan: determinePlan(entitlementIds),
             premiumUpdatedAt: FieldValue.serverTimestamp(),
             rc: {
               lastEventId: eventId,

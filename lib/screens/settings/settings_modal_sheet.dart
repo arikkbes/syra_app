@@ -4,17 +4,20 @@
 // ═══════════════════════════════════════════════════════════════
 
 import 'dart:ui';
+import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:http/http.dart' as http;
 
 import '../../theme/syra_theme.dart';
 import '../../theme/syra_glass.dart';
 import '../../services/purchase_service.dart';
 import '../../services/firestore_user.dart';
+import '../../services/api_endpoints.dart';
 import '../../models/chat_session.dart';
 import '../../models/user_plan.dart';
 
@@ -405,9 +408,9 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                         debugPrint('$st');
                       }
                       await FirebaseAuth.instance.signOut();
-                      if (mounted) {
-                        Navigator.of(context).pop();
-                      }
+                      if (!mounted) return;
+                      Navigator.of(context, rootNavigator: true)
+                          .pushNamedAndRemoveUntil('/login', (route) => false);
                     },
                   ),
                 ],
@@ -888,18 +891,81 @@ class _DataControlsContent extends StatelessWidget {
       HapticFeedback.heavyImpact();
       try {
         final user = FirebaseAuth.instance.currentUser;
-        if (user != null) {
-          await FirebaseFirestore.instance
-              .collection('users')
-              .doc(user.uid)
-              .delete();
-          await user.delete();
-          onClose();
+        if (user == null) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Silme işlemi başarısız, tekrar dene.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
         }
-      } catch (e) {
+
+        final idToken = await user.getIdToken(true);
+        final response = await http.post(
+          Uri.parse(ApiEndpoints.deleteUserData),
+          headers: {
+            'Authorization': 'Bearer $idToken',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({}),
+        );
+
+        Map<String, dynamic> payload = const {};
+        try {
+          final decoded = jsonDecode(response.body);
+          if (decoded is Map<String, dynamic>) {
+            payload = decoded;
+          }
+        } catch (_) {}
+
+        final success = response.statusCode == 200 && payload['success'] == true;
+        if (!success) {
+          debugPrint(
+            '[Settings] deleteUserData failed: status=${response.statusCode}, code=${payload['code'] ?? 'unknown'}',
+          );
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Silme işlemi başarısız, tekrar dene.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return;
+        }
+
+        try {
+          await PurchaseService.logout();
+        } catch (_) {}
+
+        try {
+          await FirebaseAuth.instance.signOut();
+        } catch (_) {}
+
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Hata: $e'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Hesabın silindi.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        if (!context.mounted) return;
+        Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+          '/login',
+          (route) => false,
+        );
+      } catch (e) {
+        debugPrint('[Settings] deleteUserData request error: ${e.runtimeType}');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Silme işlemi başarısız, tekrar dene.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }

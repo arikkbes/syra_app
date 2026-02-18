@@ -17,4 +17,6 @@ class ApiEndpoints {
       "https://us-central1-syra-ai-b562f.cloudfunctions.net/analyzeRelationshipChat";
   static const String relationshipStats =
       "https://getrelationshipstats-qbipkdgczq-uc.a.run.app";
+  static const String deleteUserData =
+      "https://deleteuserdata-qbipkdgczq-uc.a.run.app";
 }

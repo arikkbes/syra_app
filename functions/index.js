@@ -14,6 +14,7 @@ import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisH
 import { tarotReadingHandler } from "./src/http/tarotReadingHandler.js";
 import { relationshipStatsHandler } from "./src/http/relationshipStatsHandler.js";
 import { createRevenuecatWebhookHandler } from "./src/http/revenuecatWebhook.js";
+import { deleteUserDataHandler } from "./src/http/deleteUserDataHandler.js";
 
 // ✅ Secrets (Firebase Functions v2) — ÇAKIŞMAMASI İÇİN *_SECRET
 const SUPABASE_URL_SECRET = defineSecret("SUPABASE_URL_SECRET");
@@ -104,4 +105,18 @@ export const revenuecatWebhook = onRequest(
     ],
   },
   revenuecatWebhookHandler
+);
+
+/**
+ * Kullanici hesabini tamamen sil (tum veriler + auth)
+ */
+export const deleteUserData = onRequest(
+  {
+    region: "us-central1",
+    cors: true,
+    timeoutSeconds: 120,
+    memory: "256MiB",
+    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET],
+  },
+  deleteUserDataHandler
 );

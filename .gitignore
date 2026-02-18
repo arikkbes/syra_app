@@ -46,3 +46,6 @@ app.*.map.json
 
 # ❗ SYRA runtime config – SECRET, DO NOT PUSH
 .runtimeconfig.json
+functions/.runtimeconfig.json
+.env
+.env.*
