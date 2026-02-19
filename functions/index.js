@@ -8,7 +8,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 
-import { syraChatHandler } from "./src/http/syraChatHandler.js";
 import { syraChatV2Handler } from "./src/http/syraChatV2.js";
 import { analyzeRelationshipChatHandler } from "./src/http/relationshipAnalysisHandlerV2.js";
 import { tarotReadingHandler } from "./src/http/tarotReadingHandler.js";
@@ -25,21 +24,7 @@ const REVENUECAT_WEBHOOK_SECRET = defineSecret("REVENUECAT_WEBHOOK_SECRET");
 const revenuecatWebhookHandler = createRevenuecatWebhookHandler();
 
 /**
- * Main SYRA chat endpoint
- * Function name kept as 'flortIQChat' for backwards compatibility
- */
-export const flortIQChat = onRequest(
-  {
-    cors: true,
-    timeoutSeconds: 120,
-    memory: "256MiB",
-    secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET, OPENAI_API_KEY_SECRET],
-  },
-  syraChatHandler
-);
-
-/**
- * New SYRA chat endpoint (V2)
+ * SYRA chat endpoint (V2) — aktif production endpoint
  */
 export const syraChatV2 = onRequest(
   {

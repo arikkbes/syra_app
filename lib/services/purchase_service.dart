@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
+import '../config/revenuecat_config.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// REVENUECAT PURCHASE SERVICE v3.0 - LAZY INITIALIZATION
@@ -13,13 +14,12 @@ import 'package:purchases_flutter/purchases_flutter.dart';
 /// ═══════════════════════════════════════════════════════════════
 
 class PurchaseService {
-  static const String _revenueCatApiKeyIOS = "appl_hMJcdDsttoFBDubneOgHjcfOUgx";
-  static const String _revenueCatApiKeyAndroid =
-      "goog_hnrifbAxGYJhdLqHnGHyhHHTArG";
+  static const String _apiKeyIOS = RevenueCatConfig.apiKeyIOS;
+  static const String _apiKeyAndroid = RevenueCatConfig.apiKeyAndroid;
 
-  static const String entitlementCore = "core";
-  static const String entitlementPlus = "plus";
-  static const String coreProductId = "com.ariksoftware.syra.core_monthly";
+  static const String entitlementCore = RevenueCatConfig.entitlementCore;
+  static const String entitlementPlus = RevenueCatConfig.entitlementPlus;
+  static const String coreProductId = RevenueCatConfig.coreProductId;
 
   static bool _isInitialized = false;
   static bool _isPurchasing = false;
@@ -75,10 +75,10 @@ class PurchaseService {
       late PurchasesConfiguration configuration;
 
       if (defaultTargetPlatform == TargetPlatform.iOS) {
-        configuration = PurchasesConfiguration(_revenueCatApiKeyIOS);
+        configuration = PurchasesConfiguration(_apiKeyIOS);
         debugPrint("🍎 [PurchaseService] Configuring for iOS");
       } else if (defaultTargetPlatform == TargetPlatform.android) {
-        configuration = PurchasesConfiguration(_revenueCatApiKeyAndroid);
+        configuration = PurchasesConfiguration(_apiKeyAndroid);
         debugPrint("🤖 [PurchaseService] Configuring for Android");
       } else {
         debugPrint("⚠️ [PurchaseService] Platform not supported");

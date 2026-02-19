@@ -11,11 +11,6 @@ class AppConstants {
   static const int buildNumber = 37;
   
   static const String bundleId = 'com.ariksoftware.syra';
-  static const String premiumProductId = 'com.ariksoftware.syra.premium_monthly';
-  
-  static const String revenueCatApiKeyIOS = 'appl_hMJcdDsttoFBDubneOgHjcfOUgx';
-  static const String revenueCatApiKeyAndroid = 'goog_hnrifbAxGYJhdLqHnGHyhHHTArG';
-  static const String revenueCatEntitlementId = 'premium';
 
   static const String usersCollection = 'users';
   static const String conversationsCollection = 'conversations';

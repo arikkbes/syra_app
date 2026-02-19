@@ -1,6 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import '../models/user_plan.dart';
 
 class FirestoreUser {
@@ -38,40 +37,6 @@ class FirestoreUser {
     await _userRef().update({
       "plan": plan.firestoreValue,
     });
-  }
-
-  // ─────────────────────────────────────────────────────────────
-  // Legacy API (deprecated — use getPlan() instead)
-  // ─────────────────────────────────────────────────────────────
-
-  @Deprecated('Use getPlan() instead')
-  static Future<bool> isPremium() async {
-    final plan = await getPlan();
-    return plan.isPaid;
-  }
-
-  /// ⚠️ DEPRECATED: Direct client writes to plan/isPremium will fail due to Firestore rules.
-  /// 
-  /// This method is kept temporarily for backward compatibility with PurchaseService,
-  /// but writes will be blocked by server. The backend should handle plan updates
-  /// via webhook (RevenueCat → Cloud Functions → Firestore).
-  /// 
-  /// TODO: Remove this method and update PurchaseService to rely solely on
-  /// RevenueCat entitlements, with server-side sync handling Firestore updates.
-  @Deprecated('Client should NOT write plan/isPremium - server sync only')
-  static Future<void> upgradeToPremium() async {
-    // ⚠️ WARNING: This write will FAIL if Firestore rules are tightened.
-    // Keep for now to avoid breaking existing flow, but replace with server sync.
-    try {
-      await _userRef().update({
-        "isPremium": true,
-        "plan": "core",
-        "dailyMessageLimit": 99999,
-      });
-    } catch (e) {
-      debugPrint("⚠️ [FirestoreUser] upgradeToPremium failed (expected if rules block): $e");
-      // Don't rethrow - allow purchase flow to succeed based on RevenueCat entitlement
-    }
   }
 
   static Future<void> createProfile(User user) async {

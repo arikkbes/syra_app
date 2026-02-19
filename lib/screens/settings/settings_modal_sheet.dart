@@ -801,11 +801,18 @@ class _AnimatedSheetPageState extends State<_AnimatedSheetPage>
 // CONTENT PAGES
 // ═══════════════════════════════════════════════════════════════
 
-class _DataControlsContent extends StatelessWidget {
+class _DataControlsContent extends StatefulWidget {
   final String? userEmail;
   final VoidCallback onClose;
 
   const _DataControlsContent({this.userEmail, required this.onClose});
+
+  @override
+  State<_DataControlsContent> createState() => _DataControlsContentState();
+}
+
+class _DataControlsContentState extends State<_DataControlsContent> {
+  bool _isDeleting = false;
 
   Future<void> _deleteAllChats(BuildContext context) async {
     final confirm = await showCupertinoDialog<bool>(
@@ -865,6 +872,8 @@ class _DataControlsContent extends StatelessWidget {
   }
 
   Future<void> _deleteAccount(BuildContext context) async {
+    if (_isDeleting) return;
+
     final confirm = await showCupertinoDialog<bool>(
       context: context,
       builder: (ctx) => CupertinoAlertDialog(
@@ -887,79 +896,14 @@ class _DataControlsContent extends StatelessWidget {
       ),
     );
 
-    if (confirm == true) {
-      HapticFeedback.heavyImpact();
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Silme işlemi başarısız, tekrar dene.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
+    if (confirm != true) return;
 
-        final idToken = await user.getIdToken(true);
-        final response = await http.post(
-          Uri.parse(ApiEndpoints.deleteUserData),
-          headers: {
-            'Authorization': 'Bearer $idToken',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode({}),
-        );
+    setState(() => _isDeleting = true);
+    HapticFeedback.heavyImpact();
 
-        Map<String, dynamic> payload = const {};
-        try {
-          final decoded = jsonDecode(response.body);
-          if (decoded is Map<String, dynamic>) {
-            payload = decoded;
-          }
-        } catch (_) {}
-
-        final success = response.statusCode == 200 && payload['success'] == true;
-        if (!success) {
-          debugPrint(
-            '[Settings] deleteUserData failed: status=${response.statusCode}, code=${payload['code'] ?? 'unknown'}',
-          );
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Silme işlemi başarısız, tekrar dene.'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
-          return;
-        }
-
-        try {
-          await PurchaseService.logout();
-        } catch (_) {}
-
-        try {
-          await FirebaseAuth.instance.signOut();
-        } catch (_) {}
-
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Hesabın silindi.'),
-              backgroundColor: Colors.green,
-            ),
-          );
-        }
-        if (!context.mounted) return;
-        Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
-          '/login',
-          (route) => false,
-        );
-      } catch (e) {
-        debugPrint('[Settings] deleteUserData request error: ${e.runtimeType}');
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -968,7 +912,76 @@ class _DataControlsContent extends StatelessWidget {
             ),
           );
         }
+        return;
       }
+
+      final idToken = await user.getIdToken(true);
+      final response = await http.post(
+        Uri.parse(ApiEndpoints.deleteUserData),
+        headers: {
+          'Authorization': 'Bearer $idToken',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({}),
+      );
+
+      Map<String, dynamic> payload = const {};
+      try {
+        final decoded = jsonDecode(response.body);
+        if (decoded is Map<String, dynamic>) {
+          payload = decoded;
+        }
+      } catch (_) {}
+
+      final success = response.statusCode == 200 && payload['success'] == true;
+      if (!success) {
+        debugPrint(
+          '[Settings] deleteUserData failed: status=${response.statusCode}, code=${payload['code'] ?? 'unknown'}',
+        );
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Silme işlemi başarısız, tekrar dene.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return;
+      }
+
+      try {
+        await PurchaseService.logout();
+      } catch (_) {}
+
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (_) {}
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Hesabın silindi.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      if (!context.mounted) return;
+      Navigator.of(context, rootNavigator: true).pushNamedAndRemoveUntil(
+        '/login',
+        (route) => false,
+      );
+    } catch (e) {
+      debugPrint('[Settings] deleteUserData request error: ${e.runtimeType}');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Silme işlemi başarısız, tekrar dene.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isDeleting = false);
     }
   }
 
@@ -1005,11 +1018,23 @@ class _DataControlsContent extends StatelessWidget {
             ),
             const _SettingsDivider(),
             _SettingsRow(
-              icon: Icons.person_remove_outlined,
-              label: 'Hesabı sil',
+              icon: _isDeleting
+                  ? Icons.hourglass_top_rounded
+                  : Icons.person_remove_outlined,
+              label: _isDeleting ? 'Siliniyor…' : 'Hesabı sil',
               isDestructive: true,
               showChevron: false,
-              onTap: () => _deleteAccount(context),
+              trailingWidget: _isDeleting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Color(0xFFFF6B6B),
+                      ),
+                    )
+                  : null,
+              onTap: _isDeleting ? null : () => _deleteAccount(context),
             ),
           ],
         ),
