@@ -3,3 +3,4 @@ node_modules/
 .env
 .runtimeconfig.json
 .env.*
+!.env.template
