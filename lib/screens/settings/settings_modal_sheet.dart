@@ -20,6 +20,7 @@ import '../../services/firestore_user.dart';
 import '../../services/api_endpoints.dart';
 import '../../models/chat_session.dart';
 import '../../models/user_plan.dart';
+import '../../config/legal_urls.dart';
 import 'package:syra/core/syra_log.dart';
 
 /// SYRA Settings Modal Sheet - iOS Style with grouped sections
@@ -367,17 +368,13 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                   _SettingsRow(
                     icon: Icons.description_outlined,
                     label: 'Kullanım şartları',
-                    onTap: () => _launchURL(
-                      'https://ariksoftware.com.tr/privacy-policy.html',
-                    ),
+                    onTap: () => _launchURL(termsOfServiceUrl),
                   ),
                   const _SettingsDivider(),
                   _SettingsRow(
                     icon: Icons.privacy_tip_outlined,
                     label: 'Gizlilik politikası',
-                    onTap: () => _launchURL(
-                      'https://ariksoftware.com.tr/privacy-policy.html',
-                    ),
+                    onTap: () => _launchURL(privacyPolicyUrl),
                   ),
                 ],
               ),
