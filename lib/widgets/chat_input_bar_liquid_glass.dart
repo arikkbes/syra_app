@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import '../utils/base_shader.dart';
 import '../utils/shader_painter.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// Optimized Liquid Glass widget for ChatInputBar
 /// Features:
@@ -49,7 +50,7 @@ class _ChatInputBarLiquidGlassState extends State<ChatInputBarLiquidGlass> {
           _shaderFailed = true;
         });
         widget.onShaderLoadFailed?.call();
-        debugPrint(
+        syraLog(
             '⚠️ Liquid Glass shader failed to load, using fallback blur');
       } else {
         // Initial capture
@@ -138,7 +139,7 @@ class _ChatInputBarLiquidGlassState extends State<ChatInputBarLiquidGlass> {
         croppedImage.dispose();
       }
     } catch (e) {
-      debugPrint('❌ Error capturing background: $e');
+      syraLog('❌ Error capturing background: $e');
       // On first error, fall back to blur
       if (mounted && !_shaderFailed) {
         setState(() {

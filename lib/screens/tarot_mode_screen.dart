@@ -4,6 +4,7 @@ import '../theme/syra_theme.dart';
 import '../services/tarot_service.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/tarot_card_choice.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// TAROT MODE SCREEN - CONVERSATIONAL EXPERIENCE
@@ -601,7 +602,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
       _scrollToBottom();
     } catch (e) {
-      debugPrint('Tarot reading error: $e');
+      syraLog('Tarot reading error: $e');
       
       if (!mounted) return;
 
@@ -654,7 +655,7 @@ class _TarotModeScreenState extends State<TarotModeScreen> {
 
       _scrollToBottom();
     } catch (e) {
-      debugPrint('Follow-up question error: $e');
+      syraLog('Follow-up question error: $e');
       
       if (!mounted) return;
 

@@ -12,6 +12,7 @@ import 'screens/premium_screen.dart';
 import 'screens/premium_management_screen.dart';
 import 'utils/subscription_flow.dart';
 import 'services/purchase_service.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// SYRA MAIN - iOS CRASH-PROOF VERSION v1.0.1 Build 27 (Hive)
@@ -25,28 +26,28 @@ Future<void> main() async {
 
   try {
     await SyraPrefs.initialize();
-    debugPrint('✅ [SYRA] Hive initialized (syraBox)');
+    syraLog('✅ [SYRA] Hive initialized (syraBox)');
   } catch (e) {
-    debugPrint('⚠️ [SYRA] Hive error: $e (app will use defaults)');
+    syraLog('⚠️ [SYRA] Hive error: $e (app will use defaults)');
   }
 
   try {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    debugPrint('✅ [SYRA] Firebase initialized');
+    syraLog('✅ [SYRA] Firebase initialized');
   } catch (e) {
-    debugPrint('⚠️ [SYRA] Firebase error: $e');
+    syraLog('⚠️ [SYRA] Firebase error: $e');
   }
 
   try {
     await ServiceLocator.instance.initialize();
-    debugPrint('✅ [SYRA] Service Locator initialized');
+    syraLog('✅ [SYRA] Service Locator initialized');
   } catch (e) {
-    debugPrint('⚠️ [SYRA] Service Locator error: $e');
+    syraLog('⚠️ [SYRA] Service Locator error: $e');
   }
 
-  debugPrint('🚀 [SYRA] Launching app - Build 27 - Hive Migration');
+  syraLog('🚀 [SYRA] Launching app - Build 27 - Hive Migration');
   runApp(const SyraApp());
 }
 
@@ -101,18 +102,18 @@ class _AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasError) {
-          debugPrint('❌ [SYRA] Auth error: ${snapshot.error}');
+          syraLog('❌ [SYRA] Auth error: ${snapshot.error}');
           return _buildErrorScreen(context);
         }
 
         if (snapshot.hasData && snapshot.data != null) {
           PurchaseService.setPendingUserId(snapshot.data!.uid);
-          debugPrint('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
+          syraLog('✅ [SYRA] User logged in: ${snapshot.data!.uid}');
           return const ChatScreen();
         }
 
         PurchaseService.setPendingUserId(null);
-        debugPrint('ℹ️ [SYRA] No user, showing login');
+        syraLog('ℹ️ [SYRA] No user, showing login');
         return const LoginScreen();
       },
     );

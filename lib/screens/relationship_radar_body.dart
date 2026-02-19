@@ -12,6 +12,7 @@ import '../services/relationship_stats_service.dart';
 import '../services/relationship_memory_service.dart';
 import '../utils/subscription_flow.dart';
 import '../widgets/glass_background.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// RELATIONSHIP RADAR BODY
@@ -72,13 +73,13 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
       setState(() {
         _selectedParticipant = savedParticipant;
       });
-      debugPrint('✅ Loaded synced participant: $savedParticipant');
+      syraLog('✅ Loaded synced participant: $savedParticipant');
     } else {
       // Fallback to memory.selfParticipant if sync state invalid
       setState(() {
         _selectedParticipant = widget.memory.selfParticipant;
       });
-      debugPrint(
+      syraLog(
         '⚠️ Saved participant invalid, using memory.selfParticipant: ${widget.memory.selfParticipant}',
       );
     }
@@ -157,7 +158,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         _statsAccessMessage = null;
       });
 
-      debugPrint('❌ RelationshipRadarBody stats error: $e');
+      syraLog('❌ RelationshipRadarBody stats error: $e');
     }
   }
 
@@ -1103,9 +1104,9 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         partner = speakers.firstWhere((s) => s != speaker);
       }
 
-      debugPrint('🔍 Selecting participant: $speaker');
-      debugPrint('🔍 Partner: $partner');
-      debugPrint('🔍 Relationship ID: ${widget.memory.id}');
+      syraLog('🔍 Selecting participant: $speaker');
+      syraLog('🔍 Partner: $partner');
+      syraLog('🔍 Relationship ID: ${widget.memory.id}');
 
       final success = await RelationshipMemoryService.updateParticipants(
         selfParticipant: speaker,
@@ -1119,7 +1120,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         _isUpdatingParticipant = false;
       });
 
-      debugPrint('✅ Update result: $success');
+      syraLog('✅ Update result: $success');
 
       if (success) {
         // Reload stats to get updated user/partner labels
@@ -1166,8 +1167,8 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
         );
       }
     } catch (e, stackTrace) {
-      debugPrint('❌ Participant selection error: $e');
-      debugPrint('Stack trace: $stackTrace');
+      syraLog('❌ Participant selection error: $e');
+      syraLog('Stack trace: $stackTrace');
 
       if (!mounted) return;
 

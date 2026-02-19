@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// Custom painter that renders the liquid glass effect on the captured background
 /// Used by ChatInputBar to paint shader effects
@@ -21,7 +22,7 @@ class ShaderPainter extends CustomPainter {
       final paint = Paint()..shader = shader;
       canvas.drawRect(Offset.zero & size, paint);
     } catch (e) {
-      debugPrint('❌ ShaderPainter error: $e');
+      syraLog('❌ ShaderPainter error: $e');
       // Fallback: transparent
       final paint = Paint()..color = Colors.transparent;
       canvas.drawRect(Offset.zero & size, paint);

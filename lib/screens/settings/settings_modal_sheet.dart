@@ -20,6 +20,7 @@ import '../../services/firestore_user.dart';
 import '../../services/api_endpoints.dart';
 import '../../models/chat_session.dart';
 import '../../models/user_plan.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// SYRA Settings Modal Sheet - iOS Style with grouped sections
 class SyraSettingsModalSheet extends StatefulWidget {
@@ -395,17 +396,17 @@ class _SyraSettingsModalSheetState extends State<SyraSettingsModalSheet> {
                     showChevron: false,
                     onTap: () async {
                       HapticFeedback.mediumImpact();
-                      debugPrint(
+                      syraLog(
                         '[Settings] Attempting RevenueCat logout before Firebase sign-out.',
                       );
                       try {
                         await PurchaseService.logout();
-                        debugPrint('[Settings] RevenueCat logout successful.');
+                        syraLog('[Settings] RevenueCat logout successful.');
                       } catch (e, st) {
-                        debugPrint(
+                        syraLog(
                           '[Settings] RevenueCat logout failed, continuing sign-out: $e',
                         );
-                        debugPrint('$st');
+                        syraLog('$st');
                       }
                       await FirebaseAuth.instance.signOut();
                       if (!mounted) return;
@@ -935,7 +936,7 @@ class _DataControlsContentState extends State<_DataControlsContent> {
 
       final success = response.statusCode == 200 && payload['success'] == true;
       if (!success) {
-        debugPrint(
+        syraLog(
           '[Settings] deleteUserData failed: status=${response.statusCode}, code=${payload['code'] ?? 'unknown'}',
         );
         if (context.mounted) {
@@ -971,7 +972,7 @@ class _DataControlsContentState extends State<_DataControlsContent> {
         (route) => false,
       );
     } catch (e) {
-      debugPrint('[Settings] deleteUserData request error: ${e.runtimeType}');
+      syraLog('[Settings] deleteUserData request error: ${e.runtimeType}');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

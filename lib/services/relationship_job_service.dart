@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// RELATIONSHIP JOB MONITORING SERVICE
@@ -285,8 +286,8 @@ class RelationshipJobStatus {
         errorStack: errorStack,
       );
     } catch (e) {
-      print('Error parsing job status: $e');
-      print('Job data: $data');
+      syraLog('Error parsing job status: $e');
+      syraLog('Job data: $data');
 
       // Return a safe fallback
       return RelationshipJobStatus(

@@ -9,7 +9,7 @@ import 'package:flutter/rendering.dart';
 /// ```dart
 /// MeasureSize(
 ///   onChange: (Size size) {
-///     print('Child size: ${size.width} x ${size.height}');
+///     syraLog('Child size: ${size.width} x ${size.height}');
 ///   },
 ///   child: YourWidget(),
 /// )

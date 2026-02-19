@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_endpoints.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// TAROT SERVICE — Handles tarot reading requests and follow-up conversations
 class TarotService {
@@ -55,7 +56,7 @@ class TarotService {
         "reading": jsonBody?["message"] ?? "Bir hata oluştu. Tekrar dene."
       });
     } catch (e) {
-      debugPrint("getTarotReading error: $e");
+      syraLog("getTarotReading error: $e");
       return jsonEncode({
         "reading": "Bağlantı hatası. Tekrar dene."
       });
@@ -77,7 +78,7 @@ class TarotService {
 
       final idToken = await user.getIdToken();
       final uri = Uri.parse(_chatEndpoint);
-      print("CHAT_ENDPOINT: $uri");
+      syraLog("CHAT_ENDPOINT: $uri");
 
       // Build context message about the tarot reading
       String contextMessage = "Kullanıcı az önce bir tarot açılımı yaptı. ";
@@ -124,7 +125,7 @@ class TarotService {
 
       return "Bir hata oluştu. Tekrar dene.";
     } catch (e) {
-      debugPrint("followUpQuestion error: $e");
+      syraLog("followUpQuestion error: $e");
       return "Bağlantı hatası. Tekrar dene.";
     }
   }

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_session.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// CHAT SESSION SERVICE — Manages chat session CRUD operations
@@ -109,11 +110,11 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.success(sessions: []);
       }
 
-      debugPrint(
+      syraLog(
           "📥 [ChatSessionService] Loading sessions for user: ${user.uid}");
 
       final snapshot = await _firestore
@@ -127,17 +128,17 @@ class ChatSessionService {
           .map((doc) => ChatSession.fromMap(doc.data(), doc.id))
           .toList();
 
-      debugPrint("✅ [ChatSessionService] Loaded ${sessions.length} sessions");
+      syraLog("✅ [ChatSessionService] Loaded ${sessions.length} sessions");
       return SessionResult.success(sessions: sessions);
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in getUserSessions: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbetler yüklenemedi. Tekrar dene.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in getUserSessions: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbetler yüklenirken hata oluştu.",
@@ -153,7 +154,7 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.error(
           errorMessage: "Oturum oluşturulamadı. Giriş yapmalısın.",
           debugMessage: "User not authenticated",
@@ -169,7 +170,7 @@ class ChatSessionService {
         'lastMessage': null,
       };
 
-      debugPrint(
+      syraLog(
           "📤 [ChatSessionService] Creating session: ${sessionData['title']}");
 
       final docRef = await _firestore
@@ -178,17 +179,17 @@ class ChatSessionService {
           .collection(_sessionsSubcollection)
           .add(sessionData);
 
-      debugPrint("✅ [ChatSessionService] Session created: ${docRef.id}");
+      syraLog("✅ [ChatSessionService] Session created: ${docRef.id}");
       return SessionResult.success(sessionId: docRef.id);
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in createSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Yeni sohbet oluşturulamadı. Tekrar dene.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in createSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet oluşturulurken hata oluştu.",
@@ -210,7 +211,7 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.error(
           errorMessage: "Oturum güncellenemedi.",
           debugMessage: "User not authenticated",
@@ -226,7 +227,7 @@ class ChatSessionService {
       if (title != null) updateData['title'] = title;
       if (messageCount != null) updateData['messageCount'] = messageCount;
 
-      debugPrint("📤 [ChatSessionService] Updating session: $sessionId");
+      syraLog("📤 [ChatSessionService] Updating session: $sessionId");
 
       await _firestore
           .collection(_usersCollection)
@@ -235,17 +236,17 @@ class ChatSessionService {
           .doc(sessionId)
           .update(updateData);
 
-      debugPrint("✅ [ChatSessionService] Session updated: $sessionId");
+      syraLog("✅ [ChatSessionService] Session updated: $sessionId");
       return SessionResult.success();
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in updateSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet güncellenemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in updateSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet güncellenirken hata oluştu.",
@@ -264,14 +265,14 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.error(
           errorMessage: "Sohbet adı değiştirilemedi.",
           debugMessage: "User not authenticated",
         );
       }
 
-      debugPrint(
+      syraLog(
           "📤 [ChatSessionService] Renaming session: $sessionId → $newTitle");
 
       await _firestore
@@ -284,17 +285,17 @@ class ChatSessionService {
         'lastUpdatedAt': DateTime.now(),
       });
 
-      debugPrint("✅ [ChatSessionService] Session renamed: $sessionId");
+      syraLog("✅ [ChatSessionService] Session renamed: $sessionId");
       return SessionResult.success();
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in renameSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet adı değiştirilemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in renameSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet adı değiştirilirken hata oluştu.",
@@ -310,14 +311,14 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.error(
           errorMessage: "Sohbet silinemedi.",
           debugMessage: "User not authenticated",
         );
       }
 
-      debugPrint("📤 [ChatSessionService] Deleting session: $sessionId");
+      syraLog("📤 [ChatSessionService] Deleting session: $sessionId");
 
       // ═══════════════════════════════════════════════════════════
       // CRITICAL FIX: Delete ALL messages first, then delete session
@@ -333,7 +334,7 @@ class ChatSessionService {
       // Get all messages
       final messagesSnapshot = await messagesRef.get();
 
-      debugPrint(
+      syraLog(
           "🗑️ [ChatSessionService] Deleting ${messagesSnapshot.docs.length} messages from session $sessionId");
 
       // Delete messages in batches (Firestore batch limit = 500)
@@ -349,7 +350,7 @@ class ChatSessionService {
           await batch.commit();
           batch = _firestore.batch(); // Create new batch after commit
           batchCount = 0;
-          debugPrint(
+          syraLog(
               "🗑️ [ChatSessionService] Committed batch of 500 message deletes");
         }
       }
@@ -359,7 +360,7 @@ class ChatSessionService {
         await batch.commit();
       }
 
-      debugPrint("✅ [ChatSessionService] All messages deleted");
+      syraLog("✅ [ChatSessionService] All messages deleted");
 
       // Now delete the session document itself
       await _firestore
@@ -369,7 +370,7 @@ class ChatSessionService {
           .doc(sessionId)
           .delete();
 
-      debugPrint("✅ [ChatSessionService] Session deleted: $sessionId");
+      syraLog("✅ [ChatSessionService] Session deleted: $sessionId");
 
       // ═══════════════════════════════════════════════════════════════
       // MODULE 2: Delete backend conversation history for this session
@@ -382,24 +383,24 @@ class ChatSessionService {
             .doc(sessionId);
 
         await conversationHistoryRef.delete();
-        debugPrint(
+        syraLog(
             "✅ [ChatSessionService] Backend conversation history deleted for session: $sessionId");
       } catch (e) {
         // Non-critical error - session is already deleted from UI
-        debugPrint(
+        syraLog(
             "⚠️ [ChatSessionService] Failed to delete backend history (non-critical): $e");
       }
 
       return SessionResult.success();
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in deleteSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Sohbet silinemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in deleteSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Sohbet silinirken hata oluştu.",
@@ -419,11 +420,11 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.success(messages: []);
       }
 
-      debugPrint(
+      syraLog(
           "📥 [ChatSessionService] Loading messages for session: $sessionId");
 
       final snapshot = await _firestore
@@ -437,17 +438,17 @@ class ChatSessionService {
 
       final messages = snapshot.docs.map((doc) => doc.data()).toList();
 
-      debugPrint("✅ [ChatSessionService] Loaded ${messages.length} messages");
+      syraLog("✅ [ChatSessionService] Loaded ${messages.length} messages");
       return SessionResult.success(messages: messages);
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in getSessionMessages: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Mesajlar yüklenemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in getSessionMessages: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Mesajlar yüklenirken hata oluştu.",
@@ -466,14 +467,14 @@ class ChatSessionService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint("⚠️ [ChatSessionService] No authenticated user");
+        syraLog("⚠️ [ChatSessionService] No authenticated user");
         return SessionResult.error(
           errorMessage: "Mesaj kaydedilemedi.",
           debugMessage: "User not authenticated",
         );
       }
 
-      debugPrint(
+      syraLog(
           "📤 [ChatSessionService] Adding message to session: $sessionId");
 
       await _firestore
@@ -484,17 +485,17 @@ class ChatSessionService {
           .collection(_messagesSubcollection)
           .add(message);
 
-      debugPrint("✅ [ChatSessionService] Message added to session: $sessionId");
+      syraLog("✅ [ChatSessionService] Message added to session: $sessionId");
       return SessionResult.success();
     } on FirebaseException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] FirebaseException in addMessageToSession: ${e.code} - ${e.message}");
       return SessionResult.error(
         errorMessage: "Mesaj kaydedilemedi.",
         debugMessage: "FirebaseException: ${e.code} - ${e.message}",
       );
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in addMessageToSession: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Mesaj kaydedilirken hata oluştu.",
@@ -528,7 +529,7 @@ class ChatSessionService {
         );
       }
 
-      debugPrint(
+      syraLog(
           "📝 [ChatSessionService] Setting feedback for message $messageId: $feedback");
 
       // 1. Save to SharedPreferences (local fallback)
@@ -548,7 +549,7 @@ class ChatSessionService {
             await messagesRef.where('id', isEqualTo: messageId).limit(1).get();
 
         if (querySnapshot.docs.isEmpty) {
-          debugPrint(
+          syraLog(
               "⚠️ [ChatSessionService] Message not found in Firestore: $messageId");
           // Still return success since we saved to SharedPreferences
           return SessionResult.success();
@@ -560,16 +561,16 @@ class ChatSessionService {
           'feedbackAt': FieldValue.serverTimestamp(),
         });
 
-        debugPrint("✅ [ChatSessionService] Feedback saved to Firestore");
+        syraLog("✅ [ChatSessionService] Feedback saved to Firestore");
       } catch (firestoreError) {
-        debugPrint(
+        syraLog(
             "⚠️ [ChatSessionService] Firestore save failed, using local fallback: $firestoreError");
         // Continue - we already saved to SharedPreferences
       }
 
       return SessionResult.success();
     } catch (e, stackTrace) {
-      debugPrint(
+      syraLog(
           "❌ [ChatSessionService] Error in setMessageFeedback: $e\n$stackTrace");
       return SessionResult.error(
         errorMessage: "Geri bildirim kaydedilemedi.",

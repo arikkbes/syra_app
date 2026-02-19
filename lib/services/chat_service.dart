@@ -7,6 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/user_plan.dart';
 import '../services/firestore_user.dart';
 import '../services/api_endpoints.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// CHAT SERVICE — Handles chat logic, message limits, premium checks
@@ -105,7 +106,7 @@ class ChatService {
         'count': count,
       };
     } catch (e) {
-      debugPrint("❌ [ChatService] getUserStatus error: $e");
+      syraLog("❌ [ChatService] getUserStatus error: $e");
       // Return safe defaults on error
       return {
         'plan': UserPlan.free,
@@ -135,9 +136,9 @@ class ChatService {
   static Future<void> incrementMessageCount() async {
     try {
       await FirestoreUser.incrementMessageCount();
-      debugPrint("✅ [ChatService] Message count incremented");
+      syraLog("✅ [ChatService] Message count incremented");
     } catch (e) {
-      debugPrint("❌ [ChatService] incrementMessageCount error: $e");
+      syraLog("❌ [ChatService] incrementMessageCount error: $e");
       // Non-critical error - don't throw, just log
     }
   }
@@ -183,7 +184,7 @@ class ChatService {
         );
       }
 
-      debugPrint(
+      syraLog(
           "📤 [ChatService] Sending message (mode: $mode, hasImage: ${imageUrl != null})");
 
       // Get auth token
@@ -200,7 +201,7 @@ class ChatService {
       final context =
           _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
-      print("CHAT_ENDPOINT: $uri");
+      syraLog("CHAT_ENDPOINT: $uri");
 
       final requestBody = {
         "message": userMessage,
@@ -238,19 +239,19 @@ class ChatService {
       // Parse response
       return _parseResponse(response);
     } on SocketException catch (e) {
-      debugPrint("❌ [ChatService] SocketException: $e");
+      syraLog("❌ [ChatService] SocketException: $e");
       return ChatSendResult.error(
         userMessage: "Bağlantı hatası. İnterneti kontrol et ve tekrar dene.",
         debugMessage: "SocketException: $e",
       );
     } on TimeoutException catch (e) {
-      debugPrint("❌ [ChatService] TimeoutException: $e");
+      syraLog("❌ [ChatService] TimeoutException: $e");
       return ChatSendResult.error(
         userMessage: "İstek zaman aşımına uğradı. Tekrar dene kanka.",
         debugMessage: "TimeoutException: $e",
       );
     } on FirebaseAuthException catch (e) {
-      debugPrint(
+      syraLog(
           "❌ [ChatService] FirebaseAuthException: ${e.code} - ${e.message}");
       return ChatSendResult.error(
         userMessage:
@@ -258,19 +259,19 @@ class ChatService {
         debugMessage: "FirebaseAuthException: ${e.code} - ${e.message}",
       );
     } on FormatException catch (e) {
-      debugPrint("❌ [ChatService] FormatException (JSON parse): $e");
+      syraLog("❌ [ChatService] FormatException (JSON parse): $e");
       return ChatSendResult.error(
         userMessage: "Sunucudan geçersiz yanıt alındı. Tekrar dene.",
         debugMessage: "FormatException: $e",
       );
     } on Exception catch (e) {
-      debugPrint("❌ [ChatService] Exception: $e");
+      syraLog("❌ [ChatService] Exception: $e");
       return ChatSendResult.error(
         userMessage: "Beklenmedik bir hata oluştu. Birazdan tekrar dene.",
         debugMessage: "Exception: $e",
       );
     } catch (e, stackTrace) {
-      debugPrint("❌ [ChatService] Unexpected error: $e\n$stackTrace");
+      syraLog("❌ [ChatService] Unexpected error: $e\n$stackTrace");
       return ChatSendResult.error(
         userMessage: "Kanka beklenmedik bir hata oldu. Birazdan tekrar dene.",
         debugMessage: "Unexpected error: $e",
@@ -283,7 +284,7 @@ class ChatService {
     final statusCode = response.statusCode;
     final rawBody = response.body;
 
-    debugPrint("📥 [ChatService] Response: $statusCode");
+    syraLog("📥 [ChatService] Response: $statusCode");
 
     // Try to parse JSON body
     Map<String, dynamic>? jsonBody;
@@ -291,7 +292,7 @@ class ChatService {
       try {
         jsonBody = jsonDecode(rawBody) as Map<String, dynamic>;
       } catch (e) {
-        debugPrint("⚠️ [ChatService] JSON parse failed: $e\nBody: $rawBody");
+        syraLog("⚠️ [ChatService] JSON parse failed: $e\nBody: $rawBody");
       }
     }
 
@@ -305,10 +306,10 @@ class ChatService {
             jsonBody?["text"];
 
         if (text != null && text.toString().isNotEmpty) {
-          debugPrint("✅ [ChatService] Message received successfully");
+          syraLog("✅ [ChatService] Message received successfully");
           return ChatSendResult.success(text.toString());
         } else {
-          debugPrint("⚠️ [ChatService] Empty response from backend");
+          syraLog("⚠️ [ChatService] Empty response from backend");
           return ChatSendResult.error(
             userMessage: "Sunucudan boş yanıt alındı. Tekrar dene.",
             debugMessage: "200 OK but no message in response",
@@ -316,14 +317,14 @@ class ChatService {
         }
 
       case 401:
-        debugPrint("❌ [ChatService] 401 Unauthorized");
+        syraLog("❌ [ChatService] 401 Unauthorized");
         return ChatSendResult.error(
           userMessage: "Yetki hatası. Çıkış yapıp tekrar giriş yapmayı dene.",
           debugMessage: "401 Unauthorized",
         );
 
       case 408:
-        debugPrint("❌ [ChatService] 408 Request Timeout");
+        syraLog("❌ [ChatService] 408 Request Timeout");
         return ChatSendResult.error(
           userMessage: "İstek zaman aşımına uğradı. Tekrar dene kanka.",
           debugMessage: "408 Request Timeout",
@@ -331,7 +332,7 @@ class ChatService {
 
       case 429:
         final message = jsonBody?["message"] as String?;
-        debugPrint("❌ [ChatService] 429 Rate Limit: $message");
+        syraLog("❌ [ChatService] 429 Rate Limit: $message");
         return ChatSendResult.error(
           userMessage: message ??
               "Günlük mesaj limitine ulaştın. Premium'a geç veya yarın tekrar dene.",
@@ -339,14 +340,14 @@ class ChatService {
         );
 
       case 500:
-        debugPrint("❌ [ChatService] 500 Server Error");
+        syraLog("❌ [ChatService] 500 Server Error");
         return ChatSendResult.error(
           userMessage: "Sunucu hatası oluştu. Birkaç dakika sonra tekrar dene.",
           debugMessage: "500 Internal Server Error",
         );
 
       case 503:
-        debugPrint("❌ [ChatService] 503 Service Unavailable");
+        syraLog("❌ [ChatService] 503 Service Unavailable");
         return ChatSendResult.error(
           userMessage: "Servis şu an bakımda. Birazdan tekrar dene kanka.",
           debugMessage: "503 Service Unavailable",
@@ -356,14 +357,14 @@ class ChatService {
         // Try to get backend error message
         final backendMessage = jsonBody?["message"] as String?;
         if (backendMessage != null && backendMessage.isNotEmpty) {
-          debugPrint("❌ [ChatService] $statusCode Error: $backendMessage");
+          syraLog("❌ [ChatService] $statusCode Error: $backendMessage");
           return ChatSendResult.error(
             userMessage: backendMessage,
             debugMessage: "$statusCode: $backendMessage",
           );
         }
 
-        debugPrint("❌ [ChatService] $statusCode Error: $rawBody");
+        syraLog("❌ [ChatService] $statusCode Error: $rawBody");
         return ChatSendResult.error(
           userMessage:
               "Sunucu hatası: $statusCode. Birazdan tekrar dene kanka.",

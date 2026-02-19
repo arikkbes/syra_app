@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'base_shader.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// Liquid Glass Lens Shader for ChatInputBar
 /// Creates premium glass physics with distortion and chromatic aberration
@@ -48,7 +49,7 @@ class LiquidGlassLensShader extends BaseShader {
         shader.setImageSampler(0, backgroundImage);
       }
     } catch (e) {
-      debugPrint('❌ Error setting shader uniforms: $e');
+      syraLog('❌ Error setting shader uniforms: $e');
     }
   }
 }

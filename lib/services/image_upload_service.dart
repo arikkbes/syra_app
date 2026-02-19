@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// IMAGE UPLOAD SERVICE — Firebase Storage'a resim yükleme
@@ -14,7 +15,7 @@ class ImageUploadService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
-        debugPrint('ImageUploadService: User not logged in');
+        syraLog('ImageUploadService: User not logged in');
         return null;
       }
 
@@ -29,7 +30,7 @@ class ImageUploadService {
       // Upload progress (opsiyonel - ileride progress bar için kullanılabilir)
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        debugPrint('Upload progress: ${progress.toStringAsFixed(1)}%');
+        syraLog('Upload progress: ${progress.toStringAsFixed(1)}%');
       });
 
       // Upload tamamlanana kadar bekle
@@ -38,10 +39,10 @@ class ImageUploadService {
       // Download URL'ini al
       final downloadUrl = await snapshot.ref.getDownloadURL();
       
-      debugPrint('Image uploaded successfully: $downloadUrl');
+      syraLog('Image uploaded successfully: $downloadUrl');
       return downloadUrl;
     } catch (e) {
-      debugPrint('ImageUploadService error: $e');
+      syraLog('ImageUploadService error: $e');
       return null;
     }
   }
@@ -51,9 +52,9 @@ class ImageUploadService {
     try {
       final ref = _storage.refFromURL(imageUrl);
       await ref.delete();
-      debugPrint('Image deleted successfully: $imageUrl');
+      syraLog('Image deleted successfully: $imageUrl');
     } catch (e) {
-      debugPrint('ImageUploadService deleteImage error: $e');
+      syraLog('ImageUploadService deleteImage error: $e');
     }
   }
 }

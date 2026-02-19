@@ -9,6 +9,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_endpoints.dart';
+import 'package:syra/core/syra_log.dart';
 
 class RelationshipStatsService {
   // Firebase Cloud Functions URL (from deployment)
@@ -30,7 +31,7 @@ class RelationshipStatsService {
         throw Exception('Token alınamadı');
       }
 
-      print('🔍 Fetching stats from: $_baseUrl');
+      syraLog('🔍 Fetching stats from: $_baseUrl');
 
       // Make HTTP request
       final response = await http.get(
@@ -46,8 +47,8 @@ class RelationshipStatsService {
         },
       );
 
-      print('📡 Response status: ${response.statusCode}');
-      print('📦 Response body: ${response.body}');
+      syraLog('📡 Response status: ${response.statusCode}');
+      syraLog('📦 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body) as Map<String, dynamic>;
@@ -60,7 +61,7 @@ class RelationshipStatsService {
             'Sunucu hatası: ${response.statusCode} - ${response.body}');
       }
     } catch (e) {
-      print('❌ RelationshipStatsService.getStats error: $e');
+      syraLog('❌ RelationshipStatsService.getStats error: $e');
       rethrow;
     }
   }

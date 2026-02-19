@@ -46,6 +46,7 @@ import 'chat/chat_input_bar.dart';
 import '../widgets/minimal_mode_selector.dart';
 import '../widgets/claude_sidebar.dart';
 import '../widgets/measure_size.dart';
+import 'package:syra/core/syra_log.dart';
 
 const bool forcePremiumForTesting = false;
 
@@ -185,7 +186,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _messageCount = status['count'] as int;
       });
     } catch (e) {
-      debugPrint("initUser error: $e");
+      syraLog("initUser error: $e");
       if (!mounted) return;
       setState(() {
         _userPlan = UserPlan.free;
@@ -205,7 +206,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _chatSessions = result.sessions!;
       });
     } else {
-      debugPrint("❌ Failed to load sessions: ${result.debugMessage}");
+      syraLog("❌ Failed to load sessions: ${result.debugMessage}");
       // Optionally show error to user
       if (result.errorMessage != null && mounted) {
         BlurToast.show(context, result.errorMessage!);
@@ -239,7 +240,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
       Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
     } else {
-      debugPrint("❌ Failed to load messages: ${result.debugMessage}");
+      syraLog("❌ Failed to load messages: ${result.debugMessage}");
       if (result.errorMessage != null && mounted) {
         BlurToast.show(context, result.errorMessage!);
       }
@@ -257,7 +258,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
         await _loadChatSessions();
       } else {
-        debugPrint(
+        syraLog(
           "❌ Failed to create initial session: ${result.debugMessage}",
         );
       }
@@ -458,7 +459,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       });
       await _loadChatSessions();
     } else {
-      debugPrint("❌ Failed to create new chat: ${result.debugMessage}");
+      syraLog("❌ Failed to create new chat: ${result.debugMessage}");
       if (result.errorMessage != null && mounted) {
         BlurToast.show(context, result.errorMessage!);
       }
@@ -667,7 +668,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     if (_currentSessionId == session.id) {
       // Cancel any in-flight streaming response
       if (_activeRequestId != null) {
-        debugPrint(
+        syraLog(
           "⚠️ [ChatScreen] Cancelling in-flight request due to session deletion",
         );
         setState(() {
@@ -801,7 +802,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _chatSessions.removeWhere((s) => s.id == session.id);
       });
     } catch (e) {
-      debugPrint('Arşivleme hatası: $e');
+      syraLog('Arşivleme hatası: $e');
     }
   }
 
@@ -885,7 +886,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Start upload with progress tracking
       await _uploadFile(file);
     } catch (e) {
-      debugPrint('_handleUploadTap error: $e');
+      syraLog('_handleUploadTap error: $e');
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
@@ -1014,7 +1015,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         });
       }
     } catch (e) {
-      debugPrint('_uploadFile error: $e');
+      syraLog('_uploadFile error: $e');
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
@@ -1031,15 +1032,15 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   /// Handle mismatch - new relationship
   Future<void> _handleMismatchNewRelationship() async {
-    debugPrint('🔵 _handleMismatchNewRelationship called');
-    debugPrint('🔵 _pendingUploadFile: $_pendingUploadFile');
+    syraLog('🔵 _handleMismatchNewRelationship called');
+    syraLog('🔵 _pendingUploadFile: $_pendingUploadFile');
 
     if (_pendingUploadFile == null) {
-      debugPrint('❌ _pendingUploadFile is NULL - returning early');
+      syraLog('❌ _pendingUploadFile is NULL - returning early');
       return;
     }
 
-    debugPrint('✅ Starting new relationship creation');
+    syraLog('✅ Starting new relationship creation');
     setState(() {
       _showMismatchCard = false;
       _isUploadingInBackground = true;
@@ -1107,7 +1108,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      debugPrint('_handleMismatchNewRelationship error: $e');
+      syraLog('_handleMismatchNewRelationship error: $e');
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
@@ -1199,7 +1200,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      debugPrint('_handleMismatchForceUpdate error: $e');
+      syraLog('_handleMismatchForceUpdate error: $e');
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
@@ -1727,7 +1728,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      debugPrint('_pickAndUploadRelationshipFile error: $e');
+      syraLog('_pickAndUploadRelationshipFile error: $e');
 
       if (!mounted) return;
 
@@ -1790,7 +1791,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       // Arka planda Firebase'e upload et
       _uploadPendingImage();
     } catch (e) {
-      debugPrint("_pickImageForPreview error: $e");
+      syraLog("_pickImageForPreview error: $e");
       if (mounted) {
         BlurToast.show(context, "Resim seçilirken hata oluştu.");
       }
@@ -1808,10 +1809,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         setState(() {
           _pendingImageUrl = imageUrl;
         });
-        debugPrint("Pending image uploaded: $imageUrl");
+        syraLog("Pending image uploaded: $imageUrl");
       }
     } catch (e) {
-      debugPrint("_uploadPendingImage error: $e");
+      syraLog("_uploadPendingImage error: $e");
       if (mounted) {
         BlurToast.show(context, "Resim yüklenirken hata oluştu.");
         setState(() {
@@ -1847,7 +1848,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
       },
       onError: (error) {
-        debugPrint('Speech error: $error');
+        syraLog('Speech error: $error');
         setState(() => _isListening = false);
         if (mounted) {
           BlurToast.show(context, "🎤 Ses tanıma hatası: ${error.errorMsg}");
@@ -1966,7 +1967,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           });
         }
       } catch (e) {
-        debugPrint("getUserStatus error: $e");
+        syraLog("getUserStatus error: $e");
       }
     }
 
@@ -2055,7 +2056,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         // Immediately load sessions to show in sidebar
         await _loadChatSessions();
       } else {
-        debugPrint("❌ Failed to create session: ${result.debugMessage}");
+        syraLog("❌ Failed to create session: ${result.debugMessage}");
       }
     } else {
       // Session exists - update title if this is first message
@@ -2093,7 +2094,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           messageCount: _messages.where((m) => m['sender'] == 'user').length,
         );
       } else {
-        debugPrint("❌ Failed to save user message: ${saveResult.debugMessage}");
+        syraLog("❌ Failed to save user message: ${saveResult.debugMessage}");
       }
     }
 
@@ -2103,7 +2104,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       try {
         await ChatService.incrementMessageCount();
       } catch (e) {
-        debugPrint("incrementMessageCount ERROR: $e");
+        syraLog("incrementMessageCount ERROR: $e");
       }
     }
 
@@ -2140,7 +2141,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // ═════════════════════════════════════════════════════════
           if (_activeRequestId != requestId ||
               _lockedSessionId != lockedSessionId) {
-            debugPrint("⚠️ Ignoring error chunk for stale request");
+            syraLog("⚠️ Ignoring error chunk for stale request");
             return; // Ignore stale error
           }
 
@@ -2174,7 +2175,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // ═════════════════════════════════════════════════════════
           if (_activeRequestId != requestId ||
               _lockedSessionId != lockedSessionId) {
-            debugPrint("⚠️ Ignoring isDone chunk for stale request");
+            syraLog("⚠️ Ignoring isDone chunk for stale request");
             return; // Ignore stale completion
           }
 
@@ -2218,7 +2219,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             }
           }
 
-          debugPrint("✅ Streaming completed!");
+          syraLog("✅ Streaming completed!");
           break;
         }
 
@@ -2229,13 +2230,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // ═════════════════════════════════════════════════════════
           if (_activeRequestId != requestId ||
               _lockedSessionId != lockedSessionId) {
-            debugPrint("⚠️ Ignoring first chunk for stale request");
+            syraLog("⚠️ Ignoring first chunk for stale request");
             return; // Ignore stale chunk
           }
 
           // MICRO FIX: Only add message if still in the same session
           if (_currentSessionId != lockedSessionId) {
-            debugPrint(
+            syraLog(
               "⚠️ Ignoring first chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)",
             );
             return;
@@ -2262,13 +2263,13 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           // ═════════════════════════════════════════════════════════
           if (_activeRequestId != requestId ||
               _lockedSessionId != lockedSessionId) {
-            debugPrint("⚠️ Ignoring subsequent chunk for stale request");
+            syraLog("⚠️ Ignoring subsequent chunk for stale request");
             return; // Ignore stale chunk
           }
 
           // MICRO FIX: Only append if still in the same session
           if (_currentSessionId != lockedSessionId) {
-            debugPrint(
+            syraLog(
               "⚠️ Ignoring subsequent chunk - session changed (current: $_currentSessionId, locked: $lockedSessionId)",
             );
             return;
@@ -2287,7 +2288,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         _scrollToBottom();
       }
     } catch (e) {
-      debugPrint("❌ Streaming error: $e");
+      syraLog("❌ Streaming error: $e");
 
       setState(() {
         _isTyping = false;

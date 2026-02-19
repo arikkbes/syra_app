@@ -15,6 +15,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/relationship_memory.dart';
+import 'package:syra/core/syra_log.dart';
 
 class RelationshipMemoryService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -39,7 +40,7 @@ class RelationshipMemoryService {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getString('selectedSelfParticipantId');
     } catch (e) {
-      print('❌ Error getting selectedSelfParticipantId: $e');
+      syraLog('❌ Error getting selectedSelfParticipantId: $e');
       return null;
     }
   }
@@ -55,7 +56,7 @@ class RelationshipMemoryService {
       }
       return true;
     } catch (e) {
-      print('❌ Error setting selectedSelfParticipantId: $e');
+      syraLog('❌ Error setting selectedSelfParticipantId: $e');
       return false;
     }
   }
@@ -73,7 +74,7 @@ class RelationshipMemoryService {
       final user = _auth.currentUser;
       if (user == null) return null;
 
-      print(
+      syraLog(
           '🔍 getMemory called (forceIncludeInactive: $forceIncludeInactive)');
 
       // Get active relationship ID from user document
@@ -81,12 +82,12 @@ class RelationshipMemoryService {
       final activeRelationshipId =
           userDoc.data()?['activeRelationshipId'] as String?;
 
-      print('🔍 activeRelationshipId from user doc: $activeRelationshipId');
+      syraLog('🔍 activeRelationshipId from user doc: $activeRelationshipId');
 
       // If no activeRelationshipId, try to find the most recent relationship
       String? relId = activeRelationshipId;
       if (relId == null && forceIncludeInactive) {
-        print('🔍 No activeRelationshipId, searching for most recent...');
+        syraLog('🔍 No activeRelationshipId, searching for most recent...');
 
         // Find most recent relationship (even if inactive)
         // IMPORTANT: Get from server to avoid cache issues after delete
@@ -109,18 +110,18 @@ class RelationshipMemoryService {
           }
 
           if (relId != null) {
-            print('🔍 Found most recent non-hidden relationship: $relId');
+            syraLog('🔍 Found most recent non-hidden relationship: $relId');
           } else {
-            print('🔍 Only hidden (forgotten/deleted) relationships exist');
+            syraLog('🔍 Only hidden (forgotten/deleted) relationships exist');
           }
         } else {
-          print('🔍 No relationships found at all');
+          syraLog('🔍 No relationships found at all');
         }
       }
 
       if (relId == null) {
         // No relationship found at all
-        print('🔍 No relationship ID, returning null');
+        syraLog('🔍 No relationship ID, returning null');
         return null;
       }
 
@@ -134,17 +135,17 @@ class RelationshipMemoryService {
           .get(const GetOptions(source: Source.server)); // ← FORCE SERVER
 
       if (!relationshipDoc.exists) {
-        print('🔍 Relationship doc does not exist: $relId');
+        syraLog('🔍 Relationship doc does not exist: $relId');
         return null;
       }
 
       final data = relationshipDoc.data()!;
 
-      print('🔍 Relationship found: $relId, isActive: ${data['isActive']}');
+      syraLog('🔍 Relationship found: $relId, isActive: ${data['isActive']}');
 
       // If it was forgotten/deleted, treat as no relationship (even for panel UI)
       if (_isHiddenRelationship(data)) {
-        print('🔍 Relationship is hidden (forgotten/deleted) → returning null');
+        syraLog('🔍 Relationship is hidden (forgotten/deleted) → returning null');
         return null;
       }
 
@@ -156,7 +157,7 @@ class RelationshipMemoryService {
         docId: relationshipDoc.id,
       );
     } catch (e) {
-      print('RelationshipMemoryService.getMemory error: $e');
+      syraLog('RelationshipMemoryService.getMemory error: $e');
       return null;
     }
   }
@@ -193,7 +194,7 @@ class RelationshipMemoryService {
               RelationshipMemory.fromFirestore(doc.data(), docId: doc.id))
           .toList();
     } catch (e) {
-      print('RelationshipMemoryService.getAllRelationships error: $e');
+      syraLog('RelationshipMemoryService.getAllRelationships error: $e');
       return [];
     }
   }
@@ -206,7 +207,7 @@ class RelationshipMemoryService {
       final user = _auth.currentUser;
       if (user == null) return null;
 
-      print('🔍 getMemoryById called for: $relationshipId');
+      syraLog('🔍 getMemoryById called for: $relationshipId');
 
       // Get relationship document from server
       final relationshipDoc = await _firestore
@@ -217,7 +218,7 @@ class RelationshipMemoryService {
           .get(const GetOptions(source: Source.server));
 
       if (!relationshipDoc.exists) {
-        print('🔍 Relationship doc does not exist: $relationshipId');
+        syraLog('🔍 Relationship doc does not exist: $relationshipId');
         return null;
       }
 
@@ -225,7 +226,7 @@ class RelationshipMemoryService {
 
       // If it was forgotten/deleted, return null
       if (_isHiddenRelationship(data)) {
-        print('🔍 Relationship is hidden (forgotten/deleted) → returning null');
+        syraLog('🔍 Relationship is hidden (forgotten/deleted) → returning null');
         return null;
       }
 
@@ -234,7 +235,7 @@ class RelationshipMemoryService {
         docId: relationshipDoc.id,
       );
     } catch (e) {
-      print('❌ RelationshipMemoryService.getMemoryById error: $e');
+      syraLog('❌ RelationshipMemoryService.getMemoryById error: $e');
       return null;
     }
   }
@@ -248,14 +249,14 @@ class RelationshipMemoryService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        print('❌ persistParticipantMapping: No current user');
+        syraLog('❌ persistParticipantMapping: No current user');
         return;
       }
 
-      print('🔍 persistParticipantMapping called:');
-      print('   - relationshipId: $relationshipId');
-      print('   - selfParticipant: $selfParticipant');
-      print('   - partnerParticipant: $partnerParticipant');
+      syraLog('🔍 persistParticipantMapping called:');
+      syraLog('   - relationshipId: $relationshipId');
+      syraLog('   - selfParticipant: $selfParticipant');
+      syraLog('   - partnerParticipant: $partnerParticipant');
 
       final updateData = <String, dynamic>{
         'selfParticipant': selfParticipant,
@@ -270,14 +271,14 @@ class RelationshipMemoryService {
           .doc(relationshipId)
           .update(updateData);
 
-      print('✅ Participant mapping persisted successfully');
+      syraLog('✅ Participant mapping persisted successfully');
 
       // Save selected self participant (sync state)
       await setSelectedSelfParticipant(selfParticipant);
-      print('✅ selectedSelfParticipant saved: $selfParticipant');
+      syraLog('✅ selectedSelfParticipant saved: $selfParticipant');
     } catch (e) {
       // Best-effort: do not crash UI if this fails
-      print('⚠️ persistParticipantMapping failed (best-effort): $e');
+      syraLog('⚠️ persistParticipantMapping failed (best-effort): $e');
     }
   }
 
@@ -317,7 +318,7 @@ class RelationshipMemoryService {
 
       return true;
     } catch (e) {
-      print('RelationshipMemoryService.updateIsActive error: $e');
+      syraLog('RelationshipMemoryService.updateIsActive error: $e');
       return false;
     }
   }
@@ -335,7 +336,7 @@ class RelationshipMemoryService {
       final user = _auth.currentUser;
       if (user == null) return false;
 
-      print(
+      syraLog(
           '🗑️ deleteMemory called (relationshipId: $relationshipId, permanentDelete: $permanentDelete)');
 
       // Get relationship ID
@@ -344,11 +345,11 @@ class RelationshipMemoryService {
         final userDoc =
             await _firestore.collection('users').doc(user.uid).get();
         relId = userDoc.data()?['activeRelationshipId'] as String?;
-        print('🗑️ Got relationshipId from user doc: $relId');
+        syraLog('🗑️ Got relationshipId from user doc: $relId');
       }
 
       if (relId == null) {
-        print('🗑️ No relationshipId found, trying legacy path');
+        syraLog('🗑️ No relationshipId found, trying legacy path');
         // Try legacy path
         await _firestore
             .collection('relationship_memory')
@@ -371,7 +372,7 @@ class RelationshipMemoryService {
           .doc(relId);
 
       if (permanentDelete) {
-        print('🗑️ FORGET (permanentDelete): hiding relationship $relId first');
+        syraLog('🗑️ FORGET (permanentDelete): hiding relationship $relId first');
 
         // 0) FIRST mark as hidden so UI stops showing it even if deletes fail
         try {
@@ -381,10 +382,10 @@ class RelationshipMemoryService {
             'deletedAt': FieldValue.serverTimestamp(),
             'updatedAt': FieldValue.serverTimestamp(),
           }, SetOptions(merge: true));
-          print(
+          syraLog(
               '🗑️ Relationship marked hidden (lastForgottenAt/deletedAt set)');
         } catch (e) {
-          print('⚠️ Could not mark relationship as hidden: $e');
+          syraLog('⚠️ Could not mark relationship as hidden: $e');
           // Even if this fails, continue trying to clear active id below.
         }
 
@@ -392,7 +393,7 @@ class RelationshipMemoryService {
         try {
           final chunksSnapshot =
               await relationshipRef.collection('chunks').get();
-          print('🗑️ Found ${chunksSnapshot.docs.length} chunks to delete');
+          syraLog('🗑️ Found ${chunksSnapshot.docs.length} chunks to delete');
 
           WriteBatch batch = _firestore.batch();
           int batchCount = 0;
@@ -412,51 +413,51 @@ class RelationshipMemoryService {
             await batch.commit();
           }
 
-          print('🗑️ All chunks deleted (best-effort success)');
+          syraLog('🗑️ All chunks deleted (best-effort success)');
         } catch (e) {
-          print('⚠️ Chunk delete failed (rules?) continuing anyway: $e');
+          syraLog('⚠️ Chunk delete failed (rules?) continuing anyway: $e');
         }
 
         // 2) Best-effort: delete relationship doc itself (may be blocked by rules)
         try {
           await relationshipRef.delete();
-          print('🗑️ Relationship doc deleted (best-effort success)');
+          syraLog('🗑️ Relationship doc deleted (best-effort success)');
         } catch (e) {
-          print('⚠️ Relationship doc delete blocked (rules?) kept hidden: $e');
+          syraLog('⚠️ Relationship doc delete blocked (rules?) kept hidden: $e');
         }
       } else {
-        print('🗑️ SOFT DELETE: Setting isActive=false for $relId');
+        syraLog('🗑️ SOFT DELETE: Setting isActive=false for $relId');
         try {
           await relationshipRef.update({
             'isActive': false,
             'updatedAt': FieldValue.serverTimestamp(),
           });
-          print('🗑️ Relationship marked as inactive (soft delete)');
+          syraLog('🗑️ Relationship marked as inactive (soft delete)');
         } catch (e) {
-          print('⚠️ Could not update relationship doc (might not exist): $e');
+          syraLog('⚠️ Could not update relationship doc (might not exist): $e');
         }
       }
 
       // Clear activeRelationshipId
-      print('🗑️ Clearing activeRelationshipId from user doc');
+      syraLog('🗑️ Clearing activeRelationshipId from user doc');
       try {
         await _firestore.collection('users').doc(user.uid).update({
           'activeRelationshipId': null,
         });
       } catch (e) {
         // If user doc update fails due to rules, log it.
-        print('⚠️ Could not clear activeRelationshipId: $e');
+        syraLog('⚠️ Could not clear activeRelationshipId: $e');
       }
 
       // Clear selected self participant (sync state)
       await setSelectedSelfParticipant(null);
 
-      print(
+      syraLog(
           '🗑️ Delete/Forget completed successfully (UI should stop showing it)');
       return true;
     } catch (e, stackTrace) {
-      print('❌ RelationshipMemoryService.deleteMemory error: $e');
-      print('Stack trace: $stackTrace');
+      syraLog('❌ RelationshipMemoryService.deleteMemory error: $e');
+      syraLog('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -473,7 +474,7 @@ class RelationshipMemoryService {
 
       return true;
     } catch (e) {
-      print('RelationshipMemoryService.setActiveRelationship error: $e');
+      syraLog('RelationshipMemoryService.setActiveRelationship error: $e');
       return false;
     }
   }
@@ -487,28 +488,28 @@ class RelationshipMemoryService {
     try {
       final user = _auth.currentUser;
       if (user == null) {
-        print('❌ updateParticipants: No current user');
+        syraLog('❌ updateParticipants: No current user');
         return false;
       }
 
-      print('🔍 updateParticipants called:');
-      print('   - selfParticipant: $selfParticipant');
-      print('   - partnerParticipant: $partnerParticipant');
-      print('   - relationshipId: $relationshipId');
-      print('   - uid: ${user.uid}');
+      syraLog('🔍 updateParticipants called:');
+      syraLog('   - selfParticipant: $selfParticipant');
+      syraLog('   - partnerParticipant: $partnerParticipant');
+      syraLog('   - relationshipId: $relationshipId');
+      syraLog('   - uid: ${user.uid}');
 
       // Get relationship ID
       String? relId = relationshipId;
       if (relId == null) {
-        print('🔍 No relationshipId provided, fetching from user doc...');
+        syraLog('🔍 No relationshipId provided, fetching from user doc...');
         final userDoc =
             await _firestore.collection('users').doc(user.uid).get();
         relId = userDoc.data()?['activeRelationshipId'] as String?;
-        print('🔍 Active relationship ID from user doc: $relId');
+        syraLog('🔍 Active relationship ID from user doc: $relId');
       }
 
       if (relId == null) {
-        print('❌ updateParticipants: No relationship ID found');
+        syraLog('❌ updateParticipants: No relationship ID found');
         return false;
       }
 
@@ -521,9 +522,9 @@ class RelationshipMemoryService {
         updateData['partnerParticipant'] = partnerParticipant;
       }
 
-      print(
+      syraLog(
           '🔍 Updating relationship doc: relationships/${user.uid}/relations/$relId');
-      print('🔍 Update data: $updateData');
+      syraLog('🔍 Update data: $updateData');
 
       await _firestore
           .collection('relationships')
@@ -532,25 +533,25 @@ class RelationshipMemoryService {
           .doc(relId)
           .update(updateData);
 
-      print('✅ Relationship doc updated successfully');
+      syraLog('✅ Relationship doc updated successfully');
 
       // Save selected self participant (sync state between Chat and Radar)
       await setSelectedSelfParticipant(selfParticipant);
-      print('✅ selectedSelfParticipant saved: $selfParticipant');
+      syraLog('✅ selectedSelfParticipant saved: $selfParticipant');
 
       // If activeRelationshipId not set, set it now
       final userDoc = await _firestore.collection('users').doc(user.uid).get();
       if (userDoc.data()?['activeRelationshipId'] == null) {
-        print('🔍 Setting activeRelationshipId in user doc...');
+        syraLog('🔍 Setting activeRelationshipId in user doc...');
         await _firestore.collection('users').doc(user.uid).set({
           'activeRelationshipId': relId,
         }, SetOptions(merge: true));
-        print('✅ activeRelationshipId set');
+        syraLog('✅ activeRelationshipId set');
       }
 
       return true;
     } catch (e) {
-      print('❌ updateParticipants error: $e');
+      syraLog('❌ updateParticipants error: $e');
       return false;
     }
   }

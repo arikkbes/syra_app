@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_endpoints.dart';
+import 'package:syra/core/syra_log.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// STREAMING CHAT SERVICE - Claude/ChatGPT Style
@@ -85,7 +86,7 @@ class ChatServiceStreaming {
         return;
       }
 
-      debugPrint(
+      syraLog(
           "📤 [StreamingService] Sending message (mode: $mode, hasImage: ${imageUrl != null})");
 
       // Get auth token
@@ -100,7 +101,7 @@ class ChatServiceStreaming {
       final context =
           _buildConversationContext(conversationHistory, replyingTo);
       final uri = Uri.parse(_endpoint);
-      print("CHAT_ENDPOINT: $uri");
+      syraLog("CHAT_ENDPOINT: $uri");
 
       final requestBody = {
         "message": userMessage,
@@ -129,16 +130,16 @@ class ChatServiceStreaming {
       });
       request.body = jsonEncode(requestBody);
 
-      debugPrint("🔍 [StreamingService] Request body: ${request.body}");
+      syraLog("🔍 [StreamingService] Request body: ${request.body}");
 
       final streamedResponse = await request.send();
 
-      debugPrint(
+      syraLog(
           "📥 [StreamingService] Response status: ${streamedResponse.statusCode}");
 
       if (streamedResponse.statusCode != 200) {
         final errorBody = await streamedResponse.stream.bytesToString();
-        debugPrint(
+        syraLog(
             "❌ [StreamingService] Error: ${streamedResponse.statusCode} - $errorBody");
         yield StreamChunk.error(
             _getErrorMessage(streamedResponse.statusCode, errorBody));
@@ -147,7 +148,7 @@ class ChatServiceStreaming {
 
       // Read entire response (backend doesn't support streaming yet)
       final responseBody = await streamedResponse.stream.bytesToString();
-      debugPrint(
+      syraLog(
           "📦 [StreamingService] Full response: ${responseBody.substring(0, responseBody.length > 200 ? 200 : responseBody.length)}...");
 
       bool blockedResponse = false;
@@ -178,20 +179,20 @@ class ChatServiceStreaming {
             await Future.delayed(const Duration(milliseconds: 30));
           }
 
-          debugPrint("✅ [StreamingService] Message delivered successfully");
+          syraLog("✅ [StreamingService] Message delivered successfully");
         } else {
           final error = json['error'] as String? ?? 'Bilinmeyen hata';
           yield StreamChunk.error(error);
         }
       } catch (e) {
-        debugPrint("❌ [StreamingService] JSON parse error: $e");
+        syraLog("❌ [StreamingService] JSON parse error: $e");
         yield StreamChunk.error("Yanıt işlenemedi.");
       }
 
       // Mark as done
       yield StreamChunk.done(isBlocked: blockedResponse, guard: blockedGuard);
     } catch (e, stackTrace) {
-      debugPrint("❌ [StreamingService] Error: $e\n$stackTrace");
+      syraLog("❌ [StreamingService] Error: $e\n$stackTrace");
       yield StreamChunk.error(
           "Beklenmedik bir hata oluştu. Birazdan tekrar dene.");
     }
@@ -210,7 +211,7 @@ class ChatServiceStreaming {
     await for (final bytes in byteStream) {
       byteChunkCount++;
       final chunk = utf8.decode(bytes);
-      debugPrint(
+      syraLog(
           "🔸 [StreamingService] Raw byte chunk #$byteChunkCount: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...");
       buffer += chunk;
 
@@ -224,43 +225,43 @@ class ChatServiceStreaming {
           continue; // Skip empty lines and comments
         }
 
-        debugPrint("🔹 [StreamingService] Processing line: $line");
+        syraLog("🔹 [StreamingService] Processing line: $line");
 
         // Parse SSE format: "data: {...}"
         if (line.startsWith('data: ')) {
           final data = line.substring(6);
 
           if (data == '[DONE]') {
-            debugPrint("✅ [StreamingService] Stream completed");
+            syraLog("✅ [StreamingService] Stream completed");
             break;
           }
 
           try {
             final json = jsonDecode(data) as Map<String, dynamic>;
-            debugPrint("🔸 [StreamingService] Parsed JSON: $json");
+            syraLog("🔸 [StreamingService] Parsed JSON: $json");
 
             // Extract text from various formats
             final text = _extractText(json);
 
             if (text.isNotEmpty) {
-              debugPrint("✨ [StreamingService] Extracted text: '$text'");
+              syraLog("✨ [StreamingService] Extracted text: '$text'");
               yield StreamChunk.text(text);
             } else {
-              debugPrint("⚠️ [StreamingService] No text extracted from JSON");
+              syraLog("⚠️ [StreamingService] No text extracted from JSON");
             }
           } catch (e) {
-            debugPrint(
+            syraLog(
                 "⚠️ [StreamingService] Failed to parse chunk: $e\nData: $data");
             // Continue processing other chunks
           }
         } else {
-          debugPrint(
+          syraLog(
               "⚠️ [StreamingService] Line doesn't start with 'data: ': $line");
         }
       }
     }
 
-    debugPrint(
+    syraLog(
         "🏁 [StreamingService] Stream processing ended. Total byte chunks: $byteChunkCount");
   }
 

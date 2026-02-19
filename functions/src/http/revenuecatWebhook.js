@@ -7,6 +7,8 @@ const FieldValue = admin.firestore.FieldValue;
 const EVENTS_COLLECTION = "_webhooks_revenuecat_events";
 const CORE_ENTITLEMENT_KEY = "core";
 const PLUS_ENTITLEMENT_KEY = "plus";
+const MAX_EVENT_AGE_MS = 24 * 60 * 60 * 1000;
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 
 const ACTIVE_ACCESS_EVENT_TYPES = new Set([
   "INITIAL_PURCHASE",
@@ -80,8 +82,18 @@ function toMs(value) {
   return null;
 }
 
-function getEventTimestampMs(event, body) {
-  return toMs(event?.event_timestamp_ms ?? body?.event_timestamp_ms);
+function getEventTimestampMs(body) {
+  return toMs(
+    body?.event?.event_timestamp_ms ??
+      body?.event_timestamp_ms ??
+      body?.event?.timestamp_ms ??
+      body?.event?.event_timestamp_ms
+  );
+}
+
+function isStaleEvent(tsMs, nowMs = Date.now()) {
+  if (!Number.isFinite(tsMs)) return false;
+  return nowMs - tsMs > MAX_EVENT_AGE_MS;
 }
 
 function getExpirationAtMs(event, body) {
@@ -182,7 +194,7 @@ export function createRevenuecatWebhookHandler() {
       const productId = getProductId(event, body);
       const entitlementIds = getEntitlementIds(event, body);
       const environment = getEnvironment(event, body);
-      const eventTimestampMs = getEventTimestampMs(event, body);
+      const eventTimestampMs = getEventTimestampMs(body);
       const expirationAtMs = getExpirationAtMs(event, body);
 
       if (!eventId) {
@@ -191,6 +203,35 @@ export function createRevenuecatWebhookHandler() {
 
       if (!appUserId) {
         return res.status(400).json({ success: false, code: "MISSING_UID" });
+      }
+
+      if (eventTimestampMs === null) {
+        console.warn("MISSING_REVENUECAT_EVENT_TIMESTAMP", {
+          event_id: eventId,
+          app_user_id: appUserId,
+        });
+      } else {
+        const now = Date.now();
+        const ageMs = now - eventTimestampMs;
+
+        if (isStaleEvent(eventTimestampMs, now)) {
+          console.log("STALE_REVENUECAT_EVENT", {
+            event_id: eventId,
+            app_user_id: appUserId,
+            timestamp: eventTimestampMs,
+            ageMs,
+          });
+          return res.status(200).json({ ok: true, ignored: "stale_event" });
+        }
+
+        if (ageMs < -MAX_FUTURE_SKEW_MS) {
+          console.log("FUTURE_REVENUECAT_EVENT", {
+            event_id: eventId,
+            app_user_id: appUserId,
+            timestamp: eventTimestampMs,
+            ageMs,
+          });
+        }
       }
 
       const eventRef = db.collection(EVENTS_COLLECTION).doc(String(eventId));
