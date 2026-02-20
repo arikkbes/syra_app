@@ -253,9 +253,9 @@ class RelationshipJobStatus {
         mismatchReason = mismatchReasonData;
       } else if (mismatchReasonData is Map) {
         // If it's a map, try to extract a message
-        mismatchReason = (mismatchReasonData as Map<String, dynamic>)['message']
-                as String? ??
-            (mismatchReasonData as Map<String, dynamic>)['reason'] as String? ??
+        final mismatchReasonMap = Map<String, dynamic>.from(mismatchReasonData);
+        mismatchReason = mismatchReasonMap['message'] as String? ??
+            mismatchReasonMap['reason'] as String? ??
             'Mismatch detected';
       }
 

@@ -1,6 +1,5 @@
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'base_shader.dart';
 import 'package:syra/core/syra_log.dart';
 

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:flutter/material.dart';
 import 'package:syra/core/syra_log.dart';
 
 /// Base class for all shader implementations in SYRA

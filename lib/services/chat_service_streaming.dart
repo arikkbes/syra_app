@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/api_endpoints.dart';
@@ -196,103 +195,6 @@ class ChatServiceStreaming {
       yield StreamChunk.error(
           "Beklenmedik bir hata oluştu. Birazdan tekrar dene.");
     }
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  // STREAM PROCESSING
-  // ═══════════════════════════════════════════════════════════════
-
-  /// Process SSE (Server-Sent Events) stream
-  static Stream<StreamChunk> _processStream(
-      Stream<List<int>> byteStream) async* {
-    String buffer = '';
-    int byteChunkCount = 0;
-
-    await for (final bytes in byteStream) {
-      byteChunkCount++;
-      final chunk = utf8.decode(bytes);
-      syraLog(
-          "🔸 [StreamingService] Raw byte chunk #$byteChunkCount: ${chunk.substring(0, chunk.length > 100 ? 100 : chunk.length)}...");
-      buffer += chunk;
-
-      // Process complete lines
-      while (buffer.contains('\n')) {
-        final newlineIndex = buffer.indexOf('\n');
-        final line = buffer.substring(0, newlineIndex).trim();
-        buffer = buffer.substring(newlineIndex + 1);
-
-        if (line.isEmpty || line.startsWith(':')) {
-          continue; // Skip empty lines and comments
-        }
-
-        syraLog("🔹 [StreamingService] Processing line: $line");
-
-        // Parse SSE format: "data: {...}"
-        if (line.startsWith('data: ')) {
-          final data = line.substring(6);
-
-          if (data == '[DONE]') {
-            syraLog("✅ [StreamingService] Stream completed");
-            break;
-          }
-
-          try {
-            final json = jsonDecode(data) as Map<String, dynamic>;
-            syraLog("🔸 [StreamingService] Parsed JSON: $json");
-
-            // Extract text from various formats
-            final text = _extractText(json);
-
-            if (text.isNotEmpty) {
-              syraLog("✨ [StreamingService] Extracted text: '$text'");
-              yield StreamChunk.text(text);
-            } else {
-              syraLog("⚠️ [StreamingService] No text extracted from JSON");
-            }
-          } catch (e) {
-            syraLog(
-                "⚠️ [StreamingService] Failed to parse chunk: $e\nData: $data");
-            // Continue processing other chunks
-          }
-        } else {
-          syraLog(
-              "⚠️ [StreamingService] Line doesn't start with 'data: ': $line");
-        }
-      }
-    }
-
-    syraLog(
-        "🏁 [StreamingService] Stream processing ended. Total byte chunks: $byteChunkCount");
-  }
-
-  /// Extract text from various JSON response formats
-  static String _extractText(Map<String, dynamic> json) {
-    // OpenAI format
-    if (json.containsKey('choices') && json['choices'] is List) {
-      final choices = json['choices'] as List;
-      if (choices.isNotEmpty) {
-        final choice = choices[0] as Map<String, dynamic>;
-        final delta = choice['delta'] as Map<String, dynamic>?;
-        if (delta != null && delta.containsKey('content')) {
-          return delta['content'] as String? ?? '';
-        }
-      }
-    }
-
-    // Simple format
-    if (json.containsKey('text')) {
-      return json['text'] as String? ?? '';
-    }
-
-    if (json.containsKey('content')) {
-      return json['content'] as String? ?? '';
-    }
-
-    if (json.containsKey('message')) {
-      return json['message'] as String? ?? '';
-    }
-
-    return '';
   }
 
   // ═══════════════════════════════════════════════════════════════

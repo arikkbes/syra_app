@@ -8,7 +8,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../theme/syra_theme.dart';
 import '../theme/syra_glass.dart';
-import '../theme/syra_animations.dart';
 
 /// ═══════════════════════════════════════════════════════════════
 /// MODERN ATTACHMENT OPTIONS SHEET

@@ -7,7 +7,6 @@ import '../models/user_plan.dart';
 import '../screens/settings/settings_modal_sheet.dart';
 import '../services/firestore_user.dart';
 import '../services/purchase_service.dart';
-import '../theme/syra_theme.dart';
 
 // ═══════════════════════════════════════════════════════════════
 // SYRA Paywall Sheet — v2.0  (Obsidian + Champagne Gold)
@@ -90,7 +89,6 @@ class _PaywallStyle {
   static const Color segmentBg = Color(0xFF1B202C);
   static const Color segmentActive = Color(0xFF262B38);
   static const Color gold = Color(0xFFD6B35A);
-  static const Color goldLight = Color(0xFFEAD7A5);
   static const Color goldMuted = Color(0x33D6B35A);
   static const Color textPrimary = Color(0xFFE7E9EE);
   static const Color textSecondary = Color(0xFF9AA3B2);

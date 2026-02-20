@@ -420,33 +420,6 @@ class _SyraMessageBubbleState extends State<SyraMessageBubble>
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // TIMESTAMP
-  // ═══════════════════════════════════════════════════════════════
-
-  Widget _buildTimestamp() {
-    final timeStr = _formatTime(widget.time!);
-    return Padding(
-      padding: EdgeInsets.only(
-        top: SyraSpacing.xs,
-        left: widget.isUser ? 0 : 40,
-        right: widget.isUser ? SyraSpacing.xs : 0,
-      ),
-      child: Text(
-        timeStr,
-        style: SyraTextStyles.caption.copyWith(
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-
-  String _formatTime(DateTime time) {
-    final hour = time.hour.toString().padLeft(2, '0');
-    final minute = time.minute.toString().padLeft(2, '0');
-    return '$hour:$minute';
-  }
-
-  // ═══════════════════════════════════════════════════════════════
   // IMAGE PREVIEW
   // ═══════════════════════════════════════════════════════════════
 

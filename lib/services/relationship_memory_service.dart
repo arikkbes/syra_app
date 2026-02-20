@@ -162,20 +162,6 @@ class RelationshipMemoryService {
     }
   }
 
-  /// Get legacy memory (for backward compatibility)
-  static Future<RelationshipMemory?> _getLegacyMemory(String uid) async {
-    try {
-      final doc =
-          await _firestore.collection('relationship_memory').doc(uid).get();
-
-      if (!doc.exists) return null;
-
-      return RelationshipMemory.fromLegacy(doc.data()!);
-    } catch (e) {
-      return null;
-    }
-  }
-
   /// Get all relationships for user
   static Future<List<RelationshipMemory>> getAllRelationships() async {
     try {
