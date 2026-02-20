@@ -45,7 +45,6 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   String? _statsSummary;
   String? _statsStartDate;
   String? _statsEndDate;
-  String _statsPlan = 'free';
   String _statsAccess = 'full';
   List<String> _lockedKeys = const [];
   String? _statsAccessMessage;
@@ -110,9 +109,6 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           final range = result['dateRange'] as Map<String, dynamic>?;
           _statsStartDate = range?['startDate'] as String?;
           _statsEndDate = range?['endDate'] as String?;
-          _statsPlan = result['plan'] is String
-              ? result['plan'] as String
-              : 'free';
           _statsAccess = result['access'] is String
               ? result['access'] as String
               : 'full';
@@ -129,7 +125,6 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
           _hasStatsError = false;
           _stats = null;
           _statsAccess = 'full';
-          _statsPlan = 'free';
           _lockedKeys = const [];
           _statsAccessMessage = null;
         });
@@ -172,7 +167,7 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
       speakers: mem.speakers,
       shortSummary: mem.shortSummary ?? '',
       personalities: mem.personalities != null
-          ? (mem.personalities! as Map<String, dynamic>).map(
+          ? mem.personalities!.map(
               (key, value) => MapEntry(
                 key,
                 PersonalityProfile.fromJson(value as Map<String, dynamic>),
@@ -180,10 +175,10 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
             )
           : null,
       dynamics: mem.dynamics != null
-          ? RelationshipDynamics.fromJson(mem.dynamics! as Map<String, dynamic>)
+          ? RelationshipDynamics.fromJson(mem.dynamics!)
           : null,
       patterns: mem.patterns != null
-          ? RelationshipPatterns.fromJson(mem.patterns! as Map<String, dynamic>)
+          ? RelationshipPatterns.fromJson(mem.patterns!)
           : null,
     );
   }
@@ -191,7 +186,6 @@ class _RelationshipRadarBodyState extends State<RelationshipRadarBody> {
   @override
   Widget build(BuildContext context) {
     final analysisResult = _getAnalysisResult();
-    final topInset = MediaQuery.of(context).padding.top;
 
     return Container(
       color: SyraTokens.background,

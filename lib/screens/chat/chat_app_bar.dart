@@ -83,19 +83,6 @@ class ChatAppBar extends StatelessWidget {
 
   /// Mode selector - Clean text-based design without heavy glass pill
   Widget _buildModeTrigger() {
-    String modeLabel;
-    Color modeColor;
-
-    switch (selectedMode) {
-      case 'dost_aci':
-        modeLabel = 'Dost';
-        modeColor = SyraColors.warning;
-        break;
-      default:
-        modeLabel = 'Normal';
-        modeColor = SyraColors.textSecondary;
-    }
-
     return CompositedTransformTarget(
       link: modeAnchorLink,
       child: _TapScale(

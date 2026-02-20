@@ -18,7 +18,6 @@ import '../services/relationship_analysis_service.dart';
 import '../services/relationship_memory_service.dart';
 
 import '../models/chat_session.dart';
-import '../models/relationship_analysis_result.dart';
 import '../models/relationship_memory.dart';
 import '../models/user_plan.dart';
 
@@ -26,14 +25,11 @@ import '../theme/design_system.dart';
 import '../widgets/glass_background.dart';
 import '../widgets/blur_toast.dart';
 import '../widgets/syra_bottom_panel.dart';
-import '../widgets/syra_top_haze.dart';
 import '../widgets/syra_top_haze_with_holes.dart';
 import '../widgets/syra_bottom_haze.dart';
-import '../widgets/syra_glass_sheet.dart'; // For bottom input bar glass
 import '../widgets/attachment_options_sheet.dart'; // NEW: Modern attachment picker
 import '../utils/subscription_flow.dart';
 
-import 'chat_sessions_sheet.dart';
 import 'tarot_mode_screen.dart';
 
 // RelationshipRadarBody - unified analysis + scoreboard screen
@@ -417,11 +413,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         result.errorMessage ?? 'Geri bildirim kaydedilemedi',
       );
     }
-  }
-
-  /// Open centralized upgrade flow in settings sheet
-  void _navigateToPremium() {
-    openPaywallSheet(context, initialTab: SubscriptionTab.core);
   }
 
   /// Start a new chat
@@ -982,7 +973,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         }
 
         // Force refresh memory from Firestore (no cache)
-        final memory = await RelationshipMemoryService.getMemory(
+        await RelationshipMemoryService.getMemory(
           forceIncludeInactive: true,
         );
 
@@ -1393,24 +1384,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     });
   }
 
-  /// Open relationship radar (unified analysis + scoreboard) as body swap
-  void _openRelationshipRadar(RelationshipMemory memory) {
-    setState(() {
-      _radarMemory = memory;
-      _bodyMode = ChatBodyMode.relationshipRadar;
-      _sidebarOpen = false;
-      _dragOffset = 0.0;
-    });
-  }
-
-  /// Return to chat mode from radar
-  void _closeRelationshipRadar() {
-    setState(() {
-      _bodyMode = ChatBodyMode.chat;
-      _radarMemory = null;
-    });
-  }
-
   /// Radar loading state (while memory is being fetched)
   Widget _buildRadarLoadingState() {
     return Container(
@@ -1513,12 +1486,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         ),
       ),
     );
-  }
-
-  /// Legacy method - kept for potential direct navigation if needed
-  void _openAnalysisFromMemory(RelationshipMemory memory) {
-    // Now redirects to unified radar view
-    _openRelationshipRadar(memory);
   }
 
   // DEPRECATED: Upload logic now integrated into _RelationshipPanelSheet
@@ -1943,8 +1910,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       BlurToast.show(context, "Tekrar giriş yapman gerekiyor kanka.");
       return;
     }
-    final uid = user.uid;
-
     // ═══════════════════════════════════════════════════════════════
     // BUG FIX #1: Generate request ID at send time
     // ═══════════════════════════════════════════════════════════════
@@ -2201,21 +2166,19 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             }
 
             // Save bot message to session (use lockedSessionId!)
-            if (lockedSessionId != null) {
-              final saveResult = await ChatSessionService.addMessageToSession(
-                sessionId: lockedSessionId,
-                message: _messages[index],
-              );
+            final saveResult = await ChatSessionService.addMessageToSession(
+              sessionId: lockedSessionId,
+              message: _messages[index],
+            );
 
-              if (saveResult.success) {
-                await ChatSessionService.updateSession(
-                  sessionId: lockedSessionId,
-                  lastMessage: finalText.length > 50
-                      ? "${finalText.substring(0, 50)}..."
-                      : finalText,
-                );
-                await _loadChatSessions();
-              }
+            if (saveResult.success) {
+              await ChatSessionService.updateSession(
+                sessionId: lockedSessionId,
+                lastMessage: finalText.length > 50
+                    ? "${finalText.substring(0, 50)}..."
+                    : finalText,
+              );
+              await _loadChatSessions();
             }
           }
 
@@ -2310,134 +2273,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   /// Manual test checklist:
   /// 1) Free user can send multiple messages; only backend blocks.
   /// 2) isPremium false no longer causes local block.
-  /// Show dialog when daily limit is reached
-  void _showLimitReachedDialog() {
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-            child: Container(
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                color: SyraTokens.surface.withOpacity(0.95),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: SyraTokens.border),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: SyraTokens.accent.withOpacity(0.2),
-                    ),
-                    child: const Icon(
-                      Icons.workspace_premium_rounded,
-                      color: SyraTokens.accent,
-                      size: 28,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                  const Text(
-                    "Günlük Limit Doldu",
-                    style: TextStyle(
-                      color: SyraTokens.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    "Bugünlük mesaj hakkın bitti kanka.\nPremium ile sınırsız devam edebilirsin!",
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: SyraTokens.textSecondary,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () => Navigator.pop(ctx),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SyraTokens.glassBg,
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: SyraTokens.border),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Tamam",
-                                style: TextStyle(
-                                  color: SyraTokens.textSecondary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            Navigator.pop(ctx);
-                            _navigateToPremium();
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            decoration: BoxDecoration(
-                              color: SyraTokens.accent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Center(
-                              child: Text(
-                                "Premium'a Geç",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _openChatSessions() {
-    SyraBottomPanel.show(
-      context: context,
-      child: ChatSessionsSheet(
-        sessions: _chatSessions,
-        currentSessionId: _currentSessionId,
-        onNewChat: _startNewChat,
-        onSelectSession: (id) async => _loadSelectedChat(id),
-        onRefresh: _loadChatSessions,
-      ),
-    );
-  }
-
   // ✅ FIX: build() BLOĞU BAŞTAN TEMİZ (parantez dengesi düzgün)
   @override
   Widget build(BuildContext context) {
@@ -2535,15 +2370,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
                       260.0,
                       320.0,
                     );
-
-                    // Calculate current offset based on state
-                    final targetOffset = _sidebarOpen ? maxDragOffset : 0.0;
-                    final currentOffset = _dragOffset.clamp(0.0, maxDragOffset);
-
-                    // Use drag offset during drag, animated offset otherwise
-                    final displayOffset = _dragOffset != 0.0 || _sidebarOpen
-                        ? currentOffset
-                        : targetOffset;
 
                     return GestureDetector(
                       onHorizontalDragStart: (details) {
@@ -2854,128 +2680,6 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       default:
         return 'Normal';
     }
-  }
-
-  // ----------------------------------------------------------------
-  // Aşağıdaki eski helper widgetlar sende zaten vardı; kalsın diye bıraktım.
-  // (Şu an yeni ChatAppBar/ChatMessageList/ChatInputBar kullanıyorsun.)
-  // ----------------------------------------------------------------
-
-  /// ChatGPT-style App Bar
-  Widget _buildAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: SyraTokens.background,
-        border: Border(
-          bottom: BorderSide(color: SyraTokens.divider, width: 0.5),
-        ),
-      ),
-      child: Row(
-        children: [
-          _TapScale(
-            onTap: _toggleSidebar,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.menu_rounded,
-                color: SyraTokens.textSecondary,
-                size: 24,
-              ),
-            ),
-          ),
-          Expanded(child: Center(child: _buildModeTrigger())),
-          _TapScale(
-            onTap: _handleDocumentUpload,
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Icon(
-                Icons.upload_file_outlined,
-                color: SyraTokens.textSecondary,
-                size: 22,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Mode selector trigger in the top bar
-  /// Wrapped with CompositedTransformTarget to anchor the mode popover
-  Widget _buildModeTrigger() {
-    String modeLabel;
-    switch (_selectedMode) {
-      case 'dost_aci':
-        modeLabel = 'Dost';
-        break;
-      default:
-        modeLabel = 'Normal';
-    }
-
-    // Wrap with CompositedTransformTarget to anchor the popover
-    return CompositedTransformTarget(
-      link: _modeAnchorLink,
-      child: GestureDetector(
-        onTap: _handleModeSelection,
-        child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: SyraTokens.paddingSm,
-            vertical: SyraTokens.paddingXs - 2,
-          ),
-          decoration: BoxDecoration(
-            color: Colors.transparent,
-            borderRadius: BorderRadius.circular(SyraTokens.radiusSm),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'SYRA',
-                style: SyraTokens.titleSm.copyWith(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.4,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Container(
-                width: 3,
-                height: 3,
-                decoration: BoxDecoration(
-                  color: SyraTokens.textSecondary.withOpacity(0.6),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                modeLabel,
-                style: SyraTokens.bodyMd.copyWith(
-                  fontWeight: FontWeight.w500,
-                  color: SyraTokens.textSecondary,
-                ),
-              ),
-              const SizedBox(width: 4),
-              Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: SyraTokens.textSecondary,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 
   /// ═══════════════════════════════════════════════════════════════
@@ -4035,14 +3739,6 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
     );
   }
 
-  String _formatDate(String isoDate) {
-    try {
-      final date = DateTime.parse(isoDate);
-      return '${date.day}.${date.month}.${date.year}';
-    } catch (e) {
-      return isoDate;
-    }
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════

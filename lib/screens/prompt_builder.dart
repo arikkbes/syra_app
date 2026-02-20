@@ -1,4 +1,3 @@
-import '../models/user_plan.dart';
 import '../services/firestore_user.dart';
 
 class PromptBuilder {
