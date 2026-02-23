@@ -99,7 +99,7 @@ export const deleteUserData = onRequest(
   {
     region: "us-central1",
     cors: true,
-    timeoutSeconds: 120,
+    timeoutSeconds: 300,
     memory: "256MiB",
     secrets: [SUPABASE_URL_SECRET, SUPABASE_SERVICE_ROLE_KEY_SECRET],
   },

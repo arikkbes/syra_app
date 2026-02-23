@@ -4,7 +4,8 @@ import { getSupabaseClient } from "../services/supabaseClient.js";
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
-// Bir collection'daki tum dokumanlari batch halinde sil (500'er 500'er)
+// Bir collection'daki tum dokumanlari batch halinde sil (500'er 500'er).
+// Her dok icin alt subcollection'lari da recursive olarak siler.
 async function deleteCollection(collectionRef) {
   let totalDeleted = 0;
   let snapshot = await collectionRef.limit(500).get();
@@ -12,7 +13,6 @@ async function deleteCollection(collectionRef) {
   while (!snapshot.empty) {
     const batch = db.batch();
     for (const doc of snapshot.docs) {
-      // Alt collection'lari da kontrol et (conversations -> messages gibi)
       const subCollections = await doc.ref.listCollections();
       for (const subCol of subCollections) {
         await deleteCollection(subCol);
@@ -25,6 +25,31 @@ async function deleteCollection(collectionRef) {
   }
 
   return totalDeleted;
+}
+
+// Storage'da verilen prefix altindaki tum dosyalari sayfali olarak siler.
+// "Best effort": tek tek dosya hatalari Promise.allSettled ile yutulur.
+async function deleteStoragePrefix(bucket, prefix) {
+  let deletedCount = 0;
+  let pageToken;
+
+  do {
+    const queryOpts = { prefix, autoPaginate: false, maxResults: 1000 };
+    if (pageToken) queryOpts.pageToken = pageToken;
+
+    const [files, nextQuery] = await bucket.getFiles(queryOpts);
+
+    if (files.length > 0) {
+      const results = await Promise.allSettled(files.map((f) => f.delete()));
+      for (const r of results) {
+        if (r.status === "fulfilled") deletedCount++;
+      }
+    }
+
+    pageToken = nextQuery?.pageToken ?? null;
+  } while (pageToken);
+
+  return deletedCount;
 }
 
 export async function deleteUserDataHandler(req, res) {
@@ -49,37 +74,91 @@ export async function deleteUserDataHandler(req, res) {
     }
 
     const uid = decodedToken.uid;
-    const userRef = db.collection("users").doc(uid);
+    const warnings = [];
+    const errors = [];
 
-    // 1) Subcollection'lari sil
-    const subcollections = ["chat_sessions", "usage_daily", "profile_memory", "conversations"];
-    for (const subName of subcollections) {
-      const subRef = userRef.collection(subName);
-      await deleteCollection(subRef);
+    // ── 1) users/{uid} subcollection'lari – dinamik liste ────────────────────
+    const userRef = db.collection("users").doc(uid);
+    const userSubCols = await userRef.listCollections();
+    let userSubcollectionsCount = 0;
+    for (const subCol of userSubCols) {
+      userSubcollectionsCount += await deleteCollection(subCol);
     }
 
-    // 2) Supabase'ten kullanici verilerini sil
+    // ── 2) Top-level kullanici koleksiyonlari (doc + altlari) ─────────────────
+    const topLevelPaths = [
+      "conversation_history",
+      "relationship_memory",
+      "relationship_analyses",
+      "relationships",
+    ];
+    const topLevelDeleted = [];
+    for (const colName of topLevelPaths) {
+      const docRef = db.collection(colName).doc(uid);
+      try {
+        const subCols = await docRef.listCollections();
+        for (const sub of subCols) {
+          await deleteCollection(sub);
+        }
+        await docRef.delete().catch(() => {}); // dok yoksa sessizce gec
+        topLevelDeleted.push(colName);
+      } catch (e) {
+        const msg = `${colName}/${uid}: ${e?.message}`;
+        errors.push(msg);
+        console.error(`[deleteUser] top-level silme hatasi: ${msg}`);
+      }
+    }
+
+    // ── 3) Storage temizligi – relationship_chunks/{uid}/ ────────────────────
+    let storageDeletedCount = 0;
+    try {
+      const bucket = admin.storage().bucket();
+      storageDeletedCount = await deleteStoragePrefix(
+        bucket,
+        `relationship_chunks/${uid}/`
+      );
+    } catch (stErr) {
+      const msg = `storage: ${stErr?.message}`;
+      warnings.push(msg);
+      console.error(`[deleteUser] Storage temizleme uyarisi: ${msg}`);
+    }
+
+    // ── 4) Supabase silme ─────────────────────────────────────────────────────
     try {
       const supabase = getSupabaseClient();
-      const { error } = await supabase.from("message_embeddings").delete().eq("uid", uid);
-
+      const { error } = await supabase
+        .from("message_embeddings")
+        .delete()
+        .eq("uid", uid);
       if (error) {
+        const msg = `supabase: ${error.message}`;
+        warnings.push(msg);
         console.error(`[deleteUser] Supabase temizleme hatasi: ${error.message}`);
-        // Supabase hatasi silme islemini durdurmasin, devam et
       }
     } catch (supaErr) {
-      console.error(`[deleteUser] Supabase erisim hatasi: ${supaErr.message}`);
-      // Supabase erisilemese bile devam et
+      const msg = `supabase: ${supaErr?.message}`;
+      warnings.push(msg);
+      console.error(`[deleteUser] Supabase erisim hatasi: ${supaErr?.message}`);
     }
 
-    // 3) Ana user dokumanini sil
+    // ── 5) users/{uid} ana dokumanini sil ────────────────────────────────────
     await userRef.delete();
 
-    // 4) Firebase Auth hesabini sil (admin SDK - re-auth gerekmez)
+    // ── 6) Firebase Auth hesabini sil ────────────────────────────────────────
     await admin.auth().deleteUser(uid);
 
     console.log(`[deleteUser] uid=${uid} - tum veriler silindi`);
-    return res.status(200).json({ success: true, uid });
+    return res.status(200).json({
+      success: true,
+      uid,
+      deleted: {
+        userSubcollectionsCount,
+        topLevelDeleted,
+        storageDeletedCount,
+      },
+      warnings,
+      errors,
+    });
   } catch (err) {
     console.error("[deleteUser_error]", err?.stack || err);
     return res.status(500).json({
