@@ -36,7 +36,7 @@ function sanitizeWA(s = "") {
  * @param {string} updateMode - "smart" (delta update) or "force_rebuild" (clear and rebuild)
  * @returns {object} - { relationshipId, masterSummary, chunksCount, mismatchDetected?, reason? }
  */
-export async function processRelationshipUpload(uid, chatText, relationshipId = null, forceUpdate = false, updateMode = "smart") {
+export async function processRelationshipUpload(uid, chatText, relationshipId = null, forceUpdate = false, updateMode = "smart", reportProgress = async () => {}) {
   console.log(`[${uid}] Starting relationship pipeline... (updateMode: ${updateMode})`);
   
   // Generate relationship ID if new
@@ -53,7 +53,8 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   // Step 2: Detect speakers
   const speakers = detectSpeakers(messages);
   console.log(`[${uid}] Detected speakers: ${speakers.join(", ")}`);
-  
+  await reportProgress("parsing", 20);
+
   // ═══════════════════════════════════════════════════════════════
   // MODULE 3: Mismatch detection if updating existing relationship
   // ═══════════════════════════════════════════════════════════════
@@ -76,7 +77,8 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
       };
     }
   }
-  
+  await reportProgress("parsing", 35);
+
   // ═══════════════════════════════════════════════════════════════
   // MODULE 4: SMART DELTA UPDATE
   // ═══════════════════════════════════════════════════════════════
@@ -160,20 +162,21 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   // Step 3: Create time-based chunks
   const chunks = createTimeBasedChunks(messages);
   console.log(`[${uid}] Created ${chunks.length} chunks`);
-  
+  await reportProgress("indexing", 35, { processedChunks: 0, totalChunks: chunks.length });
+
   // Step 4: Process each chunk (summary + index)
   const chunkIndexes = [];
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
     console.log(`[${uid}] Processing chunk ${i + 1}/${chunks.length}: ${chunk.dateRange}`);
-    
+
     // Generate chunk summary with LLM
     const chunkMeta = await generateChunkIndex(chunk, speakers);
-    
+
     // Save raw chunk to Storage
     const storagePath = `relationship_chunks/${uid}/${relId}/${chunk.id}.txt`;
     await saveChunkToStorage(storagePath, chunk.rawText);
-    
+
     // Prepare index document
     chunkIndexes.push({
       chunkId: chunk.id,
@@ -187,17 +190,21 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
       anchors: chunkMeta.anchors,
       storagePath: storagePath,
     });
+    await reportProgress("indexing", 35 + Math.round(((i + 1) / chunks.length) * 35), { processedChunks: i + 1, totalChunks: chunks.length });
   }
-  
+
   // Step 5: Generate master summary
+  await reportProgress("patterns", 72);
   console.log(`[${uid}] Generating master summary...`);
   const masterSummary = await generateMasterSummary(messages, speakers, chunkIndexes);
-  
+
   // Step 5.5: Compute relationship stats
   console.log(`[${uid}] Computing relationship stats...`);
   const relationshipStats = computeRelationshipStats(messages, speakers);
-  
+  await reportProgress("patterns", 88);
+
   // Step 6: Save to Firestore
+  await reportProgress("finalizing", 90);
   console.log(`[${uid}] Saving to Firestore...`);
   
   // Calculate metadata for delta updates
@@ -282,7 +289,8 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   }, { merge: true });
   
   console.log(`[${uid}] Pipeline complete. RelationshipId: ${relId}`);
-  
+  await reportProgress("finalizing", 99);
+
   return {
     relationshipId: relId,
     masterSummary,

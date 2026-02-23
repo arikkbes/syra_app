@@ -194,6 +194,15 @@ class RelationshipJobStatus {
         case 'failed':
           status = JobStatus.failed;
           break;
+        case 'running':
+          status = JobStatus.processing;
+          break;
+        case 'done':
+          status = JobStatus.complete;
+          break;
+        case 'error':
+          status = JobStatus.failed;
+          break;
         default:
           status = JobStatus.queued;
       }
@@ -364,10 +373,26 @@ class JobProgress {
           return 'İşleniyor... ($processedChunks/$totalChunks)';
         }
         return 'Analiz ediliyor...';
+      case 'uploading':
+        return 'Başlıyor...';
+      case 'parsing':
+        return 'Ayrıştırılıyor...';
+      case 'indexing':
+        if (processedChunks != null && totalChunks != null) {
+          return 'Aktarılıyor ($processedChunks/$totalChunks)';
+        }
+        return 'Aktarılıyor...';
+      case 'patterns':
+        return 'Patternler alınıyor...';
+      case 'finalizing':
+        return 'Tamamlanıyor...';
+      case 'done':
+        return 'Tamamlandı';
       case 'complete':
         return 'Tamamlandı';
       case 'failed':
-        return 'Başarısız oldu';
+      case 'error':
+        return 'Hata oluştu';
       default:
         return 'Hazırlanıyor...';
     }

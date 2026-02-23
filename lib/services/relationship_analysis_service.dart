@@ -30,6 +30,7 @@ class RelationshipAnalysisService {
     String? existingRelationshipId,
     bool forceUpdate = false, // MODULE 3: Force update even if mismatch
     String updateMode = "smart", // MODULE 4: "smart" or "force_rebuild"
+    String? jobId, // Job tracking ID for real-time progress
   }) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
@@ -71,9 +72,14 @@ class RelationshipAnalysisService {
       // MODULE 4: Add updateMode field
       request.fields['updateMode'] = updateMode;
 
+      // Job tracking ID for real-time progress
+      if (jobId != null) {
+        request.fields['jobId'] = jobId;
+      }
+
       // Send request with timeout
       final streamedResponse = await request.send().timeout(
-        const Duration(minutes: 5),
+        const Duration(minutes: 12),
         onTimeout: () {
           throw Exception('İstek zaman aşımına uğradı. Lütfen tekrar deneyin.');
         },

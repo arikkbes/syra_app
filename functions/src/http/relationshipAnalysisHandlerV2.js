@@ -13,7 +13,7 @@
 
 import Busboy from "busboy";
 import AdmZip from "adm-zip";
-import { auth, db as firestore } from "../config/firebaseAdmin.js";
+import { auth, db as firestore, FieldValue } from "../config/firebaseAdmin.js";
 import { processRelationshipUpload } from "../services/relationshipPipeline.js";
 
 export async function analyzeRelationshipChatHandler(req, res) {
@@ -32,6 +32,8 @@ export async function analyzeRelationshipChatHandler(req, res) {
       message: "Sadece POST metodu kabul edilir.",
     });
   }
+
+  let jobId = null; // Hoisted for catch block access
 
   try {
     // Verify authentication
@@ -101,15 +103,48 @@ export async function analyzeRelationshipChatHandler(req, res) {
     // MODULE 4: Smart incremental update mode
     // Options: "smart" (default - attempt delta), "force_rebuild" (clear and rebuild)
     const updateMode = fields.updateMode || "smart";
+    jobId = fields.jobId || null;
+
+    // Build progress reporter (best-effort, never breaks pipeline)
+    let reportProgress = async () => {};
+    if (jobId) {
+      const jobRef = firestore.collection("users").doc(uid).collection("relationship_jobs").doc(jobId);
+      try {
+        await jobRef.set({
+          status: "running",
+          progress: { step: "uploading", percent: 5 },
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      } catch (e) {
+        console.error("Job doc create failed:", e);
+      }
+
+      reportProgress = async (step, percent, extra = {}) => {
+        try {
+          await jobRef.update({
+            status: "running",
+            progress: { step, percent, ...extra },
+            updatedAt: FieldValue.serverTimestamp(),
+          });
+        } catch (e) { /* best-effort */ }
+      };
+    }
 
     // Process with new pipeline
-    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId, forceUpdate, updateMode);
+    const result = await processRelationshipUpload(uid, chatText, existingRelationshipId, forceUpdate, updateMode, reportProgress);
 
     // ═══════════════════════════════════════════════════════════════
     // MODULE 3: Handle mismatch detection
     // ═══════════════════════════════════════════════════════════════
     if (result.mismatchDetected) {
       console.log(`[${uid}] Mismatch detected, returning warning to client`);
+      if (jobId) {
+        try {
+          const jobRef = firestore.collection("users").doc(uid).collection("relationship_jobs").doc(jobId);
+          await jobRef.update({ status: "done", progress: { step: "done", percent: 100 }, mismatchDetected: true, mismatchReason: result.reason, updatedAt: FieldValue.serverTimestamp() });
+        } catch (e) { /* best-effort */ }
+      }
       return res.status(200).json({
         success: false,
         mismatchDetected: true,
@@ -120,11 +155,20 @@ export async function analyzeRelationshipChatHandler(req, res) {
 
     console.log(`[${uid}] Pipeline complete: ${result.chunksCount} chunks, ${result.messagesCount} messages`);
 
+    // Update job doc on success
+    if (jobId) {
+      try {
+        const jobRef = firestore.collection("users").doc(uid).collection("relationship_jobs").doc(jobId);
+        await jobRef.update({ status: "done", progress: { step: "done", percent: 100 }, result: { relationshipId: result.relationshipId }, updatedAt: FieldValue.serverTimestamp() });
+      } catch (e) { /* best-effort */ }
+    }
+
     // Return success response
     return res.status(200).json({
       success: true,
       message: "Analiz tamamlandı",
       relationshipId: result.relationshipId,
+      jobId: jobId,
       summary: result.masterSummary,
       stats: {
         totalMessages: result.messagesCount,
@@ -135,6 +179,12 @@ export async function analyzeRelationshipChatHandler(req, res) {
 
   } catch (error) {
     console.error("analyzeRelationshipChatHandler error:", error);
+    if (jobId) {
+      try {
+        const jobRef = firestore.collection("users").doc(uid).collection("relationship_jobs").doc(jobId);
+        await jobRef.update({ status: "error", progress: { step: "error" }, error: { message: error.message || "Unknown error" }, updatedAt: FieldValue.serverTimestamp() });
+      } catch (e) { /* best-effort */ }
+    }
     return res.status(500).json({
       success: false,
       message: error.message || "Analiz sırasında bir hata oluştu.",

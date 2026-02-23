@@ -16,6 +16,8 @@ import '../services/chat_session_service.dart';
 import '../services/image_upload_service.dart';
 import '../services/relationship_analysis_service.dart';
 import '../services/relationship_memory_service.dart';
+import 'dart:async';
+import '../services/relationship_job_service.dart';
 
 import '../models/chat_session.dart';
 import '../models/relationship_memory.dart';
@@ -128,6 +130,10 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   bool _showMismatchCard = false;
   String _mismatchReason = '';
   String? _mismatchExistingRelationshipId;
+
+  // Job progress tracking (Firestore listener)
+  StreamSubscription<RelationshipJobStatus>? _jobSubscription;
+  String? _activeJobId;
 
   // LayerLink for anchored mode selector popover
   // This anchors the mode selector popover to the mode label in the app bar
@@ -263,6 +269,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _jobSubscription?.cancel();
     _controller.dispose();
     _scrollController.dispose();
     _inputFocusNode.dispose();
@@ -856,7 +863,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════════════════
 
   /// Handle upload button tap - start file picker
-  Future<void> _handleUploadTap() async {
+  Future<void> _handleUploadTap(String? existingRelationshipId) async {
     // Close keyboard before file picker
     FocusScope.of(context).unfocus();
     SystemChannels.textInput.invokeMethod('TextInput.hide');
@@ -875,7 +882,7 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       final file = File(result.files.single.path!);
 
       // Start upload with progress tracking
-      await _uploadFile(file);
+      await _uploadFile(file, existingRelationshipId: existingRelationshipId);
     } catch (e) {
       syraLog('_handleUploadTap error: $e');
       if (mounted) {
@@ -888,35 +895,33 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
   }
 
   /// Upload file with background support
-  Future<void> _uploadFile(File file, {bool forceUpdate = false}) async {
+  Future<void> _uploadFile(File file, {String? existingRelationshipId, bool forceUpdate = false}) async {
     if (!mounted) return;
 
+    // Store file and clear mismatch, but DON'T show uploading yet
     setState(() {
-      _isUploadingInBackground = true;
-      _uploadStatus = 'Dosya seçildi...';
-      _uploadProgress = null;
       _showMismatchCard = false;
       _pendingUploadFile = file;
-      _panelRefreshTrigger++; // Increment for didUpdateWidget
+      _panelRefreshTrigger++;
     });
-
-    // Update sheet StatefulBuilder to rebuild with new props
     _sheetSetState?.call(() {});
 
     try {
-      // Determine if this is an update or new upload
-      String? existingRelationshipId;
-      final currentMemory = await RelationshipMemoryService.getMemory(
-        forceIncludeInactive: true,
-      );
-      if (currentMemory != null && !forceUpdate) {
-        existingRelationshipId = currentMemory.id;
-      }
-
+      // Set uploading state just before HTTP request starts
       if (mounted) {
         setState(() {
+          _isUploadingInBackground = true;
           _uploadStatus = 'Yükleniyor...';
+          _uploadProgress = null;
         });
+        _sheetSetState?.call(() {});
+      }
+
+      // Generate job ID and start Firestore listener for real-time progress
+      final jobId = _generateJobId();
+      if (jobId != null) {
+        _activeJobId = jobId;
+        _startJobListener(jobId);
       }
 
       // Upload and analyze
@@ -925,18 +930,17 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
         existingRelationshipId: existingRelationshipId,
         forceUpdate: forceUpdate,
         updateMode: "smart", // Smart delta update by default
+        jobId: jobId,
       );
 
       if (!mounted) return;
 
-      setState(() {
-        _uploadStatus = 'Analiz ediliyor...';
-      });
-
       // Handle mismatch detection
       if (analysisResult.isMismatch && !forceUpdate) {
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
+          _uploadProgress = null;
           _showMismatchCard = true;
           _mismatchReason =
               analysisResult.mismatchReason ??
@@ -979,9 +983,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
 
         if (!mounted) return;
 
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
           _pendingUploadFile = null;
           _panelRefreshTrigger++; // Trigger sheet refresh
         });
@@ -999,20 +1005,28 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           );
         }
       } else {
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
           _pendingUploadFile = null;
+          _panelRefreshTrigger++;
         });
+        _sheetSetState?.call(() {});
       }
     } catch (e) {
       syraLog('_uploadFile error: $e');
+      _cancelJobListener();
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
           _pendingUploadFile = null;
+          _panelRefreshTrigger++;
         });
+        _sheetSetState?.call(() {});
         BlurToast.show(
           context,
           "❌ Analiz sırasında bir hata oluştu: ${e.toString()}",
@@ -1042,20 +1056,30 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _sheetSetState?.call(() {});
 
     try {
+      // Generate job ID and start Firestore listener for real-time progress
+      final jobId = _generateJobId();
+      if (jobId != null) {
+        _activeJobId = jobId;
+        _startJobListener(jobId);
+      }
+
       // Create NEW relationship - explicitly pass null for relationshipId
       final analysisResult = await RelationshipAnalysisService.analyzeChat(
         _pendingUploadFile!,
         existingRelationshipId: null, // IMPORTANT: null for new relationship
         updateMode: "smart",
+        jobId: jobId,
       );
 
       if (!mounted) return;
 
       // Check if somehow still got mismatch (shouldn't happen)
       if (analysisResult.isMismatch) {
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
         });
 
         // ✅ Update sheet to hide loading
@@ -1085,9 +1109,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           forceIncludeInactive: true,
         );
 
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
           _pendingUploadFile = null;
           _panelRefreshTrigger++;
         });
@@ -1100,10 +1126,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       syraLog('_handleMismatchNewRelationship error: $e');
+      _cancelJobListener();
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
         });
 
         // ✅ Update sheet to hide loading
@@ -1132,21 +1160,31 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
     _sheetSetState?.call(() {});
 
     try {
+      // Generate job ID and start Firestore listener for real-time progress
+      final jobId = _generateJobId();
+      if (jobId != null) {
+        _activeJobId = jobId;
+        _startJobListener(jobId);
+      }
+
       // Force rebuild existing relationship
       final analysisResult = await RelationshipAnalysisService.analyzeChat(
         _pendingUploadFile!,
         existingRelationshipId: _mismatchExistingRelationshipId,
         forceUpdate: true,
         updateMode: "force_rebuild", // Clear all data and rebuild
+        jobId: jobId,
       );
 
       if (!mounted) return;
 
       // Check if somehow still got mismatch (shouldn't happen with forceUpdate)
       if (analysisResult.isMismatch) {
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
         });
 
         // ✅ Update sheet to hide loading
@@ -1176,9 +1214,11 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
           forceIncludeInactive: true,
         );
 
+        _cancelJobListener();
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
           _pendingUploadFile = null;
           _mismatchExistingRelationshipId = null;
           _panelRefreshTrigger++;
@@ -1192,10 +1232,12 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       }
     } catch (e) {
       syraLog('_handleMismatchForceUpdate error: $e');
+      _cancelJobListener();
       if (mounted) {
         setState(() {
           _isUploadingInBackground = false;
           _uploadStatus = '';
+          _uploadProgress = null;
         });
 
         // ✅ Update sheet to hide loading
@@ -1215,11 +1257,62 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
       _mismatchReason = '';
       _isUploadingInBackground = false;
       _uploadStatus = '';
+      _uploadProgress = null;
       _panelRefreshTrigger++; // Increment for didUpdateWidget
     });
 
     // Update sheet StatefulBuilder to rebuild with new props
     _sheetSetState?.call(() {});
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // JOB PROGRESS LISTENER (Firestore real-time)
+  // ═══════════════════════════════════════════════════════════════
+
+  /// Start listening to a job doc for real-time progress updates.
+  /// The listener is decorative — HTTP response is still the source of truth.
+  void _startJobListener(String jobId) {
+    _jobSubscription?.cancel();
+    try {
+      final service = RelationshipJobService();
+      _jobSubscription = service.watchJob(jobId).listen(
+        (jobStatus) {
+          if (!mounted) return;
+          setState(() {
+            _uploadStatus = jobStatus.progress.stepMessage;
+            _uploadProgress = jobStatus.progress.percent > 0
+                ? jobStatus.progress.percent / 100.0
+                : null;
+          });
+          _sheetSetState?.call(() {});
+        },
+        onError: (_) {
+          // Best-effort: stream errors are non-fatal.
+          // HTTP response is the source of truth for result processing.
+        },
+      );
+    } catch (e) {
+      syraLog('_startJobListener error: $e');
+    }
+  }
+
+  /// Cancel the active job listener and clear state.
+  void _cancelJobListener() {
+    _jobSubscription?.cancel();
+    _jobSubscription = null;
+    _activeJobId = null;
+  }
+
+  /// Generate a unique job ID using Firestore auto-ID.
+  String? _generateJobId() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return null;
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('relationship_jobs')
+        .doc()
+        .id;
   }
 
   /// Show empty state upload dialog
@@ -1369,7 +1462,8 @@ class _ChatScreenState extends State<ChatScreen> with TickerProviderStateMixin {
             uploadProgress: _uploadProgress,
             showMismatchCard: _showMismatchCard,
             mismatchReason: _mismatchReason,
-            onUploadTap: _handleUploadTap,
+            onNewUploadTap: () => _handleUploadTap(null),
+            onUpdateUploadTap: (id) => _handleUploadTap(id),
             onMismatchNew: _handleMismatchNewRelationship,
             onMismatchForceUpdate: _handleMismatchForceUpdate,
             onMismatchCancel: _handleMismatchCancel,
@@ -2859,7 +2953,8 @@ class _RelationshipPanelSheet extends StatefulWidget {
   final double? uploadProgress;
   final bool showMismatchCard;
   final String mismatchReason;
-  final VoidCallback onUploadTap;
+  final VoidCallback onNewUploadTap; // ZIP Yükle → always new relationship
+  final void Function(String existingRelationshipId) onUpdateUploadTap; // Sohbeti Güncelle → always update
   final VoidCallback onMismatchNew;
   final VoidCallback onMismatchForceUpdate;
   final VoidCallback onMismatchCancel;
@@ -2874,7 +2969,8 @@ class _RelationshipPanelSheet extends StatefulWidget {
     this.uploadProgress,
     required this.showMismatchCard,
     required this.mismatchReason,
-    required this.onUploadTap,
+    required this.onNewUploadTap,
+    required this.onUpdateUploadTap,
     required this.onMismatchNew,
     required this.onMismatchForceUpdate,
     required this.onMismatchCancel,
@@ -3155,12 +3251,6 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
             _buildHeader(),
             const SizedBox(height: 20),
 
-            // Upload Progress (if uploading - from parent)
-            if (widget.isUploadingInBackground) ...[
-              _buildUploadProgress(),
-              const SizedBox(height: 16),
-            ],
-
             // Mismatch Decision Card (if mismatch detected - from parent)
             if (widget.showMismatchCard) ...[
               _buildMismatchCard(),
@@ -3171,12 +3261,19 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
             _buildActiveToggleRow(),
             const SizedBox(height: 12),
 
-            // ZIP Upload / Update Row
+            // ZIP Upload / Update Row (transforms to loading state when uploading)
             _buildUploadRow(),
             const SizedBox(height: 12),
 
-            // Self Participant Picker (always show, but disabled if no memory)
-            _buildSelfParticipantSection(),
+            // Self Participant Picker (disabled during upload)
+            IgnorePointer(
+              ignoring: widget.isUploadingInBackground,
+              child: AnimatedOpacity(
+                opacity: widget.isUploadingInBackground ? 0.4 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: _buildSelfParticipantSection(),
+              ),
+            ),
             const SizedBox(height: 12),
 
             // Memory Summary (if exists) - with typewriter animation
@@ -3236,55 +3333,7 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
     );
   }
 
-  Widget _buildUploadProgress() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: SyraTokens.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: SyraTokens.accent.withValues(alpha: 0.3),
-          width: 1,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: SyraTokens.accent,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.uploadStatus,
-                  style: const TextStyle(
-                    color: SyraTokens.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          if (widget.uploadProgress != null) ...[
-            const SizedBox(height: 12),
-            LinearProgressIndicator(
-              value: widget.uploadProgress,
-              backgroundColor: SyraTokens.border,
-              valueColor: const AlwaysStoppedAnimation(SyraTokens.accent),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildMismatchCard() {
     return Container(
@@ -3394,11 +3443,83 @@ class _RelationshipPanelSheetState extends State<_RelationshipPanelSheet>
   }
 
   Widget _buildUploadRow() {
+    // ── Loading state: replace entire row with spinner + stage bar ──
+    if (widget.isUploadingInBackground) {
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: SyraTokens.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: SyraTokens.accent.withValues(alpha: 0.3),
+            width: 1,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: SyraTokens.accent,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.uploadStatus.isNotEmpty
+                        ? widget.uploadStatus
+                        : 'Yükleniyor...',
+                    style: const TextStyle(
+                      color: SyraTokens.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (widget.uploadProgress != null) ...[
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: widget.uploadProgress,
+                  backgroundColor: SyraTokens.border,
+                  valueColor:
+                      const AlwaysStoppedAnimation<Color>(SyraTokens.accent),
+                  minHeight: 4,
+                ),
+              ),
+            ],
+            const SizedBox(height: 6),
+            Text(
+              'Takıl kanka, ben çalışıyorum. Sadece uygulamayı kapatma.',
+              style: TextStyle(
+                color: SyraTokens.textMuted,
+                fontSize: 12,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ── Normal state ──
     final hasMemory = _displayMemory != null;
     final title = hasMemory ? 'Sohbeti Güncelle (Yeni ZIP)' : 'ZIP Yükle';
 
     return _TapScale(
-      onTap: widget.isUploadingInBackground ? null : widget.onUploadTap,
+      onTap: widget.isUploadingInBackground
+          ? null
+          : hasMemory
+              ? () => widget.onUpdateUploadTap(_displayMemory!.id!)
+              : widget.onNewUploadTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
