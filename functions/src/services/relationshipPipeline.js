@@ -198,13 +198,18 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
   console.log(`[${uid}] Generating master summary...`);
   const masterSummary = await generateMasterSummary(messages, speakers, chunkIndexes);
 
+  // Step 5.1: Generate Dost Depot pattern analysis
+  await reportProgress("patterns", 80);
+  console.log(`[${uid}] Generating Dost Depot patterns...`);
+  const dostDepotResult = await generateDostDepot(speakers, chunkIndexes);
+
   // Step 5.5: Compute relationship stats
   console.log(`[${uid}] Computing relationship stats...`);
   const relationshipStats = computeRelationshipStats(messages, speakers);
   await reportProgress("patterns", 88);
 
   // Step 6: Save to Firestore
-  await reportProgress("finalizing", 90);
+  await reportProgress("finalizing", 95);
   console.log(`[${uid}] Saving to Firestore...`);
   
   // Calculate metadata for delta updates
@@ -232,6 +237,14 @@ export async function processRelationshipUpload(uid, chatText, relationshipId = 
         : null,
     },
     masterSummary: masterSummary,
+    dostDepot: {
+      version: 1,
+      source: "anchors_v1",
+      totalChunksUsed: chunkIndexes.length,
+      totalAnchorsUsed: chunkIndexes.reduce((sum, c) => sum + (c.anchors?.length || 0), 0),
+      patterns: dostDepotResult.patterns || [],
+      generatedAt: FieldValue.serverTimestamp(),
+    },
     statsCounts: relationshipStats.counts,
     statsBySpeaker: relationshipStats.bySpeaker,
     // MODULE 4: Metadata for delta updates
@@ -723,6 +736,132 @@ ${sampledMessages}
 }
 
 /**
+ * Dost Depot V1 — evidence-grounded pattern detection from chunk anchors.
+ * Separate LLM call; does NOT modify masterSummary prompt.
+ */
+const ALLOWED_DEPOT_TYPES = new Set([
+  "investmentAsymmetry",
+  "blame",
+  "stonewall",
+  "passiveAggressive",
+  "guiltLoading",
+  "gaslightingSignal",
+  "loveBombingCooldown",
+  "controlUltimatum",
+  "repairCapacity",
+]);
+
+async function generateDostDepot(speakers, chunkIndexes) {
+  try {
+    // Safety cap: take most recent 40 chunks if too many
+    let chunks = chunkIndexes;
+    if (chunks.length > 40) {
+      chunks = [...chunks]
+        .sort((a, b) => new Date(a.startDate || 0) - new Date(b.startDate || 0))
+        .slice(-40);
+    }
+
+    // Format chunk data highlighting anchors
+    const chunkLines = chunks.map((c) => {
+      const anchorLines = (c.anchors || [])
+        .map((a) => `  - [${a.type}] "${a.quote}" | Baglam: ${a.context}`)
+        .join("\n");
+      const ts = c.startDate || c.dateRange || "bilinmiyor";
+      return `CHUNK ${c.chunkId} | ${c.dateRange} | sentiment: ${c.sentiment} | timestamp: ${ts}\nOzet: ${c.summary}\nAnchors:\n${anchorLines || "  (yok)"}`;
+    }).join("\n\n");
+
+    // Count total anchors for early exit
+    const totalAnchors = chunks.reduce((sum, c) => sum + (c.anchors?.length || 0), 0);
+    if (totalAnchors < 2) {
+      return { patterns: [] };
+    }
+
+    const systemPrompt = `Sen bir ilişki dinamikleri analiz uzmanısın.
+
+Aşağıdaki sohbet chunk'larındaki anchor (alıntı) verilerini inceleyerek ilişkide tekrar eden örüntüleri (pattern) tespit et.
+
+KRİTİK KURALLAR:
+1. SADECE aşağıda verilen anchor quote'larından kanıt kullan. Yeni alıntı UYDURMA.
+2. Her pattern için en az 2 farklı chunk'tan kanıt (evidence) gerekli. 2'den az kanıtı olan pattern'i EKLEME.
+3. Maksimum 7 pattern döndür.
+4. Sadece güçlü kanıt olan pattern'leri dahil et.
+5. evidence.excerpt değeri, verilen anchor quote'larından BİREBİR alınmalı.
+6. evidence.approxTimestamp değeri, ilgili chunk'ın timestamp alanından alınmalı. Tarih UYDURMA.
+
+İZİN VERİLEN PATTERN TÜRLERİ:
+- investmentAsymmetry: Bir tarafın ilişkiye çok daha fazla yatırım yapması (daha çok yazma, başlatma, çaba)
+- blame: Sürekli suçlama, kabahat atma ("senin yüzünden")
+- stonewall: Duvar örme, konuyu kapatma, kaçınma, sessizlik cezası
+- passiveAggressive: Pasif-agresif davranış ("neyse", "sen bilirsin", dolaylı saldırı)
+- guiltLoading: Suçluluk yükleme
+- gaslightingSignal: Gaslighting işaretleri ("abartıyorsun", "öyle demedim")
+- loveBombingCooldown: Aşırı sevgi gösterisi → ani soğuma döngüsü
+- controlUltimatum: Ultimatom, ayrılık tehdidi ile kontrol
+- repairCapacity: Tartışma sonrası onarım, özür kalitesi (pozitif pattern)
+
+KONUŞMACILAR: ${speakers.join(", ")}
+
+JSON FORMATI (başka format DÖNME):
+{
+  "patterns": [
+    {
+      "type": "<izin verilen türlerden biri>",
+      "score": 0.0-1.0,
+      "confidence": "low|med|high",
+      "summary": "<1-2 cümlelik Türkçe açıklama>",
+      "evidence": [
+        {
+          "chunkId": "<chunk ID>",
+          "approxTimestamp": "<chunk'ın timestamp alanından>",
+          "excerpt": "<anchor quote'undan BİREBİR alınmış alıntı>"
+        }
+      ]
+    }
+  ]
+}
+
+Hiç uygun pattern bulamazsan: {"patterns": []}`;
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: chunkLines },
+      ],
+      temperature: 0.4,
+      max_tokens: 2500,
+      response_format: { type: "json_object" },
+    });
+
+    const result = JSON.parse(completion.choices[0].message.content);
+    let patterns = Array.isArray(result.patterns) ? result.patterns : [];
+
+    // Validate: filter out invalid entries
+    patterns = patterns.filter((p) => {
+      if (!p.type || !ALLOWED_DEPOT_TYPES.has(p.type)) return false;
+      if (!p.summary || typeof p.summary !== "string") return false;
+      if (!Array.isArray(p.evidence) || p.evidence.length < 2) return false;
+      return true;
+    });
+
+    // Clamp score to 0..1, normalize confidence
+    patterns = patterns.map((p) => ({
+      ...p,
+      score: Math.max(0, Math.min(1, Number(p.score) || 0)),
+      confidence: ["low", "med", "high"].includes(p.confidence) ? p.confidence : "low",
+    }));
+
+    // Max 7 patterns
+    patterns = patterns.slice(0, 7);
+
+    return { patterns };
+  } catch (e) {
+    console.error("generateDostDepot error:", e);
+    return { patterns: [] };
+  }
+}
+
+/**
  * Save chunk raw text to Firebase Storage
  */
 async function saveChunkToStorage(path, text) {
@@ -1134,9 +1273,9 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
   const newContentHash = computeContentHash(newMessages);
   const newLastMessageSig = computeMessageSignature(newMessages[newMessages.length - 1]);
   const newTailSigs = computeTailSignatures(newMessages, 50);
-  
-  // Update master document
-  await relationshipRef.update({
+
+  // Build update payload
+  const updatePayload = {
     totalMessages: existingTotalMessages + newMessagesOnly.length,
     totalChunks: existingTotalChunks + newChunks.length,
     dateRange: {
@@ -1145,7 +1284,7 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
       end: Math.max(
         new Date(existingData.dateRange?.end || 0).getTime(),
         ...newMessages.map(m => new Date(m.date).getTime())
-      ) > 0 
+      ) > 0
         ? new Date(Math.max(
             new Date(existingData.dateRange?.end || 0).getTime(),
             ...newMessages.map(m => new Date(m.date).getTime())
@@ -1160,7 +1299,40 @@ async function performDeltaUpdate(uid, relationshipId, newMessages, newSpeakers)
     lastMessageSig: newLastMessageSig,
     tailSigs: newTailSigs,
     updatedAt: FieldValue.serverTimestamp(),
-  });
+  };
+
+  // Regenerate Dost Depot with merged chunks (existing + new)
+  try {
+    console.log(`[${uid}] Fetching existing chunk indexes for Dost Depot regeneration...`);
+    const existingChunksSnapshot = await relationshipRef.collection("chunks").get();
+    const existingChunkIndexes = existingChunksSnapshot.docs.map(doc => doc.data());
+
+    // Merge: new overrides existing by chunkId
+    const chunkMap = new Map(existingChunkIndexes.map(c => [c.chunkId, c]));
+    for (const nc of newChunkIndexes) {
+      chunkMap.set(nc.chunkId, nc);
+    }
+    const allChunkIndexes = Array.from(chunkMap.values())
+      .sort((a, b) => new Date(a.startDate || 0) - new Date(b.startDate || 0));
+
+    console.log(`[${uid}] Regenerating Dost Depot with ${allChunkIndexes.length} total chunks...`);
+    const dostDepotResult = await generateDostDepot(newSpeakers, allChunkIndexes);
+
+    updatePayload.dostDepot = {
+      version: 1,
+      source: "anchors_v1",
+      totalChunksUsed: allChunkIndexes.length,
+      totalAnchorsUsed: allChunkIndexes.reduce((sum, c) => sum + (c.anchors?.length || 0), 0),
+      patterns: dostDepotResult.patterns || [],
+      generatedAt: FieldValue.serverTimestamp(),
+    };
+  } catch (depotError) {
+    console.error(`[${uid}] Dost Depot regeneration failed in delta path:`, depotError);
+    // Existing dostDepot preserved — update() doesn't touch unmentioned fields
+  }
+
+  // Update master document
+  await relationshipRef.update(updatePayload);
   
   // Save new chunk indexes to subcollection
   const chunksCollection = relationshipRef.collection("chunks");

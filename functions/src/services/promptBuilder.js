@@ -416,6 +416,22 @@ function buildRelationshipStatsLines(relationship) {
 }
 
 function buildPatternSummaryLines(relationship) {
+  // V1 Dost Depot: prefer structured, evidence-grounded patterns
+  const depotPatterns = relationship?.dostDepot?.patterns;
+  if (Array.isArray(depotPatterns) && depotPatterns.length > 0) {
+    const confidenceOrder = { high: 0, med: 1, low: 2 };
+    const sorted = [...depotPatterns].sort((a, b) => {
+      const confDiff = (confidenceOrder[a.confidence] ?? 3) - (confidenceOrder[b.confidence] ?? 3);
+      if (confDiff !== 0) return confDiff;
+      return (b.score ?? 0) - (a.score ?? 0);
+    });
+    return sorted
+      .slice(0, 5)
+      .map((p) => `- ⚠️ ${p.summary} (güven: ${p.confidence})`)
+      .filter(Boolean);
+  }
+
+  // Fallback: legacy masterSummary.patterns
   const patterns = relationship?.masterSummary?.patterns || {};
   const lines = [];
 
