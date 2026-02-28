@@ -26,6 +26,10 @@ import {
 } from "../firestore/conversationRepository.js";
 
 const MAX_HISTORY = 10;
+
+// ── Reply mode flags (mutually exclusive) ────────────────────────────
+const REPLY_AS_MESSAGE = true;      // structural: replied msg as own messages[] item
+const REPLY_CONTEXT_PREFIX = false; // legacy: prepend text to user message
 const EVIDENCE_FIRST_INTROS = [
   "Kanka bulduklarım bunlar:",
   "Kanka kayıtlar buralarda:",
@@ -141,23 +145,32 @@ export async function syraChatV2Handler(req, res) {
     const replyToPresent = !!replyTo && typeof replyTo === "object";
     let message = originalMessage;
     let replyToRole = "user";
+    let replyModeUsed = "none";
+    let replyMessage = null;
+
     if (replyToPresent) {
       replyToRole = replyTo.role === "assistant" ? "assistant" : "user";
-      const replyLabel =
-        replyToRole === "assistant" ? "Senin mesajın" : "Kendi önceki mesajı";
       const replyContent =
         typeof replyTo.content === "string" ? replyTo.content : "";
-      const replyContext = `[KULLANICI ŞU MESAJA CEVAP VERİYOR]\n${replyLabel}: "${replyContent}"\n\n[KULLANICININ YENİ MESAJI]\n`;
-      message = replyContext + originalMessage;
+
+      if (REPLY_AS_MESSAGE) {
+        replyMessage = { role: replyToRole, content: replyContent };
+        replyModeUsed = "as_message";
+      } else if (REPLY_CONTEXT_PREFIX) {
+        const replyContext = `=== REPLY CONTEXT ===\nUser is replying to this message:\n"${replyContent}"\nThe user's new message should be interpreted as a follow-up to that quoted content.\n\n`;
+        message = replyContext + originalMessage;
+        replyModeUsed = "prefix";
+      }
     }
-    const promptHistory = replyToPresent ? [] : serverHistory;
+
+    const promptHistory = (replyToPresent && !REPLY_AS_MESSAGE) ? [] : serverHistory;
 
     const { systemPrompt, meta } = await buildSmartSystemPrompt(
       uid,
       message,
       promptHistory
     );
-    if (replyToPresent) {
+    if (replyToPresent && !REPLY_AS_MESSAGE) {
       meta.messageSearch.followUp = false;
       meta.messageSearch.lastQueryUsed = "-";
     }
@@ -302,7 +315,7 @@ export async function syraChatV2Handler(req, res) {
     );
     if (replyToPresent) {
       console.log(
-        `syraChatV2 replyToPresent=yes role=${replyToRole} followUp=no lastQueryUsed=-`
+        `syraChatV2 replyToPresent=yes role=${replyToRole} mode=${replyModeUsed}`
       );
     } else {
       console.log(
@@ -343,13 +356,18 @@ export async function syraChatV2Handler(req, res) {
       decision.model === "gpt-4o" ? MODEL_GPT4O : MODEL_GPT4O_MINI;
 
     const openai = requireOpenAI();
+    const chatMessages = [
+      { role: "system", content: systemPrompt },
+      ...serverHistory.slice(-MAX_HISTORY),
+    ];
+    if (replyMessage) {
+      chatMessages.push(replyMessage);
+    }
+    chatMessages.push({ role: "user", content: message });
+
     const response = await openai.chat.completions.create({
       model: selectedModel,
-      messages: [
-        { role: "system", content: systemPrompt },
-        ...serverHistory.slice(-MAX_HISTORY),
-        { role: "user", content: message },
-      ],
+      messages: chatMessages,
       temperature: 0.7,
     });
 

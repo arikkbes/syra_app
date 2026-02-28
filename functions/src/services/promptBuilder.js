@@ -153,92 +153,9 @@ Kurallar:
     meta.relationship.hasRelationship = true;
     meta.relationship.relationshipId = relationshipId;
 
-    const relationshipLines = buildRelationshipSummaryLines(
-      relationship,
-      relationshipContext
-    );
-
-    systemPrompt += `
-
-## 📱 KULLANICININ YÜKLÜ İLİŞKİSİ VAR
-${relationshipLines.join("\n")}
-`;
-
-    const statsLines = buildRelationshipStatsLines(relationship);
-    if (statsLines.length) {
-      systemPrompt += `
-
-İstatistikler:
-${statsLines.join("\n")}
-`;
-    }
-
-    const patternLines = buildPatternSummaryLines(relationship);
-    if (patternLines.length) {
-      systemPrompt += `
-
-## ⚠️ TESPİT EDİLEN PATTERN'LER
-(Bu pattern'ler güvenilir arka plan bilgindir. Kullanıcı sorarsa DOĞRUDAN paylaş. Gerekli görürsen kendin de bahset.)
-${patternLines.join("\n")}
-`;
-    }
-
-    // Inject trimmed evidence for top patterns (max 2 patterns, 2 evidence each, 12 lines cap)
-    const depotPatterns = relationship?.dostDepot?.patterns;
-    if (Array.isArray(depotPatterns) && depotPatterns.length > 0) {
-      const topPatterns = depotPatterns.slice(0, 2);
-      const evidenceLines = [];
-      for (const p of topPatterns) {
-        const evItems = (p.evidence || []).slice(0, 2);
-        for (const e of evItems) {
-          if (evidenceLines.length >= 12) break;
-          evidenceLines.push(`  - [${p.type}] chunk: ${e.chunkId} | tarih: ${e.approxTimestamp} | alıntı: "${e.excerpt}"`);
-        }
-      }
-      if (evidenceLines.length > 0) {
-        systemPrompt += `
-
-## 📋 PATTERN KANITLARI
-(Kullanıcı kanıt isterse bu verileri kullan)
-${evidenceLines.join("\n")}
-`;
-      }
-    }
-
-    const dynamicLines = buildDynamicContextLines(relationship);
-    if (dynamicLines.length) {
-      systemPrompt += `
-
-## 📈 SON GELİŞMELER
-${dynamicLines.join("\n")}
-`;
-    }
-
-    if (relationship?.dynamic?.currentFocus) {
-      systemPrompt += `
-
-## 🎯 ŞU AN ODAKLANDIĞIN KONU
-${relationship.dynamic.currentFocus}
-`;
-    }
-
-    if (participantPrompt) {
-      systemPrompt += `
-
-## 👥 KATILIMCI EŞLEŞTİRME
-${participantPrompt}
-`;
-    }
+    systemPrompt += `\n\n${buildMemoryPacket(relationship, relationshipContext, participantPrompt)}`;
   } else {
-    systemPrompt += `
-
-## 📱 İLİŞKİ DURUMU
-Kullanıcının yüklü bir ilişkisi yok. 
-- Normal sohbet edebilirsin
-- İlişki tavsiyeleri verebilirsin
-- SS analizi yapabilirsin
-- Yeri gelirse ilişki yüklemesini önerebilirsin (zorlamadan)
-`;
+    systemPrompt += `\nKullanıcının yüklü ilişkisi yok. Normal sohbet, tavsiye veya SS analizi yapabilirsin.`;
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -299,64 +216,68 @@ Asla örnek/benzer mesaj uydurma.
   meta.deepAnalysis.requested = wantsDeepAnalysis;
 
   if (wantsDeepAnalysis) {
-    systemPrompt += `
-
-## 🔬 DERİN ANALİZ MODU AKTİF
-Kullanıcı detaylı analiz istedi. Şu formatta cevap ver:
-
-📊 ANALİZ: [Konu]
-
-🔍 Tespit:
-[Net, sayısal verilerle]
-
-📱 Örnek Mesajlar:
-Eğer "✅ BULUNAN MESAJLAR" yoksa "örnek bulamadım" de.
-Varsa sadece gerçek mesajlardan 1-2 satırı AYNEN kopyala.
-Timestamp formatını değiştirme, yeni timestamp uydurma.
-
-🚩 Neden Sorun? / ✅ Neden İyi?
-[Açıklama]
-
-💡 Öneri:
-[Somut adım]
-`;
+    systemPrompt += `\nDERİN ANALİZ MODU: Detaylı analiz istendi. Sayısal verilerle net tespit yap, varsa gerçek mesajlardan 1-2 alıntı ekle (uydurma yasak), sorun/iyi yanı açıkla, somut adım öner.`;
   }
 
   return { systemPrompt: systemPrompt.trim(), meta };
 }
 
-function buildRelationshipSummaryLines(relationship, relationshipContext) {
+function buildMemoryPacket(relationship, relationshipContext, participantPrompt) {
   const lines = [];
+  lines.push("=== HAFIZA PAKETİ (İLİŞKİ BAĞLAMI) ===");
+
   const userSpeaker = relationshipContext?.selfParticipant;
   const partnerSpeaker = relationshipContext?.partnerParticipant;
-
   if (userSpeaker || partnerSpeaker) {
-    lines.push(
-      `- Kişiler: ${userSpeaker || "Kullanıcı"} (kullanıcı) ve ${
-        partnerSpeaker || "partner"
-      }`
-    );
+    lines.push(`Kişiler: ${userSpeaker || "Kullanıcı"} (kullanıcı), ${partnerSpeaker || "partner"} (partner)`);
   } else if (relationship?.speakers?.length) {
-    lines.push(`- Konuşmacılar: ${relationship.speakers.join(", ")}`);
+    lines.push(`Kişiler: ${relationship.speakers.join(", ")}`);
   }
 
   const dateRange = relationship?.dateRange || {};
-  if (dateRange.start || dateRange.end) {
-    lines.push(`- Tarih aralığı: ${dateRange.start || "?"} → ${dateRange.end || "?"}`);
-  }
+  const datePart = (dateRange.start || dateRange.end)
+    ? `Tarih: ${dateRange.start || "?"} → ${dateRange.end || "?"}`
+    : null;
+  const msgPart = typeof relationship?.totalMessages === "number"
+    ? `Toplam mesaj: ${relationship.totalMessages}`
+    : null;
+  if (datePart && msgPart) lines.push(`${datePart} | ${msgPart}`);
+  else if (datePart) lines.push(datePart);
+  else if (msgPart) lines.push(msgPart);
 
-  if (typeof relationship?.totalMessages === "number") {
-    lines.push(`- Toplam mesaj: ${relationship.totalMessages}`);
-  }
+  const statsLines = buildRelationshipStatsLines(relationship);
+  for (const sl of statsLines) lines.push(sl.replace(/^- /, ""));
 
   const summaryText = extractSummaryText(relationship?.masterSummary);
   if (summaryText) {
     lines.push("");
-    lines.push("İlişki Özeti:");
-    lines.push(summaryText);
+    lines.push(`Özet: ${summaryText}`);
   }
 
-  return lines;
+  const patternLines = buildPatternSummaryLines(relationship);
+  if (patternLines.length) {
+    lines.push("");
+    lines.push("Tespit edilen kalıplar:");
+    for (const pl of patternLines) lines.push(pl);
+  }
+
+  const dynamicLines = buildDynamicContextLines(relationship);
+  if (dynamicLines.length) {
+    lines.push("");
+    for (const dl of dynamicLines) lines.push(dl);
+  }
+
+  if (relationship?.dynamic?.currentFocus) {
+    lines.push("");
+    lines.push(`Odak: ${relationship.dynamic.currentFocus}`);
+  }
+
+  if (participantPrompt) {
+    lines.push("");
+    lines.push(participantPrompt);
+  }
+
+  return lines.join("\n");
 }
 
 function extractSummaryText(masterSummary) {
