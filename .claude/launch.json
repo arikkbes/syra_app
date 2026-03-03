@@ -3,15 +3,17 @@
   "configurations": [
     {
       "name": "firebase-emulators",
-      "runtimeExecutable": "firebase",
-      "runtimeArgs": ["emulators:start"],
-      "port": 4000
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/besir/AppData/Roaming/npm/node_modules/firebase-tools/lib/bin/firebase.js", "emulators:start"],
+      "port": 4000,
+      "autoPort": false
     },
     {
       "name": "firebase-functions-only",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "serve"],
-      "port": 5001
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:/Users/besir/AppData/Roaming/npm/node_modules/firebase-tools/lib/bin/firebase.js", "emulators:start", "--only", "functions"],
+      "port": 5001,
+      "autoPort": false
     }
   ]
 }

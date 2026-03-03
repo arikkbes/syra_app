@@ -137,18 +137,34 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
     return { items: [], query: "", dateHint, dateOnly, needsTopicHint: dateOnly };
   }
 
+  const semanticReady = relationship.semanticIndex?.ready === true;
   let chunkIds = [];
-  try {
-    chunkIds = await semanticSearchChunkIds(
-      uid,
-      relationshipId,
-      effectiveQuery,
-      dateHint,
-      matchCount
+  let fallbackUsed = false;
+
+  console.log(`[buildEvidencePack] uid=${uid} semanticReady=${semanticReady}`);
+
+  if (semanticReady) {
+    try {
+      chunkIds = await semanticSearchChunkIds(
+        uid,
+        relationshipId,
+        effectiveQuery,
+        dateHint,
+        matchCount
+      );
+    } catch (e) {
+      console.error(`[${uid}] Semantic chunk search failed, using keyword fallback:`, e);
+      fallbackUsed = true;
+    }
+  } else {
+    fallbackUsed = true;
+  }
+
+  if (fallbackUsed) {
+    chunkIds = await keywordFallbackChunkIds(uid, relationshipId, effectiveQuery);
+    console.log(
+      `[buildEvidencePack] uid=${uid} fallbackUsed=true matchedChunkCount=${chunkIds.length}`
     );
-  } catch (e) {
-    console.error(`[${uid}] Semantic chunk search failed:`, e);
-    return { items: [], query: effectiveQuery, dateHint, dateOnly };
   }
 
   if (!chunkIds.length) {
@@ -157,9 +173,10 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
 
   const items = [];
   const seen = new Set();
+  const MAX_FALLBACK_ITEMS = 5;
   const targetCount =
     chunkIds.length >= 2
-      ? Math.min(MAX_EVIDENCE_ITEMS, chunkIds.length)
+      ? Math.min(fallbackUsed ? MAX_FALLBACK_ITEMS : MAX_EVIDENCE_ITEMS, chunkIds.length)
       : chunkIds.length;
 
   for (const chunkId of chunkIds) {
@@ -426,6 +443,55 @@ async function fetchChunkIndex(uid, relationshipId, chunkId) {
 
   const doc = await chunkRef.get();
   return doc.exists ? doc.data() : null;
+}
+
+async function keywordFallbackChunkIds(
+  uid,
+  relationshipId,
+  query,
+  maxChunks = 200,
+  maxResults = 20
+) {
+  const keywords = normalizeText(query)
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length >= 3);
+
+  if (!keywords.length) return [];
+
+  const chunksSnap = await firestore
+    .collection("relationships")
+    .doc(uid)
+    .collection("relations")
+    .doc(relationshipId)
+    .collection("chunks")
+    .limit(maxChunks)
+    .get();
+
+  if (chunksSnap.empty) return [];
+
+  const results = await Promise.allSettled(
+    chunksSnap.docs.map(async (doc) => {
+      const { storagePath } = doc.data();
+      if (!storagePath) return null;
+      const text = await getChunkFromStorage(storagePath);
+      if (!text) return null;
+      const normalized = normalizeText(text).toLowerCase();
+      let matchCount = 0;
+      for (const kw of keywords) {
+        if (normalized.includes(kw)) matchCount++;
+      }
+      if (matchCount === 0) return null;
+      return { chunkId: doc.id, matchCount };
+    })
+  );
+
+  const candidates = results
+    .filter((r) => r.status === "fulfilled" && r.value !== null)
+    .map((r) => r.value);
+
+  candidates.sort((a, b) => b.matchCount - a.matchCount);
+  return candidates.slice(0, maxResults).map((c) => c.chunkId);
 }
 
 function parseChunkMessages(text) {

@@ -206,6 +206,32 @@ export async function syraChatV2Handler(req, res) {
     const hasEvidenceOrDeepIntent =
       shouldSearchMessages(originalMessage) || isDeepAnalysisRequest(originalMessage);
 
+    // ── Upload CTA guard: evidence intent but no relationship uploaded ──
+    if (hasEvidenceOrDeepIntent && !meta.relationship.hasRelationship) {
+      const uploadCta =
+        "Kanka sohbet geçmişin yüklü değil. ZIP dosyasını yüklersen geçmişine bakabilirim.";
+
+      await persistSessionMessages(uid, sessionId, originalMessage, uploadCta, {
+        requestId,
+        guard: "no_relationship_upload_cta",
+      });
+
+      console.log(`syraChatV2 guard=no_relationship_upload_cta mode=${mode}`);
+      return res.status(200).json({
+        success: true,
+        message: uploadCta,
+        meta: {
+          requestId,
+          sessionId,
+          deepAnalysis: meta.deepAnalysis,
+          messageSearch: meta.messageSearch,
+          relationship: meta.relationship,
+          guard: "no_relationship_upload_cta",
+          totalProcessingTime: Date.now() - startTime,
+        },
+      });
+    }
+
     if (
       !consentApproved &&
       !pendingAction &&

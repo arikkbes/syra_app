@@ -13,7 +13,12 @@
       "Bash(node -c:*)",
       "Bash(test:*)",
       "Bash(node --check:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(where firebase)",
+      "Bash(where firebase.cmd)",
+      "Bash(netstat -ano)",
+      "Bash(findstr \":5001\")"
     ]
   }
 }
