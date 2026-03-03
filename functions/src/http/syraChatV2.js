@@ -8,10 +8,10 @@
 import crypto from "crypto";
 import { auth } from "../config/firebaseAdmin.js";
 import { requireOpenAI } from "../config/openaiClient.js";
-import { MODEL_GPT4O, MODEL_GPT4O_MINI } from "../utils/constants.js";
 import {
   buildSmartSystemPrompt,
   shouldSearchMessages,
+  isDeepAnalysisRequest,
 } from "../services/promptBuilder.js";
 import { resolveUserPlan } from "../services/planResolver.js";
 import {
@@ -126,7 +126,7 @@ export async function syraChatV2Handler(req, res) {
       });
     }
 
-    const { message: rawMessage, sessionId: rawSessionId, replyTo } =
+    const { message: rawMessage, sessionId: rawSessionId, replyTo, mode: rawMode } =
       req.body || {};
 
     if (!rawMessage || typeof rawMessage !== "string" || !rawMessage.trim()) {
@@ -164,17 +164,82 @@ export async function syraChatV2Handler(req, res) {
     }
 
     const promptHistory = (replyToPresent && !REPLY_AS_MESSAGE) ? [] : serverHistory;
+    const mode = rawMode || "standard";
+
+    // ── Consent gate: check pending action from last assistant message ──
+    const pendingAction = getLastPendingAction(historyData?.messages || []);
+    let consentApproved = false;
+    let savedQuery = null;
+
+    if (pendingAction?.type === "awaiting_zip_consent") {
+      if (isAffirmativeReply(originalMessage)) {
+        consentApproved = true;
+        savedQuery = pendingAction.savedQuery;
+        console.log(
+          `syraChatV2 consentGate=approved savedQuery="${(savedQuery || "").substring(0, 50)}" mode=${mode}`
+        );
+      } else if (isNegativeReply(originalMessage)) {
+        console.log(`syraChatV2 consentGate=declined mode=${mode}`);
+      } else {
+        console.log(`syraChatV2 consentGate=expired mode=${mode}`);
+      }
+    }
+
+    const queryForPrompt = consentApproved ? savedQuery : message;
 
     const { systemPrompt, meta } = await buildSmartSystemPrompt(
       uid,
-      message,
-      promptHistory
+      queryForPrompt,
+      promptHistory,
+      mode
     );
     if (replyToPresent && !REPLY_AS_MESSAGE) {
       meta.messageSearch.followUp = false;
       meta.messageSearch.lastQueryUsed = "-";
     }
 
+    if (consentApproved) {
+      meta.consentApproved = true;
+    }
+
+    // ── Consent gate trigger: new evidence/deep intent → ask consent ──
+    const hasEvidenceOrDeepIntent =
+      shouldSearchMessages(originalMessage) || isDeepAnalysisRequest(originalMessage);
+
+    if (
+      !consentApproved &&
+      !pendingAction &&
+      hasEvidenceOrDeepIntent &&
+      meta.relationship.hasRelationship &&
+      !meta.messageSearch.followUp
+    ) {
+      const consentReply = "ZIP'ten bakayım mı?";
+
+      await persistSessionMessages(uid, sessionId, originalMessage, consentReply, {
+        requestId,
+        guard: "consent_gate",
+        pendingAction: { type: "awaiting_zip_consent", savedQuery: originalMessage },
+      });
+
+      console.log(
+        `syraChatV2 consentGate=triggered savedQuery="${originalMessage.substring(0, 50)}" mode=${mode}`
+      );
+      return res.status(200).json({
+        success: true,
+        message: consentReply,
+        meta: {
+          requestId,
+          sessionId,
+          deepAnalysis: meta.deepAnalysis,
+          messageSearch: meta.messageSearch,
+          relationship: meta.relationship,
+          guard: "consent_gate",
+          totalProcessingTime: Date.now() - startTime,
+        },
+      });
+    }
+
+    // ── Deterministic evidence guards (for follow-ups like "daha göster") ──
     const shouldSearch =
       shouldSearchMessages(originalMessage) && meta.relationship.hasRelationship;
     if (shouldSearch && meta.messageSearch.found === 0) {
@@ -213,7 +278,8 @@ export async function syraChatV2Handler(req, res) {
     if (
       meta.messageSearch.requested &&
       meta.messageSearch.found > 0 &&
-      !meta.deepAnalysis.requested
+      !meta.deepAnalysis.requested &&
+      !consentApproved
     ) {
       const followUp = meta.messageSearch.followUp;
       const evidenceItems = Array.isArray(meta.messageSearch.items)
@@ -311,7 +377,7 @@ export async function syraChatV2Handler(req, res) {
     const decision = selectModel({ plan, meta, dailyUsage });
 
     console.log(
-      `syraChatV2 requestId=${requestId} sessionId=${sessionId} historySource=server historyLen=${serverHistory.length} intentType=${meta.messageSearch.intentType || "-"} followUp=${meta.messageSearch.followUp ? "yes" : "no"} lastQueryUsed=${meta.messageSearch.lastQueryUsed || "-"} evidenceCount=${meta.messageSearch.found} plan=${plan} model=${decision.blocked ? "blocked" : decision.model} creditsUsed=${dailyUsage?.creditsUsed || 0} policyVersion=${decision.policyVersion}`
+      `syraChatV2 requestId=${requestId} sessionId=${sessionId} historySource=server historyLen=${serverHistory.length} intentType=${meta.messageSearch.intentType || "-"} followUp=${meta.messageSearch.followUp ? "yes" : "no"} lastQueryUsed=${meta.messageSearch.lastQueryUsed || "-"} evidenceCount=${meta.messageSearch.found} plan=${plan} model=${decision.blocked ? "blocked" : decision.model} creditsUsed=${dailyUsage?.creditsUsed || 0} policyVersion=${decision.policyVersion} mode=${mode} consentApproved=${consentApproved ? "yes" : "no"}`
     );
     if (replyToPresent) {
       console.log(
@@ -352,8 +418,7 @@ export async function syraChatV2Handler(req, res) {
       });
     }
 
-    const selectedModel =
-      decision.model === "gpt-4o" ? MODEL_GPT4O : MODEL_GPT4O_MINI;
+    const selectedModel = decision.model;
 
     const openai = requireOpenAI();
     const chatMessages = [
@@ -365,11 +430,14 @@ export async function syraChatV2Handler(req, res) {
     }
     chatMessages.push({ role: "user", content: message });
 
-    const response = await openai.chat.completions.create({
+    const chatParams = {
       model: selectedModel,
       messages: chatMessages,
-      temperature: 0.7,
-    });
+    };
+    if (!selectedModel.startsWith("gpt-5")) {
+      chatParams.temperature = 0.7;
+    }
+    const response = await openai.chat.completions.create(chatParams);
 
     const aiReply = response?.choices?.[0]?.message?.content?.trim() || "";
 
@@ -404,7 +472,7 @@ export async function syraChatV2Handler(req, res) {
     const promptTokens = Number(response?.usage?.prompt_tokens) || 0;
     const completionTokens = Number(response?.usage?.completion_tokens) || 0;
     const totalTokens = promptTokens + completionTokens;
-    const creditMultiplier = decision.model === "gpt-4o" ? 16 : 1;
+    const creditMultiplier = decision.model === "gpt-5.2" ? 16 : 1;
     const usageDelta = {
       model: decision.model,
       promptTokens,
@@ -622,13 +690,52 @@ async function persistSessionMessages(
   }
 }
 
+// ── Consent gate helpers ────────────────────────────────────────────
+
+function getLastPendingAction(messages) {
+  if (!Array.isArray(messages) || messages.length === 0) return null;
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const entry = messages[i];
+    if (entry?.role !== "assistant") continue;
+    const pending = entry?.meta?.pendingAction;
+    if (pending && typeof pending === "object" && pending.type) {
+      return pending;
+    }
+    // Only check the very last assistant message
+    return null;
+  }
+  return null;
+}
+
+const AFFIRMATIVE_TOKENS = new Set([
+  "evet", "olur", "tamam", "okey", "okay", "yes",
+]);
+
+function isAffirmativeReply(msg) {
+  const normalized = (msg || "").toLowerCase().trim();
+  if (!normalized) return false;
+  return AFFIRMATIVE_TOKENS.has(normalized);
+}
+
+const NEGATIVE_TOKENS = new Set([
+  "hayır", "hayir", "yok", "istemem", "no",
+]);
+const NEGATIVE_PHRASES = ["gerek yok", "gerek yok kanka"];
+
+function isNegativeReply(msg) {
+  const normalized = (msg || "").toLowerCase().trim();
+  if (!normalized) return false;
+  if (NEGATIVE_TOKENS.has(normalized)) return true;
+  return NEGATIVE_PHRASES.some((p) => normalized.includes(p));
+}
+
 // Manual test checklist:
-// 1) Free user normal chat -> model mini
-// 2) Free user deep analysis request -> blocked (upsell)
-// 3) Free user credit exhausted -> blocked (enerji bitti)
-// 4) Core user deep analysis -> model 4o
-// 5) Evidence query -> deterministic path still works unchanged
-// 6) Evidence query returns human intro + list
-// 7) Follow-up returns "Bunlar da var:" + list
-// 8) Follow-up when empty returns friendly closure
-// 9) Same query twice does not reuse same template twice
+// 1) Normal chat -> gpt-5-mini, no consent gate
+// 2) "kanıt göster" -> returns "ZIP'ten bakayım mı?" (consent gate)
+// 3) "evet" after consent -> evidence search + gpt-5.2 (premium) / gpt-5-mini (free)
+// 4) "hayır" after consent -> normal chat with gpt-5-mini, honest about limits
+// 5) "derin analiz yap" -> consent gate triggers
+// 6) Free user deep analysis (no consent) -> blocked (upsell)
+// 7) Dost Aci mode + normal chat -> gpt-5-mini with blunt tone
+// 8) Follow-up "daha göster" -> existing deterministic pagination
+// 9) Check debug logs -> selectedModel, consentGate status, mode printed

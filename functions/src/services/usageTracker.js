@@ -10,6 +10,8 @@ const DEFAULT_USAGE = {
 const CREDIT_MULTIPLIERS = {
   "gpt-4o-mini": 1,
   "gpt-4o": 16,
+  "gpt-5-mini": 1,
+  "gpt-5.2": 16,
 };
 
 export function getIstanbulDateKey(date = new Date()) {

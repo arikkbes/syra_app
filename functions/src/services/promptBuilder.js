@@ -11,7 +11,7 @@ import {
 } from "./relationshipRetrieval.js";
 import { openai } from "../config/openaiClient.js";
 
-const MAX_FOUND_MESSAGES = 8;
+const MAX_FOUND_MESSAGES = 5;
 
 export function categorizeFollowUpIntent(message) {
   const msg = (message || "").toLowerCase().trim();
@@ -106,7 +106,8 @@ function normalizeText(text) {
 export async function buildSmartSystemPrompt(
   uid,
   userMessage,
-  conversationHistory
+  conversationHistory,
+  mode = "standard"
 ) {
   const meta = {
     relationship: {
@@ -217,6 +218,13 @@ Asla örnek/benzer mesaj uydurma.
 
   if (wantsDeepAnalysis) {
     systemPrompt += `\nDERİN ANALİZ MODU: Detaylı analiz istendi. Sayısal verilerle net tespit yap, varsa gerçek mesajlardan 1-2 alıntı ekle (uydurma yasak), sorun/iyi yanı açıkla, somut adım öner.`;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // DOST ACI SÖYLER TONE
+  // ═══════════════════════════════════════════════════════════
+  if (mode === "dost_aci") {
+    systemPrompt += `\nMOD: Dost Acı Söyler aktif. Daha direkt, net, yuvarlama. Gerçekçi ol, güzel göstermeye çalışma.`;
   }
 
   return { systemPrompt: systemPrompt.trim(), meta };

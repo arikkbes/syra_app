@@ -1,12 +1,32 @@
-const POLICY_VERSION = "router_v1";
+const POLICY_VERSION = "router_v2";
 const FREE_DAILY_CREDITS = 75000;
 
 export function selectModel({ plan, meta, dailyUsage }) {
   try {
     const safePlan = plan || "free";
     const creditsUsed = Number(dailyUsage?.creditsUsed) || 0;
+    const consentApproved = meta?.consentApproved === true;
     const deepRequested = meta?.deepAnalysis?.requested === true;
 
+    // Consent-approved evidence path: premium → deep model, free → default model
+    if (consentApproved) {
+      if (safePlan === "free") {
+        return {
+          blocked: false,
+          model: "gpt-5-mini",
+          reason: "consent_free",
+          policyVersion: POLICY_VERSION,
+        };
+      }
+      return {
+        blocked: false,
+        model: "gpt-5.2",
+        reason: "consent_deep",
+        policyVersion: POLICY_VERSION,
+      };
+    }
+
+    // Deep analysis (without consent): blocked for free, deep model for premium
     if (deepRequested) {
       if (safePlan === "free") {
         return {
@@ -19,12 +39,13 @@ export function selectModel({ plan, meta, dailyUsage }) {
       }
       return {
         blocked: false,
-        model: "gpt-4o",
+        model: "gpt-5.2",
         reason: "deep_allowed",
         policyVersion: POLICY_VERSION,
       };
     }
 
+    // Free tier daily credit cap
     if (safePlan === "free" && creditsUsed >= FREE_DAILY_CREDITS) {
       return {
         blocked: true,
@@ -36,9 +57,10 @@ export function selectModel({ plan, meta, dailyUsage }) {
       };
     }
 
+    // Default: all normal chat uses gpt-5-mini
     return {
       blocked: false,
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       reason: "default",
       policyVersion: POLICY_VERSION,
     };
@@ -46,7 +68,7 @@ export function selectModel({ plan, meta, dailyUsage }) {
     console.error("[modelRouter] selectModel failed:", error);
     return {
       blocked: false,
-      model: "gpt-4o-mini",
+      model: "gpt-5-mini",
       reason: "fallback_error",
       policyVersion: POLICY_VERSION,
     };
