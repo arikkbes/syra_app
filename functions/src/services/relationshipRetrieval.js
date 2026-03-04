@@ -23,6 +23,20 @@ const MAX_EVIDENCE_ITEMS = 12;
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const MAX_TEXT_LENGTH = 2000;
 
+const TURKISH_STOPWORDS = new Set([
+  "mi", "mu", "ki", "de", "da", "ya", "ve", "bir", "bu", "su",
+  "o", "ne", "ama", "ile", "icin", "gibi", "var", "yok",
+  "dedi", "yazdi", "soyledi", "demis", "sordu", "sormis", "neden",
+  "goster", "getir", "kanit", "bul", "mesaj", "alinti", "timestamp", "proof", "quote",
+]);
+
+function keywordWeight(word) {
+  if (word.length >= 7) return 4;
+  if (word.length >= 5) return 3;
+  if (word.length >= 4) return 2;
+  return 1;
+}
+
 function isDateOutsideRange(dateHint, dateRange) {
   if (!dateHint?.start || !dateHint?.end) return false;
   if (!dateRange?.start || !dateRange?.end) return false;
@@ -126,8 +140,42 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
   const { query, dateHint, dateOnly } = buildSearchQuery(userMessage);
   const explicitKeyword = extractExplicitKeywordFromQuery(userMessage);
   const keywordMode = !!explicitKeyword;
-  const effectiveQuery = keywordMode ? explicitKeyword : query;
+  let effectiveQuery = keywordMode ? explicitKeyword : query;
   const matchCount = keywordMode ? 30 : 12;
+
+  // ── Alias / actor resolution ──────────────────────────────────────
+  const participantAliases = relationship.participantAliases || {};
+  const speakers = relationship.speakers || [];
+  const actorInfo = extractActorNameFromQuery(userMessage);
+  let speakerFilter = null;
+  let aliasNeeded = null;
+  let aliasOriginalQuery = null;
+
+  if (actorInfo) {
+    const normName = normalizeTurkishText(actorInfo.name).toLowerCase();
+    const directMatch = speakers.find(
+      (s) => normalizeTurkishText(s).toLowerCase() === normName
+    );
+    if (directMatch) {
+      speakerFilter = directMatch;
+    } else if (participantAliases[normName]) {
+      speakerFilter = participantAliases[normName];
+    } else {
+      aliasNeeded = actorInfo.name;
+      aliasOriginalQuery = userMessage;
+    }
+    console.log(
+      `[buildEvidencePack] uid=${uid} speakerConstraint=${speakerFilter || "none"} aliasNeeded=${aliasNeeded || "none"}`
+    );
+  }
+
+  if (aliasNeeded) {
+    return { items: [], query: effectiveQuery, dateHint, dateOnly, aliasNeeded, aliasOriginalQuery };
+  }
+
+  if (speakerFilter && actorInfo?.restQuery) {
+    effectiveQuery = normalizeQueryText(actorInfo.restQuery) || effectiveQuery;
+  }
 
   if (dateHint && isDateOutsideRange(dateHint, relationship?.dateRange)) {
     return { error: "date_out_of_range", dateRange: relationship?.dateRange };
@@ -168,11 +216,20 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
   }
 
   if (!chunkIds.length) {
-    return { items: [], query: effectiveQuery, dateHint, dateOnly };
+    return {
+      items: [], query: effectiveQuery, dateHint, dateOnly,
+      speakerConstraint: speakerFilter,
+      speakerHasNoMatch: !!speakerFilter,
+      keywordInOtherSpeaker: false, contextEvidence: [],
+      aliasNeeded: null, aliasOriginalQuery: null,
+    };
   }
 
   const items = [];
   const seen = new Set();
+  let speakerHasNoMatch = !!speakerFilter;
+  let keywordInOtherSpeaker = false;
+  const contextEvidence = [];
   const MAX_FALLBACK_ITEMS = 5;
   const targetCount =
     chunkIds.length >= 2
@@ -189,7 +246,35 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
     const messages = parseChunkMessages(rawChunk);
     if (!messages.length) continue;
 
-    const messageIndex = findBestMessageIndex(messages, effectiveQuery);
+    let messageIndex;
+    if (speakerFilter) {
+      const speakerIdxs = messages
+        .map((m, i) => i)
+        .filter((i) => messages[i].sender === speakerFilter);
+      if (!speakerIdxs.length) {
+        // Keyword exists in chunk but from a different sender
+        if (messages.some((m) => containsNormalizedKeyword(m.content, effectiveQuery))) {
+          keywordInOtherSpeaker = true;
+          const otherEvidence = messages.find((m) =>
+            containsNormalizedKeyword(m.content, effectiveQuery)
+          );
+          if (otherEvidence && contextEvidence.length < 2) {
+            contextEvidence.push({
+              timestamp: otherEvidence.timestamp,
+              sender: otherEvidence.sender,
+              matchedLine: extractMatchedLine(otherEvidence.content),
+              role: mapSpeakerToRole(otherEvidence.sender, relationshipContext),
+            });
+          }
+        }
+        continue;
+      }
+      const speakerMsgs = speakerIdxs.map((i) => messages[i]);
+      const bestSub = findBestMessageIndex(speakerMsgs, effectiveQuery);
+      messageIndex = speakerIdxs[bestSub];
+    } else {
+      messageIndex = findBestMessageIndex(messages, effectiveQuery);
+    }
     const matchedMessage = messages[messageIndex];
     if (!matchedMessage) continue;
 
@@ -223,7 +308,24 @@ export async function buildEvidencePack(uid, userMessage, options = {}) {
     });
   }
 
-  return { items, query: effectiveQuery, dateHint, dateOnly };
+  console.log(
+    `[buildEvidencePack] uid=${uid} fallbackUsed=${fallbackUsed} evidenceCount=${items.length} speakerConstraint=${speakerFilter || "none"}`
+  );
+  return {
+    items, query: effectiveQuery, dateHint, dateOnly,
+    speakerConstraint: speakerFilter,
+    speakerHasNoMatch: speakerHasNoMatch && items.length === 0,
+    keywordInOtherSpeaker,
+    contextEvidence,
+    aliasNeeded: null, aliasOriginalQuery: null,
+  };
+}
+
+export async function persistParticipantAlias(uid, relationshipId, normAlias, speakerName) {
+  await firestore
+    .collection("relationships").doc(uid)
+    .collection("relations").doc(relationshipId)
+    .set({ participantAliases: { [normAlias]: speakerName } }, { merge: true });
 }
 
 export async function buildContextWindow(uid, userMessage, options = {}) {
@@ -333,6 +435,19 @@ function normalizeTurkishText(text) {
     .replace(/ö/g, "o")
     .replace(/ü/g, "u")
     .replace(/ç/g, "c");
+}
+
+function extractActorNameFromQuery(message) {
+  const norm = normalizeTurkishText((message || "").trim()).toLowerCase();
+  // Third-person trap: name followed by postposition → NOT an actor reference
+  if (/^[a-z]{2,}\s*'?\s*(ile|yle|ye|nin|nun|e|a|ya|hakkinda|icin|de|da)\b/.test(norm)) return null;
+  // Actor pattern: NAME + agent-verb [mi/mu]
+  const m = norm.match(/^([a-z]{2,})\s+(dedi|yazdi|yazmis|soyledi|demis|sordu|sormis|neden|yapti|yapmis)\s*(mi|mu)?/i);
+  if (!m) return null;
+  const rawName = message.trim().split(/\s+/)[0];
+  // Remove "NAME VERB [mi]" from front to get rest-query
+  const stripped = norm.replace(/^[a-z]{2,}\s+(dedi|yazdi|yazmis|soyledi|demis|sordu|sormis|neden|yapti|yapmis)\s*(mi|mu)?\s*/i, "");
+  return { name: rawName, restQuery: message.trim().slice(message.trim().length - stripped.length) };
 }
 
 function containsNormalizedKeyword(text, keyword) {
@@ -452,10 +567,11 @@ async function keywordFallbackChunkIds(
   maxChunks = 200,
   maxResults = 20
 ) {
-  const keywords = normalizeText(query)
+  const rawTokens = normalizeText(query)
     .toLowerCase()
     .split(/\s+/)
     .filter((w) => w.length >= 3);
+  const keywords = rawTokens.filter((w) => !TURKISH_STOPWORDS.has(w));
 
   if (!keywords.length) return [];
 
@@ -477,12 +593,12 @@ async function keywordFallbackChunkIds(
       const text = await getChunkFromStorage(storagePath);
       if (!text) return null;
       const normalized = normalizeText(text).toLowerCase();
-      let matchCount = 0;
+      let score = 0;
       for (const kw of keywords) {
-        if (normalized.includes(kw)) matchCount++;
+        if (normalized.includes(kw)) score += keywordWeight(kw);
       }
-      if (matchCount === 0) return null;
-      return { chunkId: doc.id, matchCount };
+      if (score === 0) return null;
+      return { chunkId: doc.id, score, chunkText: normalized };
     })
   );
 
@@ -490,8 +606,24 @@ async function keywordFallbackChunkIds(
     .filter((r) => r.status === "fulfilled" && r.value !== null)
     .map((r) => r.value);
 
-  candidates.sort((a, b) => b.matchCount - a.matchCount);
-  return candidates.slice(0, maxResults).map((c) => c.chunkId);
+  candidates.sort((a, b) => b.score - a.score);
+
+  // Rare keyword coverage guarantee: words with weight>=3 must appear in top results
+  const rareKws = keywords.filter((kw) => keywordWeight(kw) >= 3);
+  const top = candidates.slice(0, maxResults);
+  const topSet = new Set(top.map((c) => c.chunkId));
+  for (const rw of rareKws) {
+    if (top.some((c) => c.chunkText.includes(rw))) continue;
+    const promoted = candidates.find(
+      (c) => !topSet.has(c.chunkId) && c.chunkText.includes(rw)
+    );
+    if (promoted) {
+      top.push(promoted);
+      topSet.add(promoted.chunkId);
+    }
+  }
+
+  return top.slice(0, maxResults).map((c) => c.chunkId);
 }
 
 function parseChunkMessages(text) {

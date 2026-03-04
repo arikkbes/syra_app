@@ -13,6 +13,7 @@ import {
   shouldSearchMessages,
   isDeepAnalysisRequest,
 } from "../services/promptBuilder.js";
+import { persistParticipantAlias } from "../services/relationshipRetrieval.js";
 import { resolveUserPlan } from "../services/planResolver.js";
 import {
   addDailyUsage,
@@ -141,6 +142,8 @@ export async function syraChatV2Handler(req, res) {
     const sessionId = sanitizeSessionId(rawSessionId);
     const historyData = await getConversationHistory(uid, sessionId);
     const serverHistory = sanitizeConversationHistory(historyData?.messages || []);
+    const sessionScopeActive = getSessionConsentScope(historyData?.messages || []);
+    console.log(`syraChatV2 consentScope=${sessionScopeActive ? "session" : "none"} mode=${rawMode || "standard"}`);
     const lastTemplateId = getLastAssistantTemplateId(historyData?.messages || []);
     const replyToPresent = !!replyTo && typeof replyTo === "object";
     let message = originalMessage;
@@ -172,17 +175,85 @@ export async function syraChatV2Handler(req, res) {
     let savedQuery = null;
 
     if (pendingAction?.type === "awaiting_zip_consent") {
-      if (isAffirmativeReply(originalMessage)) {
+      const ruleResult = isAffirmativeReply(originalMessage)
+        ? "YES"
+        : isNegativeReply(originalMessage)
+        ? "NO"
+        : "UNCLEAR";
+      console.log(`syraChatV2 consentRule=${ruleResult} mode=${mode}`);
+
+      if (ruleResult === "YES") {
         consentApproved = true;
         savedQuery = pendingAction.savedQuery;
         console.log(
           `syraChatV2 consentGate=approved savedQuery="${(savedQuery || "").substring(0, 50)}" mode=${mode}`
         );
-      } else if (isNegativeReply(originalMessage)) {
+      } else if (ruleResult === "NO") {
         console.log(`syraChatV2 consentGate=declined mode=${mode}`);
       } else {
-        console.log(`syraChatV2 consentGate=expired mode=${mode}`);
+        const llmResult = await classifyConsentReplyLLM(originalMessage);
+        console.log(`syraChatV2 consentLLM=${llmResult} mode=${mode}`);
+        if (llmResult === "YES") {
+          consentApproved = true;
+          savedQuery = pendingAction.savedQuery;
+          console.log(
+            `syraChatV2 consentGate=approved(llm) savedQuery="${(savedQuery || "").substring(0, 50)}" mode=${mode}`
+          );
+        } else if (llmResult === "NO") {
+          console.log(`syraChatV2 consentGate=declined(llm) mode=${mode}`);
+        } else {
+          // UNCLEAR even after LLM — ask follow-up, keep pendingAction alive
+          const followUpReply = "Onaylıyor musun? (Evet/Hayır)";
+          await persistSessionMessages(uid, sessionId, originalMessage, followUpReply, {
+            requestId,
+            guard: "consent_followup",
+            pendingAction: { type: "awaiting_zip_consent", savedQuery: pendingAction.savedQuery },
+          });
+          console.log(`syraChatV2 consentGate=followup mode=${mode}`);
+          return res.status(200).json({
+            success: true,
+            message: followUpReply,
+            meta: {
+              requestId,
+              sessionId,
+              guard: "consent_followup",
+              totalProcessingTime: Date.now() - startTime,
+            },
+          });
+        }
       }
+    }
+
+    if (pendingAction?.type === "awaiting_scope_consent") {
+      const scopeRule = isAffirmativeReply(originalMessage) ? "YES"
+        : isNegativeReply(originalMessage) ? "NO" : "UNCLEAR";
+      if (scopeRule === "YES") {
+        await persistSessionMessages(uid, sessionId, originalMessage, "Tamam, bu sohbette tekrar sormam.", {
+          requestId, guard: "scope_accepted", consentScope: "session",
+        });
+        console.log(`syraChatV2 consentScope=accepted sessionId=${sessionId}`);
+        return res.status(200).json({
+          success: true, message: "Tamam, bu sohbette tekrar sormam.",
+          meta: { requestId, sessionId, guard: "scope_accepted", totalProcessingTime: Date.now() - startTime },
+        });
+      }
+      // NO/UNCLEAR → fall through; treat message as normal query
+    }
+
+    if (pendingAction?.type === "awaiting_alias_confirm") {
+      const aliasRule = isAffirmativeReply(originalMessage) ? "YES"
+        : isNegativeReply(originalMessage) ? "NO" : "UNCLEAR";
+      console.log(`syraChatV2 aliasResolved=${pendingAction.alias}->${pendingAction.speakerName} rule=${aliasRule}`);
+      if (aliasRule === "YES") {
+        await persistParticipantAlias(
+          uid, pendingAction.relationshipId,
+          normalizeTurkishTextSimple(pendingAction.alias),
+          pendingAction.speakerName
+        );
+        consentApproved = true;
+        savedQuery = pendingAction.savedQuery;
+      }
+      // NO/UNCLEAR → fall through as normal chat
     }
 
     const queryForPrompt = consentApproved ? savedQuery : message;
@@ -202,7 +273,7 @@ export async function syraChatV2Handler(req, res) {
       meta.consentApproved = true;
     }
 
-    // ── Consent gate trigger: new evidence/deep intent → ask consent ──
+    // ── Evidence / deep intent flag ────────────────────────────────────
     const hasEvidenceOrDeepIntent =
       shouldSearchMessages(originalMessage) || isDeepAnalysisRequest(originalMessage);
 
@@ -232,43 +303,62 @@ export async function syraChatV2Handler(req, res) {
       });
     }
 
-    if (
-      !consentApproved &&
-      !pendingAction &&
-      hasEvidenceOrDeepIntent &&
-      meta.relationship.hasRelationship &&
-      !meta.messageSearch.followUp
-    ) {
-      const consentReply = "ZIP'ten bakayım mı?";
-
-      await persistSessionMessages(uid, sessionId, originalMessage, consentReply, {
+    // ── Alias clarify return ────────────────────────────────────────────
+    if (meta.messageSearch.aliasNeeded && meta.relationship.hasRelationship) {
+      const aliasName = meta.messageSearch.aliasNeeded;
+      const partnerName = meta.relationship.partnerParticipant || "partner";
+      const clarifyMsg = `${aliasName}, ${partnerName} adının takma adı mı? Evet dersen kaydederim.`;
+      await persistSessionMessages(uid, sessionId, originalMessage, clarifyMsg, {
         requestId,
-        guard: "consent_gate",
-        pendingAction: { type: "awaiting_zip_consent", savedQuery: originalMessage },
-      });
-
-      console.log(
-        `syraChatV2 consentGate=triggered savedQuery="${originalMessage.substring(0, 50)}" mode=${mode}`
-      );
-      return res.status(200).json({
-        success: true,
-        message: consentReply,
-        meta: {
-          requestId,
-          sessionId,
-          deepAnalysis: meta.deepAnalysis,
-          messageSearch: meta.messageSearch,
-          relationship: meta.relationship,
-          guard: "consent_gate",
-          totalProcessingTime: Date.now() - startTime,
+        guard: "alias_clarify",
+        pendingAction: {
+          type: "awaiting_alias_confirm",
+          alias: aliasName,
+          speakerName: meta.relationship.partnerParticipant,
+          relationshipId: meta.relationship.relationshipId,
+          savedQuery: originalMessage,
         },
       });
+      console.log(`syraChatV2 aliasNeeded=${aliasName} mode=${mode}`);
+      return res.status(200).json({
+        success: true, message: clarifyMsg,
+        meta: { requestId, sessionId, guard: "alias_clarify", relationship: meta.relationship, totalProcessingTime: Date.now() - startTime },
+      });
+    }
+
+    // ── Consent gate: compute need + strip evidence from effectiveSystemPrompt ──
+    const consentNeeded =
+      !consentApproved &&
+      !pendingAction &&
+      !sessionScopeActive &&
+      hasEvidenceOrDeepIntent &&
+      meta.relationship.hasRelationship &&
+      !meta.messageSearch.followUp;
+
+    let effectiveSystemPrompt = systemPrompt;
+    let consentPhraseToAppend = null;
+
+    if (consentNeeded) {
+      consentPhraseToAppend = pickConsentPhrase();
+      // Strip evidence sections so LLM doesn't reveal evidence before consent
+      const NEXT_MARKERS = ["\nDERİN ANALİZ", "\nMOD:"];
+      for (const marker of ["\n\nBULUNAN MESAJLAR", "\n\nMESAJ BULUNAMADI"]) {
+        const start = effectiveSystemPrompt.indexOf(marker);
+        if (start === -1) continue;
+        let end = effectiveSystemPrompt.length;
+        for (const next of NEXT_MARKERS) {
+          const pos = effectiveSystemPrompt.indexOf(next, start + 1);
+          if (pos !== -1 && pos < end) end = pos;
+        }
+        effectiveSystemPrompt = effectiveSystemPrompt.slice(0, start) + effectiveSystemPrompt.slice(end);
+      }
+      console.log(`syraChatV2 consentGate=pending phrase="${consentPhraseToAppend.substring(0, 40)}" mode=${mode}`);
     }
 
     // ── Deterministic evidence guards (for follow-ups like "daha göster") ──
     const shouldSearch =
       shouldSearchMessages(originalMessage) && meta.relationship.hasRelationship;
-    if (shouldSearch && meta.messageSearch.found === 0) {
+    if (shouldSearch && meta.messageSearch.found === 0 && !consentNeeded) {
       const template = selectEvidenceTemplate({
         bucket: "no_results",
         options: EVIDENCE_NO_RESULTS,
@@ -448,7 +538,7 @@ export async function syraChatV2Handler(req, res) {
 
     const openai = requireOpenAI();
     const chatMessages = [
-      { role: "system", content: systemPrompt },
+      { role: "system", content: effectiveSystemPrompt },
       ...serverHistory.slice(-MAX_HISTORY),
     ];
     if (replyMessage) {
@@ -465,7 +555,7 @@ export async function syraChatV2Handler(req, res) {
     }
     const response = await openai.chat.completions.create(chatParams);
 
-    const aiReply = response?.choices?.[0]?.message?.content?.trim() || "";
+    let aiReply = response?.choices?.[0]?.message?.content?.trim() || "";
 
     if (
       meta.messageSearch.requested &&
@@ -517,6 +607,27 @@ export async function syraChatV2Handler(req, res) {
       console.error("[syraChatV2] addDailyUsage failed:", error);
     }
 
+    // ── Append consent phrase if needed ─────────────────────────────────
+    let consentMeta = {};
+    if (consentPhraseToAppend) {
+      aiReply = (aiReply || "").trimEnd() + "\n\n" + consentPhraseToAppend;
+      consentMeta = {
+        guard: "consent_gate",
+        pendingAction: { type: "awaiting_zip_consent", savedQuery: originalMessage },
+      };
+    }
+
+    // ── Scope offer after first consent approval ─────────────────────────
+    let scopeMeta = {};
+    if (consentApproved && !sessionScopeActive && !getScopeOffered(historyData?.messages || [])) {
+      aiReply = (aiReply || "").trimEnd() + "\n\n" + SCOPE_OFFER_PHRASES[Math.floor(Math.random() * SCOPE_OFFER_PHRASES.length)];
+      scopeMeta = {
+        scopeOffered: true,
+        pendingAction: { type: "awaiting_scope_consent" },
+      };
+      console.log(`syraChatV2 consentScope=offered sessionId=${sessionId}`);
+    }
+
     await persistSessionMessages(uid, sessionId, originalMessage, aiReply, {
       requestId,
       deepAnalysis: meta.deepAnalysis,
@@ -525,6 +636,8 @@ export async function syraChatV2Handler(req, res) {
       selectedModel: decision.model,
       usageDelta,
       policyVersion: decision.policyVersion,
+      ...consentMeta,
+      ...scopeMeta,
     });
 
     return res.status(200).json({
@@ -734,25 +847,93 @@ function getLastPendingAction(messages) {
 }
 
 const AFFIRMATIVE_TOKENS = new Set([
-  "evet", "olur", "tamam", "okey", "okay", "yes",
+  "evet", "olur", "tamam", "okey", "okay", "ok", "yes",
+  "bak", "bakayım", "bakayim", "bakıyorum", "bakiyorum", "bakarim",
 ]);
+const AFFIRMATIVE_PHRASES = ["hadi bak"];
 
 function isAffirmativeReply(msg) {
   const normalized = (msg || "").toLowerCase().trim();
   if (!normalized) return false;
-  return AFFIRMATIVE_TOKENS.has(normalized);
+  if (AFFIRMATIVE_TOKENS.has(normalized)) return true;
+  if (AFFIRMATIVE_PHRASES.some((p) => normalized.includes(p))) return true;
+  if (normalized.startsWith("bak")) return true;
+  return false;
 }
 
 const NEGATIVE_TOKENS = new Set([
-  "hayır", "hayir", "yok", "istemem", "no",
+  "hayır", "hayir", "yok", "istemem", "istemiyorum", "no",
 ]);
-const NEGATIVE_PHRASES = ["gerek yok", "gerek yok kanka"];
+const NEGATIVE_PHRASES = ["gerek yok", "gerek yok kanka", "değil", "degil"];
 
 function isNegativeReply(msg) {
   const normalized = (msg || "").toLowerCase().trim();
   if (!normalized) return false;
   if (NEGATIVE_TOKENS.has(normalized)) return true;
   return NEGATIVE_PHRASES.some((p) => normalized.includes(p));
+}
+
+// ── Consent phrase banks ────────────────────────────────────────────
+const CONSENT_PHRASES = [
+  "Geçmiş konuşmalarına bakayım mı?",
+  "Arşivine göz atayım mı?",
+  "Sohbet geçmişinden bakayım mı?",
+  "Konuşmalarına bir bakayım mı?",
+  "Kayıtlara bakayım mı?",
+  "Geçmişe bakayım mı?",
+  "Arayayım mı?",
+  "Geçmişten kontrol edeyim mi?",
+  "Mesaj geçmişine bakabilir miyim?",
+  "Konuşma arşivine göz atayım mı?",
+];
+function pickConsentPhrase() {
+  return CONSENT_PHRASES[Math.floor(Math.random() * CONSENT_PHRASES.length)];
+}
+
+const SCOPE_OFFER_PHRASES = [
+  "Not: istersen bu sohbette her seferinde sormadan bakabilirim.",
+  "Bu oturumda tekrar izin istememi istemiyorsan söyle.",
+  "Her seferinde sormadan devam edebilirim, ne dersin?",
+  "İstersen bu sohbet boyunca otomatik bakabilirim.",
+];
+
+function getSessionConsentScope(history) {
+  return Array.isArray(history) &&
+    history.some((m) => m.role === "assistant" && m.meta?.consentScope === "session");
+}
+
+function getScopeOffered(history) {
+  return Array.isArray(history) &&
+    history.some((m) => m.role === "assistant" && m.meta?.scopeOffered === true);
+}
+
+function normalizeTurkishTextSimple(s) {
+  return (s || "").toLowerCase()
+    .replace(/ş/g, "s").replace(/ı/g, "i").replace(/ğ/g, "g")
+    .replace(/ö/g, "o").replace(/ü/g, "u").replace(/ç/g, "c");
+}
+
+async function classifyConsentReplyLLM(message) {
+  try {
+    const openai = requireOpenAI();
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a binary consent classifier. The assistant asked \"ZIP'ten bakayım mı?\" (Shall I look at your chat history?). Classify the user's reply as YES, NO, or UNCLEAR. Reply with exactly one word: YES, NO, or UNCLEAR.",
+        },
+        { role: "user", content: message },
+      ],
+    });
+    const raw = (response?.choices?.[0]?.message?.content || "").trim().toUpperCase();
+    if (raw === "YES" || raw === "NO" || raw === "UNCLEAR") return raw;
+    return "UNCLEAR";
+  } catch (e) {
+    console.error("[classifyConsentReplyLLM] error:", e);
+    return "UNCLEAR";
+  }
 }
 
 // Manual test checklist:
