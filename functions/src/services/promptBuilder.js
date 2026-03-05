@@ -8,6 +8,7 @@
 import {
   buildEvidencePack,
   getActiveRelationshipSnapshot,
+  buildSmartReadPack,
 } from "./relationshipRetrieval.js";
 import { openai } from "../config/openaiClient.js";
 
@@ -71,7 +72,7 @@ function extractLastSearchQueryFromHistory(history) {
     const content = typeof entry.content === "string" ? entry.content.trim() : "";
     if (!content) continue;
     if (categorizeFollowUpIntent(content).type !== "new_question") continue;
-    if (shouldSearchMessages(content)) return content;
+    if (isSmartReadRequest(content)) return content;
   }
 
   return "";
@@ -122,6 +123,11 @@ export async function buildSmartSystemPrompt(
       lastQueryUsed: "",
       intentType: "new_question",
       items: [],
+      evidenceMode: false,
+      deepMode: "none",
+      excerptCount: 0,
+      recentFocus: false,
+      finderChunkCount: 0,
     },
     deepAnalysis: {
       requested: false,
@@ -181,7 +187,7 @@ Diğer:
   }
   const shouldSearch =
     meta.relationship.hasRelationship &&
-    (shouldSearchMessages(userMessage) || followUp);
+    (isSmartReadRequest(userMessage) || followUp);
   meta.messageSearch.followUp = followUp;
   meta.messageSearch.lastQueryUsed = followUp ? lastQuery : "";
   meta.messageSearch.intentType = intent.type;
@@ -194,39 +200,66 @@ Diğer:
       );
       searchQuery = lastQuery;
     }
-    const evidence = await searchMessages(uid, searchQuery);
-    const items = (evidence?.items || []).slice(0, MAX_FOUND_MESSAGES);
-    meta.messageSearch.found = items.length;
-    meta.messageSearch.needsTopicHint = !!evidence?.needsTopicHint;
-    meta.messageSearch.items = formatFoundMessages(items);
-    meta.messageSearch.aliasNeeded = evidence?.aliasNeeded || null;
-    meta.messageSearch.aliasOriginalQuery = evidence?.aliasOriginalQuery || null;
-    meta.messageSearch.speakerConstraint = evidence?.speakerConstraint || null;
-    meta.messageSearch.speakerHasNoMatch = !!evidence?.speakerHasNoMatch;
-    meta.messageSearch.keywordInOtherSpeaker = !!evidence?.keywordInOtherSpeaker;
-    meta.messageSearch.contextEvidence = evidence?.contextEvidence || [];
 
-    if (items.length > 0) {
-      const foundLines = formatFoundMessages(items);
-      systemPrompt += `
+    const evidenceMode = isEvidenceRequest(searchQuery);
+    meta.messageSearch.evidenceMode = evidenceMode;
+
+    if (evidenceMode) {
+      // ── KANITL MODU: V1 evidence lines ────────────────────────────
+      meta.messageSearch.deepMode = "evidence";
+      const evidence = await searchMessages(uid, searchQuery);
+      const items = (evidence?.items || []).slice(0, MAX_FOUND_MESSAGES);
+      meta.messageSearch.found = items.length;
+      meta.messageSearch.needsTopicHint = !!evidence?.needsTopicHint;
+      meta.messageSearch.items = formatFoundMessages(items);
+      meta.messageSearch.aliasNeeded = evidence?.aliasNeeded || null;
+      meta.messageSearch.aliasOriginalQuery = evidence?.aliasOriginalQuery || null;
+      meta.messageSearch.speakerConstraint = evidence?.speakerConstraint || null;
+      meta.messageSearch.speakerHasNoMatch = !!evidence?.speakerHasNoMatch;
+      meta.messageSearch.keywordInOtherSpeaker = !!evidence?.keywordInOtherSpeaker;
+      meta.messageSearch.contextEvidence = evidence?.contextEvidence || [];
+
+      if (items.length > 0) {
+        const foundLines = formatFoundMessages(items);
+        systemPrompt += `
 
 BULUNAN MESAJLAR (kanıt satırları — aynen kopyala):
 ${foundLines.join("\n")}
 `;
-    } else {
-      systemPrompt += `
+      } else {
+        systemPrompt += `
 
 MESAJ BULUNAMADI. "bulamadım" de, kısa ve düz bir ifadeyle.
 Tek bir anahtar kelime veya tarih aralığı iste. Örnek mesaj uydurma.
 `;
-    }
+      }
 
-    // Speaker warning: keyword exists in chat but not from the constrained speaker
-    if (evidence?.speakerHasNoMatch && evidence?.keywordInOtherSpeaker) {
-      const ctxLines = (evidence.contextEvidence || [])
-        .map((e) => `[${e.timestamp}] ${e.sender}: ${e.matchedLine}`)
-        .join("\n");
-      systemPrompt += `\n\nKONUŞMACI UYARISI: Anahtar kelime sohbette geçiyor ama "${evidence.speakerConstraint}" tarafından söylenmemiş.${ctxLines ? ` Bunu söyleyen: ${ctxLines}` : ""}`;
+      // Speaker warning: keyword in chat but not from constrained speaker
+      if (evidence?.speakerHasNoMatch && evidence?.keywordInOtherSpeaker) {
+        const ctxLines = (evidence.contextEvidence || [])
+          .map((e) => `[${e.timestamp}] ${e.sender}: ${e.matchedLine}`)
+          .join("\n");
+        systemPrompt += `\n\nKONUŞMACI UYARISI: Anahtar kelime sohbette geçiyor ama "${evidence.speakerConstraint}" tarafından söylenmemiş.${ctxLines ? ` Bunu söyleyen: ${ctxLines}` : ""}`;
+      }
+    } else {
+      // ── SESSİZ OKUMA MODU: excerpt context for conversational LLM reply ──
+      meta.messageSearch.deepMode = "silent";
+      const recentFocus = detectRecentFocus(searchQuery);
+      meta.messageSearch.recentFocus = recentFocus;
+
+      const smartRead = await buildSmartReadPack(uid, searchQuery, { recentFocus });
+      meta.messageSearch.found = smartRead.found || 0;
+      meta.messageSearch.aliasNeeded = smartRead.aliasNeeded || null;
+      meta.messageSearch.aliasOriginalQuery = smartRead.aliasOriginalQuery || null;
+      meta.messageSearch.speakerConstraint = smartRead.speakerConstraint || null;
+      meta.messageSearch.excerptCount = smartRead.excerptCount || 0;
+      meta.messageSearch.finderChunkCount = smartRead.finderChunkCount || 0;
+
+      if (smartRead.excerptText) {
+        systemPrompt += `\n\nSESSIZ OKUMA BAGLAMI (konuşmadan ilgili bölüm):\n${smartRead.excerptText}\n\nGÖREV: Bu bağlamı kullanarak 1–2 paragraf doğal sohbet olarak cevap ver. V1 timestamp satırı yazma. Kullanıcı detay isterse "İstersen o kısmı timestamp'li göstereyim" de.`;
+      } else {
+        systemPrompt += `\n\nGEÇMİŞTE İLGİLİ YER BULUNAMADI. Kısaca "bulamadım" de.`;
+      }
     }
   }
 
@@ -436,16 +469,18 @@ function sumCounts(counts = {}) {
   return Object.values(counts).reduce((sum, value) => sum + (value || 0), 0);
 }
 
-export function shouldSearchMessages(message) {
+export function isSmartReadRequest(message) {
   const msg = (message || "").toLowerCase();
   if (!msg) return false;
 
-  const intentTriggers = [
+  const triggers = [
+    // Legacy evidence / search triggers
     "bul",
     "göster",
     "goster",
     "getir",
     "kanıt",
+    "kanit",
     "quote",
     "alıntı",
     "alinti",
@@ -466,11 +501,59 @@ export function shouldSearchMessages(message) {
     "kanıt paketi",
     "kanit paketi",
     "evidence",
+    // Smart read (Sessiz Okuma) triggers
+    "mesajlardan bak",
+    "konuşmadan",
+    "konusmadan",
+    "geçmişten",
+    "gecmisten",
+    "ne dedi",
+    "ne yazdı",
+    "ne yazdi",
+    "son kavga",
+    "o gün",
+    "o gun",
+    "hatırlıyor musun",
+    "hatirliyorsun",
+    "güncelledim",
+    "guncellendim",
   ];
 
-  if (intentTriggers.some((k) => msg.includes(k))) return true;
+  if (triggers.some((k) => msg.includes(k))) return true;
   if (hasDateHint(msg)) return true;
 
+  return false;
+}
+
+// Backward-compatible alias
+export { isSmartReadRequest as shouldSearchMessages };
+
+export function isEvidenceRequest(message) {
+  const msg = (message || "").toLowerCase();
+  if (!msg) return false;
+
+  const evidenceKeywords = [
+    "kanıt",
+    "kanit",
+    "alıntı",
+    "alinti",
+    "timestamp",
+    "quote",
+    "evidence",
+    "2 kanıt",
+    "2 kanit",
+    "kanıt paketi",
+    "kanit paketi",
+  ];
+
+  return evidenceKeywords.some((k) => msg.includes(k));
+}
+
+function detectRecentFocus(message) {
+  const msg = (message || "").toLowerCase();
+  if (/güncelledim|guncellendim|son (olay|kavga|gelisme|gelişme)|bu hafta/.test(msg)) return true;
+  if (/eskiden|o dönem|o donem|yıl önce|yil once|geçen yıl|gecen yil/.test(msg)) return false;
+  if (!hasDateHint(msg)) return true; // no date context → recent focus by default
   return false;
 }
 

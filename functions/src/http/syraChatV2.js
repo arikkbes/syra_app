@@ -10,7 +10,8 @@ import { auth } from "../config/firebaseAdmin.js";
 import { requireOpenAI } from "../config/openaiClient.js";
 import {
   buildSmartSystemPrompt,
-  shouldSearchMessages,
+  isSmartReadRequest,
+  isEvidenceRequest,
   isDeepAnalysisRequest,
 } from "../services/promptBuilder.js";
 import { persistParticipantAlias } from "../services/relationshipRetrieval.js";
@@ -273,12 +274,12 @@ export async function syraChatV2Handler(req, res) {
       meta.consentApproved = true;
     }
 
-    // ── Evidence / deep intent flag ────────────────────────────────────
-    const hasEvidenceOrDeepIntent =
-      shouldSearchMessages(originalMessage) || isDeepAnalysisRequest(originalMessage);
+    // ── Smart read / deep intent flag ──────────────────────────────────
+    const hasSmartReadIntent =
+      isSmartReadRequest(originalMessage) || isDeepAnalysisRequest(originalMessage);
 
     // ── Upload CTA guard: evidence intent but no relationship uploaded ──
-    if (hasEvidenceOrDeepIntent && !meta.relationship.hasRelationship) {
+    if (hasSmartReadIntent && !meta.relationship.hasRelationship) {
       const uploadCta =
         "Kanka sohbet geçmişin yüklü değil. ZIP dosyasını yüklersen geçmişine bakabilirim.";
 
@@ -331,7 +332,7 @@ export async function syraChatV2Handler(req, res) {
       !consentApproved &&
       !pendingAction &&
       !sessionScopeActive &&
-      hasEvidenceOrDeepIntent &&
+      hasSmartReadIntent &&
       meta.relationship.hasRelationship &&
       !meta.messageSearch.followUp;
 
@@ -342,7 +343,12 @@ export async function syraChatV2Handler(req, res) {
       consentPhraseToAppend = pickConsentPhrase();
       // Strip evidence sections so LLM doesn't reveal evidence before consent
       const NEXT_MARKERS = ["\nDERİN ANALİZ", "\nMOD:"];
-      for (const marker of ["\n\nBULUNAN MESAJLAR", "\n\nMESAJ BULUNAMADI"]) {
+      for (const marker of [
+        "\n\nBULUNAN MESAJLAR",
+        "\n\nMESAJ BULUNAMADI",
+        "\n\nSESSIZ OKUMA BAGLAMI",
+        "\n\nGEÇMİŞTE İLGİLİ YER BULUNAMADI",
+      ]) {
         const start = effectiveSystemPrompt.indexOf(marker);
         if (start === -1) continue;
         let end = effectiveSystemPrompt.length;
@@ -355,10 +361,10 @@ export async function syraChatV2Handler(req, res) {
       console.log(`syraChatV2 consentGate=pending phrase="${consentPhraseToAppend.substring(0, 40)}" mode=${mode}`);
     }
 
-    // ── Deterministic evidence guards (for follow-ups like "daha göster") ──
+    // ── Deterministic evidence guards (Kanıt Modu only) ───────────────
     const shouldSearch =
-      shouldSearchMessages(originalMessage) && meta.relationship.hasRelationship;
-    if (shouldSearch && meta.messageSearch.found === 0 && !consentNeeded) {
+      isSmartReadRequest(originalMessage) && meta.relationship.hasRelationship;
+    if (shouldSearch && meta.messageSearch.evidenceMode && meta.messageSearch.found === 0 && !consentNeeded) {
       const template = selectEvidenceTemplate({
         bucket: "no_results",
         options: EVIDENCE_NO_RESULTS,
@@ -393,6 +399,7 @@ export async function syraChatV2Handler(req, res) {
 
     if (
       meta.messageSearch.requested &&
+      meta.messageSearch.evidenceMode &&
       meta.messageSearch.found > 0 &&
       !meta.deepAnalysis.requested &&
       !consentApproved
@@ -494,6 +501,9 @@ export async function syraChatV2Handler(req, res) {
 
     console.log(
       `syraChatV2 requestId=${requestId} sessionId=${sessionId} historySource=server historyLen=${serverHistory.length} intentType=${meta.messageSearch.intentType || "-"} followUp=${meta.messageSearch.followUp ? "yes" : "no"} lastQueryUsed=${meta.messageSearch.lastQueryUsed || "-"} evidenceCount=${meta.messageSearch.found} plan=${plan} model=${decision.blocked ? "blocked" : decision.model} creditsUsed=${dailyUsage?.creditsUsed || 0} policyVersion=${decision.policyVersion} mode=${mode} consentApproved=${consentApproved ? "yes" : "no"}`
+    );
+    console.log(
+      `syraChatV2 smartRead=${meta.messageSearch.requested} deepMode=${meta.messageSearch.deepMode || "none"} evidenceMode=${meta.messageSearch.evidenceMode || false} finderChunkCount=${meta.messageSearch.finderChunkCount || 0} excerptCount=${meta.messageSearch.excerptCount || 0} recentFocus=${meta.messageSearch.recentFocus || false}`
     );
     if (replyToPresent) {
       console.log(

@@ -879,3 +879,242 @@ function parseMessageDate(message) {
   return null;
 }
 
+// ── Smart Read (Sessiz Okuma) ────────────────────────────────────────────────
+
+async function findSmartReadChunks(uid, relationshipId, query, options = {}) {
+  const {
+    recentFocus = true,
+    dateHint = null,
+    maxChunks = 5,
+    semanticReady = false,
+  } = options;
+
+  let searchDateHint = dateHint;
+  let recentFocusUsed = false;
+
+  if (recentFocus && !dateHint) {
+    const now = new Date();
+    const cutoff = new Date(now);
+    cutoff.setDate(cutoff.getDate() - 7);
+    searchDateHint = { start: cutoff.toISOString(), end: now.toISOString() };
+    recentFocusUsed = true;
+  }
+
+  // For "güncelledim" with no query, search for "son mesaj" as proxy
+  const effectiveQuery = query || (recentFocus ? "son mesaj" : "");
+  if (!effectiveQuery) return { chunkIds: [], finderChunkCount: 0, recentFocusUsed };
+
+  let chunkIds = [];
+
+  if (semanticReady) {
+    try {
+      chunkIds = await semanticSearchChunkIds(
+        uid, relationshipId, effectiveQuery, searchDateHint, maxChunks
+      );
+      // If recent-focus date filter yielded nothing, retry without date constraint
+      if (chunkIds.length === 0 && recentFocusUsed) {
+        chunkIds = await semanticSearchChunkIds(
+          uid, relationshipId, effectiveQuery, null, maxChunks
+        );
+        recentFocusUsed = false;
+      }
+    } catch (e) {
+      console.error(`[findSmartReadChunks] semantic failed, keyword fallback:`, e);
+      chunkIds = await keywordFallbackChunkIds(uid, relationshipId, effectiveQuery, 200, maxChunks);
+      recentFocusUsed = false;
+    }
+  } else {
+    chunkIds = await keywordFallbackChunkIds(uid, relationshipId, effectiveQuery, 200, maxChunks);
+  }
+
+  return { chunkIds, finderChunkCount: chunkIds.length, recentFocusUsed };
+}
+
+function formatExcerptLine(message) {
+  const ts = String(message.timestamp || "");
+  const timeMatch = ts.match(/T(\d{2}:\d{2})/);
+  const shortTime = timeMatch ? timeMatch[1] : (ts.split("T")[1] || ts).slice(0, 5);
+  const content = (message.content || "").split("\n")[0];
+  return `[${shortTime}] ${message.sender}: ${content}`;
+}
+
+async function buildExcerptWindow(
+  uid,
+  relationshipId,
+  chunkIds,
+  query,
+  speakerFilter = null,
+  targetExcerpts = 12
+) {
+  const excerptBlocks = [];
+
+  for (const chunkId of chunkIds) {
+    if (excerptBlocks.length >= targetExcerpts) break;
+
+    const chunkIndex = await fetchChunkIndex(uid, relationshipId, chunkId);
+    if (!chunkIndex?.storagePath) continue;
+
+    const rawChunk = await getChunkFromStorage(chunkIndex.storagePath);
+    const messages = parseChunkMessages(rawChunk);
+    if (!messages.length) continue;
+
+    const bestIdx = findBestMessageIndex(messages, query);
+    const len = messages.length;
+    const matchStart = Math.max(0, bestIdx - 8);
+    const matchEnd = Math.min(len, bestIdx + 12);
+
+    // Sampling strategy: start + around best match + end, deduped by global index
+    const seenIdx = new Set();
+    const sampled = [];
+
+    const addSlice = (arr, startGlobal) => {
+      arr.forEach((msg, i) => {
+        const gi = startGlobal + i;
+        if (!seenIdx.has(gi)) {
+          seenIdx.add(gi);
+          sampled.push({ gi, msg });
+        }
+      });
+    };
+
+    addSlice(messages.slice(0, Math.min(5, len)), 0);
+    addSlice(messages.slice(matchStart, matchEnd), matchStart);
+    addSlice(messages.slice(Math.max(0, len - 5)), Math.max(0, len - 5));
+
+    sampled.sort((a, b) => a.gi - b.gi);
+    const sorted = sampled.map((s) => s.msg);
+
+    // Apply speaker filter: include speaker msgs + ±2 context messages
+    let finalMessages = sorted;
+    if (speakerFilter) {
+      const speakerIdxs = sorted
+        .map((m, i) => i)
+        .filter((i) => sorted[i].sender === speakerFilter);
+      if (speakerIdxs.length === 0) continue; // no speaker msgs in this chunk
+      const includeSet = new Set();
+      for (const si of speakerIdxs) {
+        for (let k = Math.max(0, si - 2); k <= Math.min(sorted.length - 1, si + 2); k++) {
+          includeSet.add(k);
+        }
+      }
+      finalMessages = sorted.filter((_, i) => includeSet.has(i));
+    }
+
+    if (!finalMessages.length) continue;
+
+    // Group into 3-message blocks
+    for (let i = 0; i < finalMessages.length; i += 3) {
+      if (excerptBlocks.length >= targetExcerpts) break;
+      const group = finalMessages.slice(i, Math.min(i + 3, finalMessages.length));
+      excerptBlocks.push(group.map(formatExcerptLine).join("\n"));
+    }
+  }
+
+  return {
+    excerptText: excerptBlocks.join("\n---\n"),
+    excerptCount: excerptBlocks.length,
+  };
+}
+
+export async function buildSmartReadPack(uid, userMessage, options = {}) {
+  const { recentFocus = true } = options;
+
+  const snapshot = await getActiveRelationshipSnapshot(uid);
+  if (!snapshot) return { error: "no_active_relationship" };
+
+  const { relationshipId, relationshipContext, relationship } = snapshot;
+  const { query, dateHint } = buildSearchQuery(userMessage);
+
+  const participantAliases = relationship.participantAliases || {};
+  const speakers = relationship.speakers || [];
+
+  // Alias / actor resolution (mirrors buildEvidencePack)
+  const actorInfo = extractActorNameFromQuery(userMessage);
+  let speakerFilter = null;
+  let aliasNeeded = null;
+  let aliasOriginalQuery = null;
+  let effectiveQuery = query;
+
+  if (actorInfo) {
+    const normName = normalizeTurkishText(actorInfo.name).toLowerCase();
+    const directMatch = speakers.find(
+      (s) => normalizeTurkishText(s).toLowerCase() === normName
+    );
+    if (directMatch) {
+      speakerFilter = directMatch;
+    } else if (participantAliases[normName]) {
+      speakerFilter = participantAliases[normName];
+    } else {
+      aliasNeeded = actorInfo.name;
+      aliasOriginalQuery = userMessage;
+    }
+    console.log(
+      `[buildSmartReadPack] uid=${uid} speakerFilter=${speakerFilter || "none"} aliasNeeded=${aliasNeeded || "none"}`
+    );
+    if (speakerFilter && actorInfo.restQuery) {
+      effectiveQuery = normalizeQueryText(actorInfo.restQuery) || effectiveQuery;
+    }
+  }
+
+  if (aliasNeeded) {
+    return {
+      excerptText: "",
+      excerptCount: 0,
+      found: 0,
+      speakerConstraint: null,
+      recentFocus,
+      finderChunkCount: 0,
+      aliasNeeded,
+      aliasOriginalQuery,
+    };
+  }
+
+  const semanticReady = relationship.semanticIndex?.ready === true;
+
+  const findResult = await findSmartReadChunks(uid, relationshipId, effectiveQuery, {
+    recentFocus,
+    dateHint,
+    semanticReady,
+  });
+
+  console.log(
+    `[buildSmartReadPack] uid=${uid} finderChunkCount=${findResult.finderChunkCount} recentFocusUsed=${findResult.recentFocusUsed} semanticReady=${semanticReady}`
+  );
+
+  if (!findResult.chunkIds.length) {
+    return {
+      excerptText: "",
+      excerptCount: 0,
+      found: 0,
+      speakerConstraint: speakerFilter,
+      recentFocus: findResult.recentFocusUsed,
+      finderChunkCount: 0,
+      aliasNeeded: null,
+      aliasOriginalQuery: null,
+    };
+  }
+
+  const excerptResult = await buildExcerptWindow(
+    uid,
+    relationshipId,
+    findResult.chunkIds,
+    effectiveQuery,
+    speakerFilter
+  );
+
+  console.log(
+    `[buildSmartReadPack] uid=${uid} excerptCount=${excerptResult.excerptCount} speakerFilter=${speakerFilter || "none"}`
+  );
+
+  return {
+    excerptText: excerptResult.excerptText,
+    excerptCount: excerptResult.excerptCount,
+    found: excerptResult.excerptCount > 0 ? 1 : 0,
+    speakerConstraint: speakerFilter,
+    recentFocus: findResult.recentFocusUsed,
+    finderChunkCount: findResult.finderChunkCount,
+    aliasNeeded: null,
+    aliasOriginalQuery: null,
+  };
+}
+
